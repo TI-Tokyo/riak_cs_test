@@ -20,6 +20,8 @@
 
 -module(riak_cs_riak_client_intercepts).
 -compile(export_all).
+-compile(nowarn_export_all).
+
 -define(M, riak_cs_riak_client_orig).
 
 get_user_timeout(_MasterPbc, _Key) ->

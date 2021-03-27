@@ -20,6 +20,8 @@
 
 -module(riak_cs_block_server_intercepts).
 -compile(export_all).
+-compile(nowarn_export_all).
+
 -include("intercept.hrl").
 -define(M, riak_cs_block_server_orig).
 

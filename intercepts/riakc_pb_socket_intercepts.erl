@@ -20,6 +20,8 @@
 
 -module(riakc_pb_socket_intercepts).
 -compile(export_all).
+-compile(nowarn_export_all).
+
 -define(M, riakc_pb_socket_orig).
 
 get_timeout(_Pid, _Bucket, _Key, _Options, _Timeout) ->

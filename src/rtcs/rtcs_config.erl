@@ -19,6 +19,8 @@
 %% ---------------------------------------------------------------------
 -module(rtcs_config).
 -compile(export_all).
+-compile(nowarn_export_all).
+
 -include_lib("eunit/include/eunit.hrl").
 
 -define(RIAK_CURRENT, <<"build_paths.current">>).

@@ -21,6 +21,8 @@
 -module(list_objects_test_helper).
 
 -compile(export_all).
+-compile(nowarn_export_all).
+
 -include_lib("eunit/include/eunit.hrl").
 
 -define(TEST_BUCKET, "riak-test-bucket").

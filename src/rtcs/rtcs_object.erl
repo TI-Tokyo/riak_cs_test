@@ -20,7 +20,8 @@
 
 -module(rtcs_object).
 
--export([upload/4, assert_whole_content/4]).
+-compile(export_all).
+-compile(nowarn_export_all).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
@@ -100,10 +101,10 @@ send_ssl_request(Config, Payload) ->
 
 get_config_target_address(#aws_config{s3_host = Host, s3_port = Port, http_proxy = undefined}) ->
     {Host, Port};
+get_config_target_address(#aws_config{s3_host = undefined, s3_port = Port, http_proxy = undefined}) ->
+    {"localhost", Port};
 get_config_target_address(#aws_config{http_proxy = PHost, s3_port = Port}) ->
-    {PHost, Port};
-get_config_target_address(#aws_config{s3_port = Port}) ->
-    {"localhost", Port}.
+    {PHost, Port}.
 
 base_header(B, K, CL, MD5, UserConfig, MetaTags) ->
     Host = io_lib:format("~s.s3.amazonaws.com", [B]),

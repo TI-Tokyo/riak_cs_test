@@ -20,6 +20,8 @@
 
 -module(rc_helper).
 -compile(export_all).
+-compile(nowarn_export_all).
+
 -include_lib("eunit/include/eunit.hrl").
 
 to_riak_bucket(objects, CSBucket) ->

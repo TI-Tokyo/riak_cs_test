@@ -24,6 +24,7 @@
 %% right.
 -export([add/3, add/4, clean/1]).
 -compile(export_all).
+-compile(nowarn_export_all).
 
 -type abstract_code() :: term().
 -type form() :: term().

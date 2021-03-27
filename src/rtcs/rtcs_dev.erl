@@ -21,6 +21,7 @@
 %% @private
 -module(rtcs_dev).
 -compile(export_all).
+-compile(nowarn_export_all).
 -include_lib("eunit/include/eunit.hrl").
 
 -define(BUILD_PATHS, (rt_config:get(build_paths))).

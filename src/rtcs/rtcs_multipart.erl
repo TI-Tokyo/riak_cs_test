@@ -20,7 +20,8 @@
 
 -module(rtcs_multipart).
 
--export([multipart_upload/4, upload_and_assert_part/6]).
+-compile(export_all).
+-compile(nowarn_export_all).
 
 -include_lib("eunit/include/eunit.hrl").
 
