@@ -20,7 +20,8 @@
 
 -module(rtcs_object).
 
--compile(export_all).
+-export([upload/4, assert_whole_content/4]).
+
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
 

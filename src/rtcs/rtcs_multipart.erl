@@ -20,7 +20,8 @@
 
 -module(rtcs_multipart).
 
--compile(export_all).
+-export([multipart_upload/4, upload_and_assert_part/6]).
+
 -include_lib("eunit/include/eunit.hrl").
 
 %% Upload object by multipart and return generetad (=expected) content
@@ -37,7 +38,7 @@ upload_parts(Bucket, Key, UploadId, Config, _PartCount, [], Contents, Parts) ->
                        Bucket, Key, UploadId, lists:reverse(Parts), Config)),
     iolist_to_binary(lists:reverse(Contents));
 upload_parts(Bucket, Key, UploadId, Config, PartCount, [Size | Sizes], Contents, Parts) ->
-    Content = crypto:rand_bytes(Size),
+    Content = crypto:strong_rand_bytes(Size),
     {RespHeaders, _UploadRes} = erlcloud_s3_multipart:upload_part(
                                   Bucket, Key, UploadId, PartCount, Content, Config),
     PartEtag = proplists:get_value("ETag", RespHeaders),

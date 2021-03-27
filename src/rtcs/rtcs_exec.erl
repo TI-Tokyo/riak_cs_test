@@ -18,30 +18,40 @@
 %%
 %% ---------------------------------------------------------------------
 -module(rtcs_exec).
--compile(export_all).
+-export([calculate_storage/1,
+         cmd/2,
+         exec_priv_escript/3,
+         exec_priv_escript/4,
+         flush_access/1,
+         gc/2,
+         stop_all_nodes/2,
+         start_all_nodes/2
+        ]).
 
-start_cs_and_stanchion_nodes(NodeList, Vsn) ->
-    rt:pmap(fun({_CSNode, RiakNode, _Stanchion}) ->
-                    N = rtcs_dev:node_id(RiakNode),
-                    start_stanchion(Vsn),
-                    start_cs(N, Vsn);
-               ({_CSNode, RiakNode}) ->
-                    N = rtcs_dev:node_id(RiakNode),
-                    start_cs(N, Vsn)
-            end, NodeList).
+%% uncomment on demand
 
-stop_cs_and_stanchion_nodes(NodeList, Vsn) ->
-    rt:pmap(fun({CSNode, RiakNode, Stanchion}) ->
-                    N = rtcs_dev:node_id(RiakNode),
-                    stop_cs(N, Vsn),
-                    stop_stanchion(Vsn),
-                    rt:wait_until_unpingable(CSNode),
-                    rt:wait_until_unpingable(Stanchion);
-               ({CSNode, RiakNode}) ->
-                    N = rtcs_dev:node_id(RiakNode),
-                    stop_cs(N, Vsn),
-                    rt:wait_until_unpingable(CSNode)
-            end, NodeList).
+%% start_cs_and_stanchion_nodes(NodeList, Vsn) ->
+%%     rt:pmap(fun({_CSNode, RiakNode, _Stanchion}) ->
+%%                     N = rtcs_dev:node_id(RiakNode),
+%%                     start_stanchion(Vsn),
+%%                     start_cs(N, Vsn);
+%%                ({_CSNode, RiakNode}) ->
+%%                     N = rtcs_dev:node_id(RiakNode),
+%%                     start_cs(N, Vsn)
+%%             end, NodeList).
+
+%% stop_cs_and_stanchion_nodes(NodeList, Vsn) ->
+%%     rt:pmap(fun({CSNode, RiakNode, Stanchion}) ->
+%%                     N = rtcs_dev:node_id(RiakNode),
+%%                     stop_cs(N, Vsn),
+%%                     stop_stanchion(Vsn),
+%%                     rt:wait_until_unpingable(CSNode),
+%%                     rt:wait_until_unpingable(Stanchion);
+%%                ({CSNode, RiakNode}) ->
+%%                     N = rtcs_dev:node_id(RiakNode),
+%%                     stop_cs(N, Vsn),
+%%                     rt:wait_until_unpingable(CSNode)
+%%             end, NodeList).
 
 start_all_nodes(NodeList, Vsn) ->
     rt:pmap(fun({_CSNode, RiakNode, _Stanchion}) ->
@@ -78,7 +88,7 @@ stop_all_nodes(NodeList, Vsn) ->
                     rt:wait_until_unpingable(RiakNode)
             end, NodeList).
 
-start_cs(N) -> start_cs(N, current).
+%% start_cs(N) -> start_cs(N, current).
 
 start_cs(N, Vsn) ->
     NodePath = rtcs_config:devpath(cs, Vsn),
@@ -88,7 +98,7 @@ start_cs(N, Vsn) ->
     rtcs:maybe_load_intercepts(rtcs:cs_node(N)),
     R.
 
-stop_cs(N) -> stop_cs(N, current).
+%% stop_cs(N) -> stop_cs(N, current).
 
 stop_cs(N, Vsn) ->
     Cmd = riakcscmd(rtcs_config:devpath(cs, Vsn), N, "stop"),
@@ -101,11 +111,11 @@ riakcmd(Path, N, Cmd) ->
 riakcscmd(Path, N, Cmd) ->
     lists:flatten(io_lib:format("~s ~s", [riakcs_binpath(Path, N), Cmd])).
 
-riakcs_statuscmd(Path, N) ->
-    lists:flatten(io_lib:format("~s-admin status", [riakcs_binpath(Path, N)])).
+%% riakcs_statuscmd(Path, N) ->
+%%     lists:flatten(io_lib:format("~s-admin status", [riakcs_binpath(Path, N)])).
 
-riakcs_switchcmd(Path, N, Cmd) ->
-    lists:flatten(io_lib:format("~s-admin stanchion ~s", [riakcs_binpath(Path, N), Cmd])).
+%% riakcs_switchcmd(Path, N, Cmd) ->
+%%     lists:flatten(io_lib:format("~s-admin stanchion ~s", [riakcs_binpath(Path, N), Cmd])).
 
 riakcs_gccmd(Path, N, Cmd) ->
     lists:flatten(io_lib:format("~s-admin gc ~s", [riakcs_binpath(Path, N), Cmd])).
@@ -116,53 +126,53 @@ riakcs_accesscmd(Path, N, Cmd) ->
 riakcs_storagecmd(Path, N, Cmd) ->
     lists:flatten(io_lib:format("~s-admin storage ~s", [riakcs_binpath(Path, N), Cmd])).
 
-riakcs_debugcmd(Path, N, Cmd) ->
-    lists:flatten(io_lib:format("~s-debug ~s", [riakcs_binpath(Path, N), Cmd])).
+%% riakcs_debugcmd(Path, N, Cmd) ->
+%%     lists:flatten(io_lib:format("~s-debug ~s", [riakcs_binpath(Path, N), Cmd])).
 
 stanchioncmd(Path, Cmd) ->
     lists:flatten(io_lib:format("~s ~s", [stanchion_binpath(Path), Cmd])).
 
-stanchion_statuscmd(Path) ->
-    lists:flatten(io_lib:format("~s-admin status", [stanchion_binpath(Path)])).
+%% stanchion_statuscmd(Path) ->
+%%     lists:flatten(io_lib:format("~s-admin status", [stanchion_binpath(Path)])).
 
-riak_bitcaskroot(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/data/bitcask", [Prefix, N]).
+%% riak_bitcaskroot(Prefix, N) ->
+%%     io_lib:format("~s/dev/dev~b/data/bitcask", [Prefix, N]).
 
 riak_binpath(Prefix, N) ->
     io_lib:format("~s/dev/dev~b/bin/riak", [Prefix, N]).
 
-riakcs_home(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/", [Prefix, N]).
+%% riakcs_home(Prefix, N) ->
+%%     io_lib:format("~s/dev/dev~b/", [Prefix, N]).
 
 riakcs_binpath(Prefix, N) ->
     io_lib:format("~s/dev/dev~b/bin/riak-cs", [Prefix, N]).
 
-riakcs_etcpath(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/etc", [Prefix, N]).
+%% riakcs_etcpath(Prefix, N) ->
+%%     io_lib:format("~s/dev/dev~b/etc", [Prefix, N]).
 
 riakcs_libpath(Prefix, N) ->
     io_lib:format("~s/dev/dev~b/lib", [Prefix, N]).
 
-riakcs_logpath(Prefix, N, File) ->
-    io_lib:format("~s/dev/dev~b/log/~s", [Prefix, N, File]).
+%% riakcs_logpath(Prefix, N, File) ->
+%%     io_lib:format("~s/dev/dev~b/log/~s", [Prefix, N, File]).
 
 stanchion_binpath(Prefix) ->
     io_lib:format("~s/dev/stanchion/bin/stanchion", [Prefix]).
 
-stanchion_etcpath(Prefix) ->
-    io_lib:format("~s/dev/stanchion/etc", [Prefix]).
+%% stanchion_etcpath(Prefix) ->
+%%     io_lib:format("~s/dev/stanchion/etc", [Prefix]).
 
-repair_gc_bucket(N, Options) -> repair_gc_bucket(N, Options, current).
+%% repair_gc_bucket(N, Options) -> repair_gc_bucket(N, Options, current).
 
-repair_gc_bucket(N, Options, Vsn) ->
-    Prefix = rtcs_config:devpath(cs, Vsn),
-    RepairScriptWild = string:join([riakcs_libpath(Prefix, N), "riak_cs*",
-                                    "priv/tools/repair_gc_bucket.erl"] , "/"),
-    [RepairScript] = filelib:wildcard(RepairScriptWild),
-    Cmd = riakcscmd(Prefix, N, "escript " ++ RepairScript ++
-                        " " ++ Options),
-    lager:info("Running ~p", [Cmd]),
-    os:cmd(Cmd).
+%% repair_gc_bucket(N, Options, Vsn) ->
+%%     Prefix = rtcs_config:devpath(cs, Vsn),
+%%     RepairScriptWild = string:join([riakcs_libpath(Prefix, N), "riak_cs*",
+%%                                     "priv/tools/repair_gc_bucket.erl"] , "/"),
+%%     [RepairScript] = filelib:wildcard(RepairScriptWild),
+%%     Cmd = riakcscmd(Prefix, N, "escript " ++ RepairScript ++
+%%                         " " ++ Options),
+%%     lager:info("Running ~p", [Cmd]),
+%%     os:cmd(Cmd).
 
 exec_priv_escript(N, Command, Options) ->
     exec_priv_escript(N, Command, Options, cs).
@@ -186,22 +196,22 @@ exec_priv_escript(N, Command, Options, ByWhom) ->
     lager:info("Running ~p", [Cmd]),
     os:cmd(Cmd).
 
-switch_stanchion_cs(N, Host, Port) -> switch_stanchion_cs(N, Host, Port, current).
+%% switch_stanchion_cs(N, Host, Port) -> switch_stanchion_cs(N, Host, Port, current).
 
-switch_stanchion_cs(N, Host, Port, Vsn) ->
-    SubCmd = io_lib:format("switch ~s ~p", [Host, Port]),
-    Cmd = riakcs_switchcmd(rtcs_config:devpath(cs, Vsn), N, SubCmd),
-    lager:info("Running ~p", [Cmd]),
-    os:cmd(Cmd).
+%% switch_stanchion_cs(N, Host, Port, Vsn) ->
+%%     SubCmd = io_lib:format("switch ~s ~p", [Host, Port]),
+%%     Cmd = riakcs_switchcmd(rtcs_config:devpath(cs, Vsn), N, SubCmd),
+%%     lager:info("Running ~p", [Cmd]),
+%%     os:cmd(Cmd).
 
-show_stanchion_cs(N) -> show_stanchion_cs(N, current).
+%% show_stanchion_cs(N) -> show_stanchion_cs(N, current).
 
-show_stanchion_cs(N, Vsn) ->
-    Cmd = riakcs_switchcmd(rtcs_config:devpath(cs, Vsn), N, "show"),
-    lager:info("Running ~p", [Cmd]),
-    os:cmd(Cmd).
+%% show_stanchion_cs(N, Vsn) ->
+%%     Cmd = riakcs_switchcmd(rtcs_config:devpath(cs, Vsn), N, "show"),
+%%     lager:info("Running ~p", [Cmd]),
+%%     os:cmd(Cmd).
 
-start_stanchion() -> start_stanchion(current).
+%% start_stanchion() -> start_stanchion(current).
 
 start_stanchion(Vsn) ->
     Cmd = stanchioncmd(rtcs_config:devpath(stanchion, Vsn), "start"),
@@ -210,7 +220,7 @@ start_stanchion(Vsn) ->
     rtcs:maybe_load_intercepts(rtcs:stanchion_node()),
     R.
 
-stop_stanchion() -> stop_stanchion(current).
+%% stop_stanchion() -> stop_stanchion(current).
 
 stop_stanchion(Vsn) ->
     Cmd = stanchioncmd(rtcs_config:devpath(stanchion, Vsn), "stop"),
@@ -238,13 +248,13 @@ calculate_storage(N, Vsn) ->
     lager:info("Running ~p", [Cmd]),
     os:cmd(Cmd).
 
-enable_proxy_get(SrcN, Vsn, SinkCluster) ->
-    rtdev:run_riak_repl(SrcN, rtcs_config:devpath(riak, Vsn),
-                        "proxy_get enable " ++ SinkCluster).
+%% enable_proxy_get(SrcN, Vsn, SinkCluster) ->
+%%     rtdev:run_riak_repl(SrcN, rtcs_config:devpath(riak, Vsn),
+%%                         "proxy_get enable " ++ SinkCluster).
 
-disable_proxy_get(SrcN, Vsn, SinkCluster) ->
-    rtdev:run_riak_repl(SrcN, rtcs_config:devpath(riak, Vsn),
-                        "proxy_get disable " ++ SinkCluster).
+%% disable_proxy_get(SrcN, Vsn, SinkCluster) ->
+%%     rtdev:run_riak_repl(SrcN, rtcs_config:devpath(riak, Vsn),
+%%                         "proxy_get disable " ++ SinkCluster).
 
 %% TODO: this is added as riak-1.4 branch of riak_test/src/rtcs_dev.erl
 %% throws out the return value. Let's get rid of these functions when
