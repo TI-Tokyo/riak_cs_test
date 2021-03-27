@@ -76,13 +76,13 @@ assert_results_for_empty_bucket(AdminConfig, UserConfig, CSNode, Bucket) ->
     ok.
 
 setup_objects(UserConfig, Bucket) ->
-    Block1 = crypto:rand_bytes(100),
+    Block1 = crypto:strong_rand_bytes(100),
     ?assertEqual([{version_id, "null"}],
                  erlcloud_s3:put_object(Bucket, ?KEY1, Block1, UserConfig)),
-    Block1Overwrite = crypto:rand_bytes(300),
+    Block1Overwrite = crypto:strong_rand_bytes(300),
     ?assertEqual([{version_id, "null"}],
                  erlcloud_s3:put_object(Bucket, ?KEY1, Block1Overwrite, UserConfig)),
-    Block2 = crypto:rand_bytes(200),
+    Block2 = crypto:strong_rand_bytes(200),
     ?assertEqual([{version_id, "null"}],
                  erlcloud_s3:put_object(Bucket, ?KEY2, Block2, UserConfig)),
     ?assertEqual([{delete_marker, false}, {version_id, "null"}],
@@ -92,7 +92,7 @@ setup_objects(UserConfig, Bucket) ->
                 Bucket, ?KEY3, "text/plain", [], UserConfig),
     UploadId = erlcloud_xml:get_text(
                  "/InitiateMultipartUploadResult/UploadId", InitRes),
-    MPBlocks = crypto:rand_bytes(2*1024*1024),
+    MPBlocks = crypto:strong_rand_bytes(2*1024*1024),
     {_RespHeaders1, _UploadRes} = erlcloud_s3_multipart:upload_part(
                                     Bucket, ?KEY3, UploadId, 1, MPBlocks, UserConfig),
     {_RespHeaders2, _UploadRes} = erlcloud_s3_multipart:upload_part(

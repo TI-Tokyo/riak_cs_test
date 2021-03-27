@@ -125,7 +125,7 @@ do_some_api_calls(UserConfig, Bucket1, Bucket2) ->
     ?assertMatch([{buckets, [[{name, Bucket1}, _]]}],
         erlcloud_s3:list_buckets(UserConfig)),
 
-    Object = crypto:rand_bytes(500),
+    Object = crypto:strong_rand_bytes(500),
     erlcloud_s3:put_object(Bucket1, "object_one", Object, UserConfig),
     erlcloud_s3:get_object(Bucket1, "object_one", UserConfig),
     erlcloud_s3:delete_object(Bucket1, "object_one", UserConfig),

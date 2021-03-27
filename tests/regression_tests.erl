@@ -121,7 +121,7 @@ verify_cs436(_SetupInfo = {UserConfig, {_RiakNodes, _CSNodes, _Stanchion}}, Buck
     ?assertError({aws_error, {http_error, 404, _, _}},
                  erlcloud_s3:put_object(BucketName,
                                         "somekey",
-                                        crypto:rand_bytes(100),
+                                        crypto:strong_rand_bytes(100),
                                         UserConfig)),
 
     %% Create and delete test bucket
@@ -140,7 +140,7 @@ verify_cs436(_SetupInfo = {UserConfig, {_RiakNodes, _CSNodes, _Stanchion}}, Buck
     ?assertError({aws_error, {http_error, 404, _, _}},
                  erlcloud_s3:put_object(BucketName,
                                         "somekey",
-                                        crypto:rand_bytes(100),
+                                        crypto:strong_rand_bytes(100),
                                         UserConfig)),
     ok.
 

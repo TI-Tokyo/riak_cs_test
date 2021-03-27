@@ -38,7 +38,7 @@ confirm() ->
 
     %% setup initial data
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET, UserConfig)),
-    SingleBlock = crypto:rand_bytes(400),
+    SingleBlock = crypto:strong_rand_bytes(400),
     erlcloud_s3:put_object(?BUCKET, ?KEY, SingleBlock, UserConfig),
 
     %% vefity response for timeout during getting a user.

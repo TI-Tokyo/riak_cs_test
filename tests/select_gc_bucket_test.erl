@@ -70,7 +70,7 @@ confirm1() ->
     rtcs:pass().
 
 upload_object(UserConfig, Bucket, normal, Key) ->
-    SingleBlock = crypto:rand_bytes(400),
+    SingleBlock = crypto:strong_rand_bytes(400),
     erlcloud_s3:put_object(Bucket, Key, SingleBlock, UserConfig);
 upload_object(UserConfig, Bucket, mp, Key) ->
     rtcs_multipart:multipart_upload(Bucket, Key,

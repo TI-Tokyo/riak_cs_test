@@ -134,7 +134,7 @@ run_test_no_duplicate_key(UserConfig) ->
                                           UserConfig),
 
     erlcloud_s3:put_object(?TEST_BUCKET_2, ?SINGLE_OBJECT,
-                            crypto:rand_bytes(100), UserConfig),
+                            crypto:strong_rand_bytes(100), UserConfig),
 
     list_objects_test_helper:load_objects(?TEST_BUCKET_2, 1000,
                                           ?PENDING_DELETE_PREFIX,
@@ -191,7 +191,7 @@ verify_cs781(UserConfig, BucketName) ->
     Count = 1003,
     [erlcloud_s3:put_object(BucketName,
                             format_int(X),
-                            crypto:rand_bytes(100),
+                            crypto:strong_rand_bytes(100),
                             UserConfig) || X <- lists:seq(1, Count)],
     erlcloud_s3:delete_object(BucketName, format_int(1), UserConfig),
     erlcloud_s3:delete_object(BucketName, format_int(2), UserConfig),
@@ -205,7 +205,7 @@ verify_cs781(UserConfig, BucketName) ->
 %% Test for [https://github.com/basho/riak_cs/pull/1255]
 verify_cs1255(UserConfig, BucketName) ->
     ?assertEqual(ok, erlcloud_s3:create_bucket(BucketName, UserConfig)),
-    POSTData = {iolist_to_binary(crypto:rand_bytes(100)), "application/octet-stream"},
+    POSTData = {iolist_to_binary(crypto:strong_rand_bytes(100)), "application/octet-stream"},
 
     %% put objects using a binary key
     erlcloud_s3:s3_request(UserConfig, put, BucketName, <<"/", 00>>, [], [], POSTData, []),

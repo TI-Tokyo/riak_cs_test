@@ -119,9 +119,9 @@ prepare_all_data(UserConfig) ->
                  erlcloud_s3:list_buckets(UserConfig)),
 
     %% setup objects
-    SingleBlock = crypto:rand_bytes(400),
+    SingleBlock = crypto:strong_rand_bytes(400),
     erlcloud_s3:put_object(?TEST_BUCKET, ?KEY_SINGLE_BLOCK, SingleBlock, UserConfig),
-    MultipleBlock = crypto:rand_bytes(4000000), % not aligned to block boundary
+    MultipleBlock = crypto:strong_rand_bytes(4000000), % not aligned to block boundary
     erlcloud_s3:put_object(?TEST_BUCKET, ?KEY_MULTIPLE_BLOCK, MultipleBlock, UserConfig),
 
     {ok, [{single_block, SingleBlock},

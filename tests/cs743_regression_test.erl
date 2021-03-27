@@ -90,7 +90,7 @@ run_storage_batch(CSNode) ->
     0 = proplists:get_value(users_left,Result).
 
 etoomanyobjects(N, UserConfig) ->
-    SingleBlock = crypto:rand_bytes(400),
+    SingleBlock = crypto:strong_rand_bytes(400),
     lists:map(fun(I) ->
                       R = erlcloud_s3:put_object(?TEST_BUCKET, integer_to_list(I),
                                                  SingleBlock, UserConfig),

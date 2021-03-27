@@ -57,9 +57,9 @@ confirm() ->
 
 non_mp_get_cases(UserConfig) ->
     %% setup objects
-    SingleBlock = crypto:rand_bytes(400),
+    SingleBlock = crypto:strong_rand_bytes(400),
     erlcloud_s3:put_object(?TEST_BUCKET, ?KEY_SINGLE_BLOCK, SingleBlock, UserConfig),
-    MultipleBlock = crypto:rand_bytes(4000000), % not aligned to block boundary
+    MultipleBlock = crypto:strong_rand_bytes(4000000), % not aligned to block boundary
     erlcloud_s3:put_object(?TEST_BUCKET, ?KEY_MULTIPLE_BLOCK, MultipleBlock, UserConfig),
 
     %% basic GET test cases
@@ -273,7 +273,7 @@ upload_parts(Bucket, Key, UploadId, Config, _PartCount, [], Contents, Parts) ->
                        Bucket, Key, UploadId, lists:reverse(Parts), Config)),
     iolist_to_binary(lists:reverse(Contents));
 upload_parts(Bucket, Key, UploadId, Config, PartCount, [Size | Sizes], Contents, Parts) ->
-    Content = crypto:rand_bytes(Size),
+    Content = crypto:strong_rand_bytes(Size),
     {RespHeaders, _UploadRes} = erlcloud_s3_multipart:upload_part(
                                   Bucket, Key, UploadId, PartCount, Content, Config),
     PartEtag = proplists:get_value("ETag", RespHeaders),

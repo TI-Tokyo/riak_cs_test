@@ -156,7 +156,7 @@ stop_object_writer(Pid) ->
     receive Reply -> Reply end.
 
 object_writer(UserConfig, IntervalMilliSec)->
-    SingleBlock = crypto:rand_bytes(400),
+    SingleBlock = crypto:strong_rand_bytes(400),
     erlcloud_s3:put_object(?TEST_BUCKET, ?KEY_SINGLE_BLOCK, SingleBlock, UserConfig),
     receive
         {stop, From} -> From ! ok

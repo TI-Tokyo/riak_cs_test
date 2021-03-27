@@ -73,7 +73,7 @@ create_admin_user(Node) ->
 
 -spec create_user(atom(), non_neg_integer()) -> #aws_config{}.
 create_user(Node, UserIndex) ->
-    {A, B, C} = erlang:now(),
+    {A, B, C} = erlang:timestamp(),
     User = "Test User" ++ integer_to_list(UserIndex),
     Email = lists:flatten(io_lib:format("~p~p~p@basho.com", [A, B, C])),
     {UserConfig, _Id} = create_user(rtcs_config:cs_port(Node), Email, User),

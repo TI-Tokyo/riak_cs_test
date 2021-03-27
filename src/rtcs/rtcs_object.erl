@@ -27,7 +27,7 @@
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
 
 upload(UserConfig, normal, B, K) ->
-    Content = crypto:rand_bytes(mb(4)),
+    Content = crypto:strong_rand_bytes(mb(4)),
     erlcloud_s3:put_object(B, K, Content, UserConfig),
     {B, K, Content};
 upload(UserConfig, multipart, B, K) ->

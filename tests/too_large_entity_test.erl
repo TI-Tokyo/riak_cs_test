@@ -86,8 +86,8 @@ too_large_upload_part_test_case(Bucket, Key, Config) ->
                                                    Config)).
 
 too_large_object_put_test_case(Bucket, Key, Config) ->
-    Object1 = crypto:rand_bytes(1001),
-    Object2 = crypto:rand_bytes(1000),
+    Object1 = crypto:strong_rand_bytes(1001),
+    Object2 = crypto:strong_rand_bytes(1000),
 
     ?assertError({aws_error, {http_error, 400, _, _}},
                  erlcloud_s3:put_object(Bucket, Key, Object1, Config)),

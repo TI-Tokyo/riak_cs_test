@@ -117,7 +117,7 @@ mess_with_writing_various_props(RiakNodes, UserConfig, VariousProps) ->
                                                     term_to_binary([{UUID, Manifest1}])),
                 lager:info("~p", [Manifest1?MANIFEST.props]),
 
-                Block = crypto:rand_bytes(100),
+                Block = crypto:strong_rand_bytes(100),
                 ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(CSBucket, CSKey,
                                                                             Block, UserConfig)),
                 ok = riakc_pb_socket:put(Pid, RiakObject),
@@ -144,7 +144,7 @@ mess_with_tombstone(RiakNodes, UserConfig) ->
     CSBucket = ?BUCKET8,
     CSKey = ?KEY,
     Pid = rtcs:pbc(RiakNodes, objects, CSBucket),
-    Block = crypto:rand_bytes(100),
+    Block = crypto:strong_rand_bytes(100),
     ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(CSBucket, CSKey,
                                                                 Block, UserConfig)),
     Bucket = <<"0o:", (rtcs:md5(list_to_binary(?BUCKET8)))/binary>>,
@@ -159,7 +159,7 @@ mess_with_tombstone(RiakNodes, UserConfig) ->
     {ok, RiakObject0} = riakc_pb_socket:get(Pid, Bucket, list_to_binary(CSKey)),
     assure_num_siblings(Pid, Bucket, list_to_binary(CSKey), 1),
 
-    Block2 = crypto:rand_bytes(100),
+    Block2 = crypto:strong_rand_bytes(100),
     ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(?BUCKET8, CSKey,
                                                                 Block2, UserConfig)),
 
@@ -187,7 +187,7 @@ store_object(Bucket, UserConfig) ->
     %% Create bucket
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, UserConfig)),
     %% Put 100-byte object
-    Block = crypto:rand_bytes(100),
+    Block = crypto:strong_rand_bytes(100),
     ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(Bucket, ?KEY, Block, UserConfig)),
     ExpectedObjects = 1,
     ExpectedBytes = 100,
@@ -198,7 +198,7 @@ delete_object(Bucket, UserConfig) ->
     %% Create bucket
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, UserConfig)),
     %% Put 100-byte object
-    Block = crypto:rand_bytes(100),
+    Block = crypto:strong_rand_bytes(100),
     ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(Bucket, ?KEY, Block, UserConfig)),
     ?assertEqual([{delete_marker, false}, {version_id, "null"}], erlcloud_s3:delete_object(Bucket, ?KEY, UserConfig)),
     ExpectedObjects = 0,
@@ -210,7 +210,7 @@ store_objects(Bucket, UserConfig) ->
     %% Create bucket
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, UserConfig)),
     %% Put 100-byte object 10 times
-    Block = crypto:rand_bytes(100),
+    Block = crypto:strong_rand_bytes(100),
     [?assertEqual([{version_id, "null"}],
                   erlcloud_s3:put_object(Bucket, integer_to_list(Key), Block, UserConfig))
      || Key <- lists:seq(1, 10)],
@@ -221,14 +221,14 @@ store_objects(Bucket, UserConfig) ->
 give_over_bucket(Bucket, UserConfig, AnotherUser) ->
     %% Create bucket, put/delete object, delete bucket finally
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, UserConfig)),
-    Block = crypto:rand_bytes(100),
+    Block = crypto:strong_rand_bytes(100),
     ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(Bucket, ?KEY, Block, UserConfig)),
     ?assertEqual([{delete_marker, false}, {version_id, "null"}], erlcloud_s3:delete_object(Bucket, ?KEY, UserConfig)),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(Bucket, UserConfig)),
 
     %% Another user re-create the bucket and put an object into it.
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, AnotherUser)),
-    Block2 = crypto:rand_bytes(100),
+    Block2 = crypto:strong_rand_bytes(100),
     ?assertEqual([{version_id, "null"}],
                  erlcloud_s3:put_object(Bucket, ?KEY, Block2, AnotherUser)),
     {Bucket, undefined, undefined}.

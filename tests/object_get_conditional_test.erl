@@ -54,7 +54,7 @@ confirm() ->
     rtcs:pass().
 
 setup_object(Bucket, Key, UserConfig) ->
-    Content = crypto:rand_bytes(400),
+    Content = crypto:strong_rand_bytes(400),
     erlcloud_s3:put_object(Bucket, Key, Content, UserConfig),
     Obj = erlcloud_s3:get_object(Bucket, Key, UserConfig),
     ?assertEqual(Content, proplists:get_value(content, Obj)),

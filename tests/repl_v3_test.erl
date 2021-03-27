@@ -74,7 +74,7 @@ confirm_ee() ->
     ObjList1= erlcloud_s3:list_objects(?TEST_BUCKET, U1C1Config),
     ?assertEqual([], proplists:get_value(contents, ObjList1)),
 
-    Object1 = crypto:rand_bytes(4194304),
+    Object1 = crypto:strong_rand_bytes(4194304),
 
     erlcloud_s3:put_object(?TEST_BUCKET, "object_one", Object1, U1C1Config),
 
@@ -150,11 +150,11 @@ confirm_ee() ->
 
     lager:info("write 2 more objects to the primary cluster"),
 
-    Object2 = crypto:rand_bytes(4194304),
+    Object2 = crypto:strong_rand_bytes(4194304),
 
     erlcloud_s3:put_object(?TEST_BUCKET, "object_two", Object2, U1C1Config),
 
-    Object3 = crypto:rand_bytes(4194304),
+    Object3 = crypto:strong_rand_bytes(4194304),
 
     erlcloud_s3:put_object(?TEST_BUCKET, "object_three", Object3, U1C1Config),
 
@@ -223,7 +223,7 @@ confirm_ee() ->
     lager:info("disable proxy_get again"),
     disable_pg(LeaderA, "B", ANodes, BNodes, BPort),
 
-    Object3A = crypto:rand_bytes(4194304),
+    Object3A = crypto:strong_rand_bytes(4194304),
     ?assert(Object3 /= Object3A),
 
     lager:info("write a new version of object_three"),
@@ -232,11 +232,11 @@ confirm_ee() ->
 
     lager:info("Independently write different object_four and object_five to bolth clusters"),
 
-    Object4A = crypto:rand_bytes(4194304),
-    Object4B = crypto:rand_bytes(4194304),
+    Object4A = crypto:strong_rand_bytes(4194304),
+    Object4B = crypto:strong_rand_bytes(4194304),
 
-    Object5A = crypto:rand_bytes(4194304),
-    Object5B = crypto:rand_bytes(4194304),
+    Object5A = crypto:strong_rand_bytes(4194304),
+    Object5B = crypto:strong_rand_bytes(4194304),
 
     erlcloud_s3:put_object(?TEST_BUCKET, "object_four", Object4A, U1C1Config),
 
@@ -288,7 +288,7 @@ confirm_ee() ->
     set_proxy_get(LeaderA, "disable", "B", ANodes, BNodes),
     set_block_rt(RiakNodes),
 
-    Object6 = crypto:rand_bytes(4194304),
+    Object6 = crypto:strong_rand_bytes(4194304),
     erlcloud_s3:put_object(?TEST_BUCKET, "object_six", Object6, U1C1Config),
     repl_helpers:wait_until_realtime_sync_complete(ANodes),
     lager:info("The object can be downloaded from sink cluster"),

@@ -80,7 +80,7 @@ setup_objects(RiakNodes, UserConfig, Bucket, Type,
               KeyAlive, KeyOrphaned, KeyFalseOrphaned) ->
     case Type of
         normal ->
-            SingleBlock = crypto:rand_bytes(400),
+            SingleBlock = crypto:strong_rand_bytes(400),
             [erlcloud_s3:put_object(Bucket, Key, SingleBlock, UserConfig) ||
              Key <- [KeyAlive, KeyOrphaned, KeyFalseOrphaned]];
         mp ->

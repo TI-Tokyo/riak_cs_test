@@ -134,7 +134,7 @@ load_objects(Bucket, Count, Config) ->
 load_objects(Bucket, Count, KeyPrefix, Config) ->
     [erlcloud_s3:put_object(Bucket,
                             KeyPrefix ++ integer_to_list(X),
-                            crypto:rand_bytes(100),
+                            crypto:strong_rand_bytes(100),
                             Config) || X <- lists:seq(1,Count)].
 
 verify_object_list(ObjList, ExpectedCount) ->

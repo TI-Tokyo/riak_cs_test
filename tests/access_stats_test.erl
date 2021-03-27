@@ -70,12 +70,12 @@ generate_some_accesses(UserConfig, DurationSecs) ->
 
 generate_some_accesses(UserConfig, UntilGregSecs, R0) ->
     %% Put random object, twice
-    O1Size = 100 + random:uniform(100),
-    O2Size = 100 + random:uniform(100),
+    O1Size = 100 + rand:uniform(100),
+    O2Size = 100 + rand:uniform(100),
     _ = erlcloud_s3:put_object(?BUCKET, ?KEY,
-            crypto:rand_bytes(O1Size), UserConfig),
+            crypto:strong_rand_bytes(O1Size), UserConfig),
     _ = erlcloud_s3:put_object(?BUCKET, ?KEY,
-            crypto:rand_bytes(O2Size), UserConfig),
+            crypto:strong_rand_bytes(O2Size), UserConfig),
     R1 = dict:update_counter({"KeyWrite", "Count"}, 2, R0),
     R2 = dict:update_counter({"KeyWrite", "BytesIn"}, O1Size + O2Size, R1),
     %% Get object, once

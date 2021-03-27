@@ -78,7 +78,7 @@ verify_create_delete(UserConfig) ->
 
 verify_bucket_delete_fails(UserConfig) ->
     %% setup objects
-    SingleBlock = crypto:rand_bytes(400),
+    SingleBlock = crypto:strong_rand_bytes(400),
     erlcloud_s3:put_object(?TEST_BUCKET, ?KEY_SINGLE_BLOCK, SingleBlock, UserConfig),
 
     %% verify bucket deletion fails if any objects exist

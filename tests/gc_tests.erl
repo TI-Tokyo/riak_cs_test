@@ -88,7 +88,7 @@ confirm() ->
 setup_normal_obj(ObjSpecs, UserConfig) ->
     %% Put and delete some objects
     [begin
-         Block = crypto:rand_bytes(Size),
+         Block = crypto:strong_rand_bytes(Size),
          Key = ?TEST_KEY ++ Suffix,
          erlcloud_s3:put_object(?TEST_BUCKET, Key, Block, UserConfig),
          erlcloud_s3:delete_object(?TEST_BUCKET, Key, UserConfig)
@@ -104,7 +104,7 @@ setup_obj(RiakNodes, UserConfig) ->
     setup_normal_obj([{"1", 100}, {"2", 200}, {"3", 0}], UserConfig),
 
     %% Put and delete, but modified to pretend it is in wrong state
-    SingleBlock = crypto:rand_bytes(400),
+    SingleBlock = crypto:strong_rand_bytes(400),
     erlcloud_s3:put_object(?TEST_BUCKET, ?TEST_KEY_BAD_STATE, SingleBlock, UserConfig),
     erlcloud_s3:delete_object(?TEST_BUCKET, ?TEST_KEY_BAD_STATE, UserConfig),
     %% Change the state in the manifest in gc bucket to active.
@@ -152,7 +152,7 @@ change_state_to_active(Pbc, TargetBKey, [GCKey|Rest]) ->
 put_more_bad_keys(RiakNodes, UserConfig) ->
     %% Put and delete some objects
     [begin
-         Block = crypto:rand_bytes(10),
+         Block = crypto:strong_rand_bytes(10),
          Key = ?TEST_KEY ++ integer_to_list(Suffix),
          erlcloud_s3:put_object(?TEST_BUCKET, Key, Block, UserConfig),
          erlcloud_s3:delete_object(?TEST_BUCKET, Key, UserConfig)
