@@ -240,8 +240,8 @@ verify_security(Alice, Bob, Charlie) ->
                                        CSPort, AlicesObject])),
     Headers = [{"x-amz-copy-source", string:join([AlicesBucket, AlicesObject], "/")},
                {"Content-Length", 0}],
-    {ok, Status, Hdr, _Msg} = ibrowse:send_req(URL, Headers, put, [],
-                                               Charlie#aws_config.http_options),
+    {ok, Status, Hdr, _} = hackney:request(put, URL, Headers, [],
+                                           Charlie#aws_config.hackney_client_options),
     lager:debug("request ~p ~p => ~p ~p", [URL, Headers, Status, Hdr]),
     ?assertEqual("403", Status),
 
