@@ -30,7 +30,7 @@ clean:
 	@$(REBAR) clean
 
 distclean: clean
-	@rm -rf riak_test deps
+	@rm -rf riak_test _build
 
 quickbuild:
 	$(REBAR) compile
