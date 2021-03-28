@@ -33,7 +33,7 @@
 -define(STANCHION_ROOT, <<"build_paths.stanchion_root">>).
 
 get_deps() ->
-    lists:flatten(io_lib:format("~s/dev/dev1/lib", [relpath(current)])).
+    lists:flatten(io_lib:format("~s/dev/dev1/riak/lib", [relpath(current)])).
 
 setup_harness(_Test, _Args) ->
     confirm_build_type(rt_config:get(build_type, oss)),
