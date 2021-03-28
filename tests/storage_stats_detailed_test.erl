@@ -21,7 +21,6 @@
 -module(storage_stats_detailed_test).
 %% @doc Integration test for storage statistics.
 
--compile(export_all).
 -export([confirm/0]).
 
 -include_lib("erlcloud/include/erlcloud_aws.hrl").

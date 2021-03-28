@@ -26,7 +26,8 @@
 
 -module(regression_tests_2).
 
--compile(export_all).
+-export([confirm/0]).
+
 -include_lib("eunit/include/eunit.hrl").
 
 confirm() ->
