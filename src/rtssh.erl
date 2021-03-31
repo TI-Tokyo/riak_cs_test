@@ -42,7 +42,7 @@ get_backends() ->
     All = [{Host, DevPath} || Host <- Hosts,
                               DevPath <- devpaths()],
     Backends = rt:pmap(fun({Host, DevPath}) ->
-                    AllFiles = all_the_files(Host, DevPath, "etc/*.config"),
+                    AllFiles = all_the_files(Host, DevPath, "riak/etc/*.config"),
                     [get_backend(Host, File) || File <- AllFiles]
             end, All),
     lists:usort(lists:flatten(Backends)).
@@ -474,7 +474,7 @@ format(Msg, Args) ->
     lists:flatten(io_lib:format(Msg, Args)).
 
 update_nodename(Node) ->
-    Etc = node_path(Node) ++ "/etc/",
+    Etc = node_path(Node) ++ "/riak/etc/",
     Files = [filename:basename(File) || File <- wildcard(Node, Etc ++ "*")],
     RiakConfExists = lists:member("riak.conf", Files),
     VMArgsExists = lists:member("vm.args", Files),
@@ -489,7 +489,7 @@ update_nodename(Node) ->
 update_vm_args(_Node, []) ->
     ok;
 update_vm_args(Node, Props) ->
-    Etc = node_path(Node) ++ "/etc/",
+    Etc = node_path(Node) ++ "/riak/etc/",
     Files = [filename:basename(File) || File <- wildcard(Node, Etc ++ "*")],
     VMArgsExists = lists:member("vm.args", Files),
     AdvExists = lists:member("advanced.config", Files),
@@ -505,7 +505,7 @@ update_vm_args(Node, Props) ->
 
 do_update_vm_args(Node, Props) ->
     %% TODO: Make non-matched options be appended to file
-    VMArgs = node_path(Node) ++ "/etc/vm.args",
+    VMArgs = node_path(Node) ++ "/riak/etc/vm.args",
     Bin = remote_read_file(Node, VMArgs),
     Output =
         lists:foldl(fun({Config, Value}, Acc) ->
@@ -532,7 +532,7 @@ update_app_config(Node, Config) ->
     update_app_config(Node, node_path(Node), Config).
 
 update_app_config(Node, Path, Config) ->
-    Etc = Path ++ "/etc/",
+    Etc = Path ++ "/riak/etc/",
     Files = [filename:basename(File) || File <- wildcard(Node, Etc ++ "*")],
     AppExists = lists:member("app.config", Files),
     AdvExists = lists:member("advanced.config", Files),
@@ -543,7 +543,7 @@ update_app_config(Node, Path, Config) ->
        true ->
             update_app_config_file(Node, Etc ++ "advanced.config", Config, [])
     end.
-    %% ConfigFile = node_path(Node) ++ "/etc/app.config",
+    %% ConfigFile = node_path(Node) ++ "/riak/etc/app.config",
     %% update_app_config_file(Node, ConfigFile, Config).
 
 update_app_config_file(Node, ConfigFile, Config, Current) ->
@@ -595,7 +595,7 @@ set_conf(all, NameValuePairs) ->
     All = [{Host, DevPath} || Host <- Hosts,
                               DevPath <- devpaths()],
     rt:pmap(fun({Host, DevPath}) ->
-                    AllFiles = all_the_files(Host, DevPath, "etc/riak.conf"),
+                    AllFiles = all_the_files(Host, DevPath, "riak/etc/riak.conf"),
                     [append_to_conf_file(Host, File, NameValuePairs) || File <- AllFiles],
                     ok
             end, All),
