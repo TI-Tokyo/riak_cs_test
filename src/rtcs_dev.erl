@@ -33,12 +33,12 @@
 -define(STANCHION_ROOT, <<"build_paths.stanchion_root">>).
 
 get_deps() ->
-    lists:flatten(io_lib:format("~s/dev/dev1/riak/lib", [relpath(current)])).
+    lists:flatten(io_lib:format("~s/dev/dev1/riak-cs/lib", [relpath(cs_current)])).
 
 setup_harness(_Test, _Args) ->
     confirm_build_type(rt_config:get(build_type, oss)),
     %% Stop all discoverable nodes, not just nodes we'll be using for this test.
-    rt:pmap(fun(X) -> stop_all(X ++ "/dev") end, devpaths()),
+    rt:pmap(fun(X) -> stop_all(X) end, devpaths()),
 
     %% Reset nodes to base state
     reset_cluster(),
@@ -63,7 +63,7 @@ confirm_build_type(BuildType) ->
     [ok = confirm_build_type(BuildType, Vsn) || Vsn <- [cs_current, cs_previous]].
 
 confirm_build_type(BuildType, Vsn) ->
-    ReplPB = filename:join([relpath(Vsn), "dev/dev1/lib/riak_repl_pb_api*"]),
+    ReplPB = filename:join([relpath(Vsn), "dev/dev1/riak-cs/lib/riak_repl_pb_api*"]),
     case {BuildType, filelib:wildcard(ReplPB)} of
         {oss, []} -> ok;
         {ee,  [_|_]} -> ok;
@@ -103,11 +103,11 @@ upgrade(Node, NewVersion) ->
     NewPath = relpath(NewVersion),
 
     Commands = [
-        io_lib:format("cp -p -P -R \"~s/dev/dev~b/data\" \"~s/dev/dev~b\"",
+        io_lib:format("cp -p -P -R \"~s/dev/dev~b/riak-cs/data\" \"~s/dev/dev~b/riak-cs/\"",
                        [OldPath, N, NewPath, N]),
-        io_lib:format("rm -rf ~s/dev/dev~b/data/*",
+        io_lib:format("rm -rf ~s/dev/dev~b/riak-cs/data/*",
                        [OldPath, N]),
-        io_lib:format("cp -p -P -R \"~s/dev/dev~b/etc\" \"~s/dev/dev~b\"",
+        io_lib:format("cp -p -P -R \"~s/dev/dev~b/riak-cs/etc\" \"~s/dev/dev~b/riak-cs/\"",
                        [OldPath, N, NewPath, N])
     ],
     [ begin
@@ -150,7 +150,7 @@ get_conf(Node) ->
     get_conf(Path, N).
 
 get_conf(DevPath, N) ->
-    WildCard = io_lib:format("~s/dev/dev~b/etc/*.conf", [DevPath, N]),
+    WildCard = io_lib:format("~s/dev/dev~b/~s/etc/*.conf", [DevPath, N, rtdev:devpath_mid_elem(DevPath)]),
     [Conf] = filelib:wildcard(WildCard),
     Conf.
 
@@ -160,7 +160,7 @@ get_app_config(Node) ->
     get_conf(Path, N).
 
 get_app_config(DevPath, N) ->
-    WildCard = io_lib:format("~s/dev/dev~b/etc/a*.config", [DevPath, N]),
+    WildCard = io_lib:format("~s/dev/dev~b/riak-cs/etc/a*.config", [DevPath, N]),
     [Conf] = filelib:wildcard(WildCard),
     Conf.
 
@@ -169,7 +169,7 @@ all_the_app_configs(DevPath) ->
     case filelib:is_dir(DevPath) of
         true ->
             Devs = filelib:wildcard(DevPath ++ "/dev/dev*"),
-            [ Dev ++ "/etc/app.config" || Dev <- Devs];
+            [ Dev ++ "/riak-cs/etc/app.config" || Dev <- Devs];
         _ ->
             lager:debug("~s is not a directory.", [DevPath]),
             []
@@ -181,10 +181,10 @@ update_app_config(all, Config) ->
 update_app_config(Node, Config) when is_atom(Node) ->
     N = node_id(Node),
     Path = relpath(node_version(N)),
-    FileFormatString = "~s/dev/dev~b/etc/~s.config",
+    FileFormatString = "~s/dev/dev~b/~s/etc/~s.config",
 
-    AppConfigFile = io_lib:format(FileFormatString, [Path, N, "app"]),
-    AdvConfigFile = io_lib:format(FileFormatString, [Path, N, "advanced"]),
+    AppConfigFile = io_lib:format(FileFormatString, [Path, N, rtdev:devpath_mid_elem(Path), "app"]),
+    AdvConfigFile = io_lib:format(FileFormatString, [Path, N, rtdev:devpath_mid_elem(Path), "advanced"]),
     %% If there's an app.config, do it old style
     %% if not, use cuttlefish's adavnced.config
     case filelib:is_file(AppConfigFile) of
@@ -226,7 +226,7 @@ get_backends() ->
 node_path(Node) ->
     N = node_id(Node),
     Path = relpath(node_version(N)),
-    lists:flatten(io_lib:format("~s/dev/dev~b", [Path, N])).
+    lists:flatten(io_lib:format("~s/dev/dev~b/riak-cs", [Path, N])).
 
 create_dirs(Nodes) ->
     Snmp = [node_path(Node) ++ "/data/snmp/agent/db" || Node <- Nodes],
@@ -257,7 +257,7 @@ add_default_node_config(Nodes) ->
 stop_all(DevPath) ->
     case filelib:is_dir(DevPath) of
         true ->
-            Devs = filelib:wildcard(DevPath ++ "/{dev,stanchion}*"),
+            Devs = filelib:wildcard(DevPath ++ "/dev/*"),
 
             %% Works, but I'd like it to brag a little more about it.
             Stop = fun(C) ->
@@ -279,11 +279,11 @@ stop_command(C) ->
     IsStanchion = string:str(C, "stanchion"),
     if
         IsRiakCS > 0 ->
-            C ++ "/bin/riak-cs stop";
+            C ++ "/riak-cs/bin/riak-cs stop";
         IsStanchion > 0 ->
             C ++ "/bin/stanchion stop";
         true ->
-            C ++ "/bin/riak stop"
+            C ++ "/riak/bin/riak stop"
     end.
 
 stop(Node) ->
@@ -496,7 +496,7 @@ devpaths() ->
 all_the_files(DevPath, File) ->
     case filelib:is_dir(DevPath) of
         true ->
-            Wildcard = io_lib:format("~s/dev/*/~s", [DevPath, File]),
+            Wildcard = io_lib:format("~s/dev/*/~s/~s", [DevPath, rtdev:devpath_mid_elem(DevPath), File]),
             filelib:wildcard(Wildcard);
         _ ->
             lager:debug("~s is not a directory.", [DevPath]),
@@ -520,4 +520,4 @@ get_node_logs(Base) ->
     [ begin
           {ok, Port} = file:open(Filename, [read, binary]),
           {lists:nthtail(RootLen, Filename), Port}
-      end || Filename <- filelib:wildcard(Root ++ "/*/dev/dev*/log/*") ].
+      end || Filename <- filelib:wildcard(Root ++ "/*/dev/dev*/riak-cs/log/*") ].

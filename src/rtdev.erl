@@ -30,11 +30,12 @@
         "dev" ++ integer_to_list(N) ++ "@127.0.0.1-riak-debug.tar.gz").
 
 get_deps() ->
-    lists:flatten(io_lib:format("~s/dev/dev1/riak/lib", [relpath(current)])).
+    RelPath = relpath(current),
+    lists:flatten(io_lib:format("~s/dev/dev1/~s/lib", [RelPath, devpath_mid_elem(RelPath)])).
 
 riakcmd(Path, N, Cmd) ->
     ExecName = rt_config:get(exec_name, "riak"),
-    io_lib:format("~s/dev/dev~b/riak/bin/~s ~s", [Path, N, ExecName, Cmd]).
+    io_lib:format("~s/dev/dev~b/~s/bin/~s ~s", [Path, N, devpath_mid_elem(Path), ExecName, Cmd]).
 
 riakreplcmd(Path, N, Cmd) ->
     io_lib:format("~s/dev/dev~b/riak/bin/riak repl ~s", [Path, N, Cmd]).
@@ -204,7 +205,7 @@ set_conf(Node, NameValuePairs) when is_atom(Node) ->
     ok;
 set_conf(DevPath, NameValuePairs) ->
     [append_to_conf_file(RiakConf, NameValuePairs)
-     || RiakConf <- all_the_files(DevPath, "etc/riak.conf")],
+     || RiakConf <- all_the_files(DevPath, "/" ++ devpath_mid_elem(DevPath) ++ "/etc/riak.conf")],
     ok.
 
 set_advanced_conf(all, NameValuePairs) ->
@@ -215,7 +216,7 @@ set_advanced_conf(Node, NameValuePairs) when is_atom(Node) ->
     update_app_config_file(get_advanced_riak_conf(Node), NameValuePairs),
     ok;
 set_advanced_conf(DevPath, NameValuePairs) ->
-    AdvancedConfs = case all_the_files(DevPath, "etc/advanced.config") of
+    AdvancedConfs = case all_the_files(DevPath, "/" ++ devpath_mid_elem(DevPath) ++ "/etc/advanced.config") of
                         [] ->
                             %% no advanced conf? But we _need_ them, so make 'em
                             make_advanced_confs(DevPath);
@@ -232,7 +233,7 @@ make_advanced_confs(DevPath) ->
             lager:error("Failed generating advanced.conf ~p is not a directory.", [DevPath]),
             [];
         true ->
-            Wildcard = io_lib:format("~s/dev/dev*/riak/etc", [DevPath]),
+            Wildcard = io_lib:format("~s/dev/dev*/~s/etc", [DevPath, devpath_mid_elem(DevPath)]),
             ConfDirs = filelib:wildcard(Wildcard),
             [
              begin
@@ -246,12 +247,12 @@ make_advanced_confs(DevPath) ->
 get_riak_conf(Node) ->
     N = node_id(Node),
     Path = relpath(node_version(N)),
-    io_lib:format("~s/dev/dev~b/riak/etc/riak.conf", [Path, N]).
+    io_lib:format("~s/dev/dev~b/~s/etc/riak.conf", [Path, N, devpath_mid_elem(Path)]).
 
 get_advanced_riak_conf(Node) ->
     N = node_id(Node),
     Path = relpath(node_version(N)),
-    io_lib:format("~s/dev/dev~b/riak/etc/advanced.config", [Path, N]).
+    io_lib:format("~s/dev/dev~b/~s/etc/advanced.config", [Path, N, devpath_mid_elem(Path)]).
 
 append_to_conf_file(File, NameValuePairs) ->
     Settings = lists:flatten(
@@ -262,7 +263,7 @@ append_to_conf_file(File, NameValuePairs) ->
 all_the_files(DevPath, File) ->
     case filelib:is_dir(DevPath) of
         true ->
-            Wildcard = io_lib:format("~s/dev/dev*/riak/~s", [DevPath, File]),
+            Wildcard = io_lib:format("~s/dev/dev*/~s/~s", [DevPath, devpath_mid_elem(DevPath), File]),
             filelib:wildcard(Wildcard);
         _ ->
             lager:debug("~s is not a directory.", [DevPath]),
@@ -270,10 +271,10 @@ all_the_files(DevPath, File) ->
     end.
 
 all_the_app_configs(DevPath) ->
-    AppConfigs = all_the_files(DevPath, "etc/app.config"),
+    AppConfigs = all_the_files(DevPath, "/" ++ devpath_mid_elem(DevPath) ++ "etc/app.config"),
     case length(AppConfigs) =:= 0 of
         true ->
-            AdvConfigs = filelib:wildcard(DevPath ++ "/dev/dev*/riak/etc"),
+            AdvConfigs = filelib:wildcard(DevPath ++ "/dev/dev*/" ++ devpath_mid_elem(DevPath) ++ "/etc"),
             [ filename:join(AC, "advanced.config") || AC <- AdvConfigs];
         _ ->
             AppConfigs
@@ -285,7 +286,7 @@ update_app_config(all, Config) ->
 update_app_config(Node, Config) when is_atom(Node) ->
     N = node_id(Node),
     Path = relpath(node_version(N)),
-    FileFormatString = "~s/dev/dev~b/riak/etc/~s.config",
+    FileFormatString = "~s/dev/dev~b/" ++ devpath_mid_elem(Path) ++ "/etc/~s.config",
 
     AppConfigFile = io_lib:format(FileFormatString, [Path, N, "app"]),
     AdvConfigFile = io_lib:format(FileFormatString, [Path, N, "advanced"]),
@@ -377,7 +378,7 @@ get_backend(AppConfig) ->
 node_path(Node) ->
     N = node_id(Node),
     Path = relpath(node_version(N)),
-    lists:flatten(io_lib:format("~s/dev/dev~b/riak/", [Path, N])).
+    lists:flatten(io_lib:format("~s/dev/dev~b/~s/", [Path, N, devpath_mid_elem(Path)])).
 
 get_ip(_Node) ->
     %% localhost 4 lyfe
@@ -559,7 +560,7 @@ wait_for_pid(PidStr, Timeout) ->
 stop_all(DevPath) ->
     case filelib:is_dir(DevPath) of
         true ->
-            Devs = filelib:wildcard(DevPath ++ "/dev*/riak/"),
+            Devs = filelib:wildcard(DevPath ++ "/dev*/"++devpath_mid_elem(DevPath)++"/"),
             Nodes = [?DEV(N) || N <- lists:seq(1, length(Devs))],
             MyNode = 'riak_test@127.0.0.1',
             case net_kernel:start([MyNode, longnames]) of
@@ -812,7 +813,7 @@ get_node_logs() ->
     [ begin
           {ok, Port} = file:open(Filename, [read, binary]),
           {lists:nthtail(RootLen, Filename), Port}
-      end || Filename <- filelib:wildcard(Root ++ "/*/dev/dev*/riak/log/*") ].
+      end || Filename <- filelib:wildcard(Root ++ "/*/dev/dev*/" ++ devpath_mid_elem(Root) ++ "/log/*") ].
 
 get_node_debug_logs() ->
     NodeMap = rt_config:get(rt_nodes),
@@ -849,7 +850,7 @@ delete_existing_debug_log_file(DebugLogFile) ->
     [{Path::string(), LineNum::pos_integer(), Match::string()}].
 search_logs(Node, Pattern) ->
     Root = filename:absname(proplists:get_value(root, ?PATH)),
-    Wildcard = Root ++ "/*/dev/" ++ node_name(Node) ++ "/riak/log/*",
+    Wildcard = Root ++ "/*/dev/" ++ node_name(Node) ++ "/" ++ devpath_mid_elem(Root) ++ "/log/*",
     LogFiles = filelib:wildcard(Wildcard),
     AllMatches = rt:pmap(fun(File) ->
                                  search_file(File, Pattern)
@@ -882,6 +883,16 @@ search_file(Device, File, Pattern, LineNum, Accum) ->
 -spec node_name(node()) -> string().
 node_name(Node) ->
     lists:takewhile(fun(C) -> C /= $@ end, atom_to_list(Node)).
+
+-spec devpath_mid_elem(string()) -> string().
+devpath_mid_elem(S) ->
+    case lists:reverse(string:split(S, "/", all)) of
+        ["", "riak" | _] -> "riak";
+        ["riak" | _] -> "riak";
+        ["", "riak_cs" | _] -> "riak-cs";
+        ["riak_cs" | _] -> "riak-cs"
+    end.
+
 
 -ifdef(TEST).
 

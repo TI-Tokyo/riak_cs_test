@@ -282,13 +282,13 @@ riakcs_binpath(Prefix, N) ->
     io_lib:format("~s/dev/dev~b/bin/riak-cs", [Prefix, N]).
 
 riakcs_etcpath(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/etc", [Prefix, N]).
+    io_lib:format("~s/dev/dev~b/riak-cs/etc", [Prefix, N]).
 
 riakcs_libpath(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/lib", [Prefix, N]).
+    io_lib:format("~s/dev/dev~b/riak-cs/lib", [Prefix, N]).
 
 riakcs_logpath(Prefix, N, File) ->
-    io_lib:format("~s/dev/dev~b/log/~s", [Prefix, N, File]).
+    io_lib:format("~s/dev/dev~b/riak-cs/log/~s", [Prefix, N, File]).
 
 riakcscmd(Path, N, Cmd) ->
     lists:flatten(io_lib:format("~s ~s", [riakcs_binpath(Path, N), Cmd])).

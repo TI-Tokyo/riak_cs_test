@@ -133,19 +133,19 @@ riak_binpath(Prefix, N) ->
     io_lib:format("~s/dev/dev~b/bin/riak", [Prefix, N]).
 
 riakcs_home(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/", [Prefix, N]).
+    io_lib:format("~s/dev/dev~b/riak-cs", [Prefix, N]).
 
 riakcs_binpath(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/bin/riak-cs", [Prefix, N]).
+    io_lib:format("~s/dev/dev~b/riak-cs/bin/riak-cs", [Prefix, N]).
 
 riakcs_etcpath(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/etc", [Prefix, N]).
+    io_lib:format("~s/dev/dev~b/riak-cs/etc", [Prefix, N]).
 
 riakcs_libpath(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/lib", [Prefix, N]).
+    io_lib:format("~s/dev/dev~b/riak-cs/lib", [Prefix, N]).
 
 riakcs_logpath(Prefix, N, File) ->
-    io_lib:format("~s/dev/dev~b/log/~s", [Prefix, N, File]).
+    io_lib:format("~s/dev/dev~b/riak-cs/log/~s", [Prefix, N, File]).
 
 stanchion_binpath(Prefix) ->
     io_lib:format("~s/dev/stanchion/bin/stanchion", [Prefix]).
