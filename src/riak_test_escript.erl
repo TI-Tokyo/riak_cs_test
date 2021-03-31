@@ -24,6 +24,8 @@
 -export([main/1]).
 -export([add_deps/1]).
 
+-define(HARNESS, (rt_config:get(rt_harness))).
+
 add_deps(Path) ->
     io:format("Adding path ~s~n", [Path]),
     {ok, Deps} = file:list_dir(Path),
@@ -175,7 +177,7 @@ main(Args) ->
 
     io:format("Tests to run: ~p~n", [Tests]),
     %% Two hard-coded deps...
-    add_deps(rt:get_deps()),
+    add_deps(?HARNESS:get_deps()),
     add_deps("_build/test/lib/riak_test/tests"),
 
     [add_deps(Dep) || Dep <- rt_config:get(rt_deps, [])],
