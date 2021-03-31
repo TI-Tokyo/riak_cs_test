@@ -127,7 +127,7 @@ backend_config(_CsVsn, memory) ->
     [{storage_backend, riak_kv_memory_backend}];
 backend_config(_CsVsn, {multi_backend, BlocksBackend}) ->
     [
-     {storage_backend, riak_cs_kv_multi_backend},
+     {storage_backend, riak_kv_multi_backend},
      {multi_backend_prefix_list, [{<<"0b:">>, be_blocks}]},
      {multi_backend_default, be_default},
      {multi_backend,
