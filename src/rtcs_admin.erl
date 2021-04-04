@@ -36,7 +36,7 @@
          aws_config/3]).
 
 -include_lib("eunit/include/eunit.hrl").
--include_lib("erlcloud/include/erlcloud_aws.hrl").
+-include("rtcs_erlcloud_aws.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
 -define(S3_HOST, "s3.amazonaws.com").
@@ -94,12 +94,12 @@ create_user(Port, UserConfig, EmailAddr, Name) ->
     ReqBody = "{\"email\":\"" ++ EmailAddr ++  "\", \"name\":\"" ++ Name ++"\"}",
     Delay = rt_config:get(rt_retry_delay),
     Retries = rt_config:get(rt_max_wait_time) div Delay,
-    OutputFun = fun() -> catch erlcloud_s3:s3_request(
-                                 UserConfig, post, "", Resource, [], "",
-                                 {ReqBody, "application/json"}, [])
+    OutputFun = fun() -> rtcs_s3:s3_request(
+                           UserConfig, post, "", Resource, [], "",
+                           {ReqBody, "application/json"}, [], [])
                 end,
     Condition = fun({'EXIT', Res}) ->
-                        lager:debug("create_user failing, Res: ~p", [Res]),
+                        lager:error("create_user failing, Res: ~p", [Res]),
                         false;
                    ({_ResHeader, _ResBody}) ->
                         true
@@ -113,9 +113,9 @@ create_user(Port, UserConfig, EmailAddr, Name) ->
 
 -spec update_user(#aws_config{}, non_neg_integer(), string(), string(), string()) -> string().
 update_user(UserConfig, _Port, Resource, ContentType, UpdateDoc) ->
-    {_ResHeader, ResBody} = erlcloud_s3:s3_request(
+    {_ResHeader, ResBody} = rtcs_s3:s3_request(
                               UserConfig, put, "", Resource, [], "",
-                              {UpdateDoc, ContentType}, []),
+                              {UpdateDoc, ContentType}, [], []),
     lager:debug("ResBody: ~s", [ResBody]),
     ResBody.
 
@@ -123,7 +123,7 @@ update_user(UserConfig, _Port, Resource, ContentType, UpdateDoc) ->
 get_user(UserConfig, _Port, Resource, AcceptContentType) ->
     lager:debug("Retreiving user record"),
     Headers = [{"Accept", AcceptContentType}],
-    {_ResHeader, ResBody} = erlcloud_s3:s3_request(
+    {_ResHeader, ResBody} = rtcs_s3:s3_request(
                               UserConfig, get, "", Resource, [], "", "", Headers),
     lager:debug("ResBody: ~s", [ResBody]),
     ResBody.
@@ -131,7 +131,7 @@ get_user(UserConfig, _Port, Resource, AcceptContentType) ->
 -spec list_users(#aws_config{}, non_neg_integer(), string(), string()) -> string().
 list_users(UserConfig, _Port, Resource, AcceptContentType) ->
     Headers = [{"Accept", AcceptContentType}],
-    {_ResHeader, ResBody} = erlcloud_s3:s3_request(
+    {_ResHeader, ResBody} = rtcs_s3:s3_request(
                               UserConfig, get, "", Resource, [], "", "", Headers),
     ResBody.
 
@@ -159,50 +159,48 @@ make_authorization(Type, Method, Resource, ContentType, Config, Date, AmzHeaders
 
 -spec aws_config(string(), string(), non_neg_integer()) -> #aws_config{}.
 aws_config(Key, Secret, Port) ->
-    erlcloud_s3:new(Key,
-                    Secret,
-                    ?S3_HOST,
-                    Port, % inets issue precludes using ?S3_PORT
-                    ?DEFAULT_PROTO,
-                    ?PROXY_HOST,
-                    Port,
-                    []).
+    rtcs_s3:new(Key,
+                Secret,
+                ?S3_HOST,
+                Port, % inets issue precludes using ?S3_PORT
+                ?DEFAULT_PROTO,
+                ?PROXY_HOST,
+                Port,
+                []).
 
 -spec aws_config(#aws_config{}, [{atom(), term()}]) -> #aws_config{}.
 aws_config(UserConfig, []) ->
     UserConfig;
 aws_config(UserConfig, [{port, Port}|Props]) ->
-    UpdConfig = erlcloud_s3:new(UserConfig#aws_config.access_key_id,
-                                UserConfig#aws_config.secret_access_key,
-                                ?S3_HOST,
-                                Port, % inets issue precludes using ?S3_PORT
-                                ?DEFAULT_PROTO,
-                                ?PROXY_HOST,
-                                Port,
-                                []),
+    UpdConfig = rtcs_s3:new(UserConfig#aws_config.access_key_id,
+                            UserConfig#aws_config.secret_access_key,
+                            ?S3_HOST,
+                            Port, % inets issue precludes using ?S3_PORT
+                            ?DEFAULT_PROTO,
+                            ?PROXY_HOST,
+                            Port,
+                            []),
     aws_config(UpdConfig, Props);
 aws_config(UserConfig, [{key, KeyId}|Props]) ->
-    UpdConfig = erlcloud_s3:new(KeyId,
-                                UserConfig#aws_config.secret_access_key,
-                                ?S3_HOST,
-                                UserConfig#aws_config.s3_port, % inets issue precludes using ?S3_PORT
-                                ?DEFAULT_PROTO,
-                                ?PROXY_HOST,
-                                UserConfig#aws_config.s3_port,
-                                []),
+    UpdConfig = rtcs_s3:new(KeyId,
+                            UserConfig#aws_config.secret_access_key,
+                            ?S3_HOST,
+                            UserConfig#aws_config.s3_port, % inets issue precludes using ?S3_PORT
+                            ?DEFAULT_PROTO,
+                            ?PROXY_HOST,
+                            UserConfig#aws_config.s3_port,
+                            []),
     aws_config(UpdConfig, Props);
 aws_config(UserConfig, [{secret, Secret}|Props]) ->
-    UpdConfig = erlcloud_s3:new(UserConfig#aws_config.access_key_id,
-                                Secret,
-                                ?S3_HOST,
-                                UserConfig#aws_config.s3_port, % inets issue precludes using ?S3_PORT
-                                ?DEFAULT_PROTO,
-                                ?PROXY_HOST,
-                                UserConfig#aws_config.s3_port,
-                                []),
+    UpdConfig = rtcs_s3:new(UserConfig#aws_config.access_key_id,
+                            Secret,
+                            ?S3_HOST,
+                            UserConfig#aws_config.s3_port, % inets issue precludes using ?S3_PORT
+                            ?DEFAULT_PROTO,
+                            ?PROXY_HOST,
+                            UserConfig#aws_config.s3_port,
+                            []),
     aws_config(UpdConfig, Props).
-
-%% private
 
 
 latest([], {_, Candidate}) ->
@@ -232,7 +230,7 @@ by_bucket_list([{BucketBin, {struct,[{<<"Objects">>, Objs},
 samples_from_json_request(AdminConfig, UserConfig, {Begin, End}) ->
     KeyId = UserConfig#aws_config.access_key_id,
     StatsKey = string:join(["usage", KeyId, "bj", Begin, End], "/"),
-    GetResult = erlcloud_s3:get_object("riak-cs", StatsKey, AdminConfig),
+    GetResult = rtcs_s3:get_object("riak-cs", StatsKey, AdminConfig),
     Usage = mochijson2:decode(proplists:get_value(content, GetResult)),
     rtcs:json_get([<<"Storage">>, <<"Samples">>], Usage).
 

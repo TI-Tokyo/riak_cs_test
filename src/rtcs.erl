@@ -24,7 +24,7 @@
 -compile(nowarn_export_all).
 
 -include_lib("eunit/include/eunit.hrl").
--include_lib("erlcloud/include/erlcloud_aws.hrl").
+-include("rtcs_erlcloud_aws.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
 -import(rt, [join/2,
@@ -81,8 +81,6 @@ flavored_setup(NumNodes, {multibag, _} = Flavor, Configs, Vsn)
     rtcs_bag:flavored_setup(NumNodes, Flavor, Configs, Vsn).
 
 setup_clusters(Configs, JoinFun, NumNodes, Vsn) ->
-    %% Start the erlcloud app
-    erlcloud:start(),
 
     %% STFU sasl
     application:load(sasl),
@@ -123,7 +121,6 @@ pass() ->
 
 teardown() ->
     %% catch application:stop(sasl),
-    catch application:stop(erlcloud),
     catch application:stop(ibrowse).
 
 %% Return Riak node IDs, one per cluster.
