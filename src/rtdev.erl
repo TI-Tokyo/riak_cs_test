@@ -890,7 +890,8 @@ devpath_mid_elem(S) ->
         ["", "riak" | _] -> "riak";
         ["riak" | _] -> "riak";
         ["", "riak_cs" | _] -> "riak-cs";
-        ["riak_cs" | _] -> "riak-cs"
+        ["riak_cs" | _] -> "riak-cs";
+        _ -> ""
     end.
 
 
