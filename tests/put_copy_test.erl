@@ -23,6 +23,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
+-include("../include/rtcs_erlcloud_aws.hrl").
 
 -define(assert403(X),
         ?assertError({aws_error, {http_error, 403, _, _}}, (X))).
@@ -46,7 +47,8 @@
 -define(REPLACE_KEY, "replace-target").
 
 confirm() ->
-    {UserConfig, {RiakNodes, _CSNodes, _}} = rtcs:setup(1),
+    {UserConfig048, {RiakNodes, _CSNodes, _}} = rtcs:setup(1),
+    UserConfig = rtcs_s3:upgrade_config(UserConfig048),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET, UserConfig)),
     Data = ?DATA0,
     ?assertEqual([{version_id, "null"}],

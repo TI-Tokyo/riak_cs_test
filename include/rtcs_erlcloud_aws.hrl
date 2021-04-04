@@ -5,7 +5,7 @@
 %% #aws_config, used by some functions manually imported from it.
 %% manually copied from it.
 
--record(aws_config, {
+-record(rtcs_aws_config, {
           ec2_host="ec2.amazonaws.com"::string(),
           s3_host="s3.amazonaws.com"::string(),
           s3_port=80::non_neg_integer(),
@@ -20,4 +20,4 @@
           http_options=[]::proplists:proplist()
 }).
 
--type(aws_config() :: #aws_config{}).
+-type(rtcs_aws_config() :: #rtcs_aws_config{}).

@@ -45,6 +45,7 @@ setup(NumNodes, Configs) ->
 setup(NumNodes, Configs, Vsn) ->
     Flavor = rt_config:get(flavor, basic),
     lager:info("Flavor : ~p", [Flavor]),
+    application:ensure_all_started(erlcloud),
     flavored_setup(NumNodes, Flavor, Configs, Vsn).
 
 setup2x2() ->
@@ -81,7 +82,6 @@ flavored_setup(NumNodes, {multibag, _} = Flavor, Configs, Vsn)
     rtcs_bag:flavored_setup(NumNodes, Flavor, Configs, Vsn).
 
 setup_clusters(Configs, JoinFun, NumNodes, Vsn) ->
-
     %% STFU sasl
     application:load(sasl),
     application:set_env(sasl, sasl_error_logger, false),
@@ -121,6 +121,7 @@ pass() ->
 
 teardown() ->
     %% catch application:stop(sasl),
+    catch application:stop(erlcloud),
     catch application:stop(ibrowse).
 
 %% Return Riak node IDs, one per cluster.
@@ -180,8 +181,8 @@ setup_admin_user(NumNodes, Vsn)
 
     %% Create admin user and set in cs and stanchion configs
     AdminCreds = rtcs_admin:create_admin_user(1),
-    #aws_config{access_key_id=KeyID,
-                secret_access_key=KeySecret} = AdminCreds,
+    #rtcs_aws_config{access_key_id=KeyID,
+                     secret_access_key=KeySecret} = AdminCreds,
 
     AdminConf = [{admin_key, KeyID}]
         ++ case Vsn of

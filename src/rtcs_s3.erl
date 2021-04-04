@@ -10,41 +10,43 @@
 -module(rtcs_s3).
 
 -export([new/2, new/3, new/4, new/5, new/8,
-         s3_request/9, get_object/3]).
+         s3_request/9, get_object/3,
+         upgrade_config/1]).
 
 -include("rtcs_erlcloud_aws.hrl").
+-include_lib("erlcloud/include/erlcloud_aws.hrl").
 
 -define(RCS_REWRITE_HEADER, "x-rcs-rewrite-path").
 
 
--spec new(string(), string()) -> aws_config().
+-spec new(string(), string()) -> rtcs_aws_config().
 new(AccessKeyID, SecretAccessKey) ->
-    #aws_config{
+    #rtcs_aws_config{
      access_key_id=AccessKeyID,
      secret_access_key=SecretAccessKey
     }.
 
--spec new(string(), string(), string()) -> aws_config().
+-spec new(string(), string(), string()) -> rtcs_aws_config().
 new(AccessKeyID, SecretAccessKey, Host) ->
-    #aws_config{
+    #rtcs_aws_config{
      access_key_id=AccessKeyID,
      secret_access_key=SecretAccessKey,
      s3_host=Host
     }.
 
 
--spec new(string(), string(), string(), non_neg_integer()) -> aws_config().
+-spec new(string(), string(), string(), non_neg_integer()) -> rtcs_aws_config().
 new(AccessKeyID, SecretAccessKey, Host, Port) ->
-    #aws_config{
+    #rtcs_aws_config{
      access_key_id=AccessKeyID,
      secret_access_key=SecretAccessKey,
      s3_host=Host,
      s3_port=Port
     }.
 
--spec new(string(), string(), string(), non_neg_integer(), string()) -> aws_config().
+-spec new(string(), string(), string(), non_neg_integer(), string()) -> rtcs_aws_config().
 new(AccessKeyID, SecretAccessKey, Host, Port, Protocol) ->
-    #aws_config{
+    #rtcs_aws_config{
      access_key_id=AccessKeyID,
      secret_access_key=SecretAccessKey,
      s3_host=Host,
@@ -59,10 +61,10 @@ new(AccessKeyID, SecretAccessKey, Host, Port, Protocol) ->
           string(),
           string(),
           non_neg_integer(),
-          proplists:proplist()) -> aws_config().
+          proplists:proplist()) -> rtcs_aws_config().
 new(AccessKeyID, SecretAccessKey, Host, Port, Protocol, ProxyHost, ProxyPort,
     HttpOptions) ->
-    #aws_config{
+    #rtcs_aws_config{
      access_key_id=AccessKeyID,
      secret_access_key=SecretAccessKey,
      s3_host=Host,
@@ -94,10 +96,10 @@ s3_request(Config, Method, Host, Path, Subresources, Params, POSTData, Headers, 
             _ -> [{"content-md5", binary_to_list(ContentMD5)}]
         end,
     RequestURI = lists:flatten([
-                                Config#aws_config.s3_prot,
+                                Config#rtcs_aws_config.s3_prot,
                                 "://",
                                 case Host of "" -> ""; _ -> [Host, $.] end,
-                                Config#aws_config.s3_host, port_spec(Config),
+                                Config#rtcs_aws_config.s3_host, port_spec(Config),
                                 EscapedPath,
                                 format_subresources(Subresources),
                                 if
@@ -107,7 +109,7 @@ s3_request(Config, Method, Host, Path, Subresources, Params, POSTData, Headers, 
                                 end
                                ]),
     Timeout = 240000,
-    Options = Config#aws_config.http_options,
+    Options = Config#rtcs_aws_config.http_options,
     Response = case Method of
                    get ->
                        ibrowse:send_req(RequestURI, RequestHeaders, Method, [],
@@ -147,8 +149,8 @@ make_authorization(Config, Method, ContentMD5, ContentType, Date, AmzHeaders,
                     Resource,
                     format_subresources(Subresources)
                    ],
-    Signature = base64:encode(crypto:hmac(sha, Config#aws_config.secret_access_key, StringToSign)),
-    ["AWS ", Config#aws_config.access_key_id, $:, Signature].
+    Signature = base64:encode(crypto:hmac(sha, Config#rtcs_aws_config.secret_access_key, StringToSign)),
+    ["AWS ", Config#rtcs_aws_config.access_key_id, $:, Signature].
 
 format_subresources([]) ->
     [];
@@ -164,9 +166,9 @@ format_subresource({Subresource, Value}) when is_integer(Value) ->
 format_subresource(Subresource) ->
     Subresource.
 
-port_spec(#aws_config{s3_port=80}) ->
+port_spec(#rtcs_aws_config{s3_port=80}) ->
     "";
-port_spec(#aws_config{s3_port=Port}) ->
+port_spec(#rtcs_aws_config{s3_port=Port}) ->
     [":", erlang:integer_to_list(Port)].
 
 
@@ -194,16 +196,16 @@ hex_char(C) when C >= 10, C =< 15 -> $A + C - 10.
 
 
 
--spec get_object(string(), string(), proplists:proplist() | aws_config()) -> proplists:proplist().
+-spec get_object(string(), string(), proplists:proplist() | rtcs_aws_config()) -> proplists:proplist().
 get_object(BucketName, Key, Config)
-  when is_record(Config, aws_config) ->
+  when is_record(Config, rtcs_aws_config) ->
     get_object(BucketName, Key, [], Config).
 
--spec get_object(string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
+-spec get_object(string(), string(), proplists:proplist(), rtcs_aws_config()) -> proplists:proplist().
 get_object(BucketName, Key, Options, Config) ->
     fetch_object(get, BucketName, Key, Options, Config).
 
--spec fetch_object(atom(), string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
+-spec fetch_object(atom(), string(), string(), proplists:proplist(), rtcs_aws_config()) -> proplists:proplist().
 fetch_object(Method, BucketName, Key, Options, Config) ->
     RequestHeaders = [{"Range", proplists:get_value(range, Options)},
                       {"Accept", proplists:get_value(accept, Options)},
@@ -253,3 +255,10 @@ url_encode([Char|String], Accum)
 
 extract_metadata(Headers) ->
     [{Key, Value} || {["x-amz-meta-"|Key], Value} <- Headers].
+
+
+-spec upgrade_config(rtcs_aws_config()) -> erlcloud:aws_config().
+upgrade_config(#rtcs_aws_config{access_key_id = KeyId,
+                                secret_access_key = SAK}) ->
+    #aws_config{access_key_id = KeyId,
+                secret_access_key = SAK}.
