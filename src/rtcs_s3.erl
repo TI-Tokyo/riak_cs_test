@@ -7,13 +7,27 @@
 -module(rtcs_s3).
 
 -export([new/2, new/3, new/4, new/5, new/8,
-         s3_request/9, get_object/3,
+         s3_request/9, get_object/3, put_object/4,
+         create_bucket/2,
          upgrade_config/1]).
 
--include("rtcs_erlcloud_aws.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
+-include("rtcs_erlcloud_aws.hrl").
 
--define(RCS_REWRITE_HEADER, "x-rcs-rewrite-path").
+-define(XMLNS_S3, "http://s3.amazonaws.com/doc/2006-03-01/").
+
+
+-type s3_bucket_acl() :: private
+                       | public_read
+                       | public_read_write
+                       | authenticated_read
+                       | bucket_owner_read
+                       | bucket_owner_full_control.
+
+-type s3_location_constraint() :: none
+                                | us_west_1
+                                | eu.
 
 
 -spec new(string(), string()) -> rtcs_aws_config().
@@ -132,6 +146,23 @@ s3_request(Config, Method, Host, Path, Subresources, Params, POSTData, Headers, 
             erlang:error({aws_error, {socket_error, Error}})
     end.
 
+
+s3_simple_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) ->
+    case s3_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers, []) of
+        {_Headers, ""} -> ok;
+        {_Headers, Body} ->
+            XML = element(1,xmerl_scan:string(Body)),
+            case XML of
+                #xmlElement{name='Error'} ->
+                    ErrCode = rtcs_s3_xml:get_text("/Error/Code", XML),
+                    ErrMsg = rtcs_s3_xml:get_text("/Error/Message", XML),
+                    erlang:error({s3_error, ErrCode, ErrMsg});
+                _ ->
+                    ok
+            end
+    end.
+
+
 make_authorization(Config, Method, ContentMD5, ContentType, Date, AmzHeaders,
                    Host, Resource, Subresources) ->
     CanonizedAmzHeaders =
@@ -223,6 +254,67 @@ fetch_object(Method, BucketName, Key, Options, Config) ->
      {headers, Headers} |
      extract_metadata(Headers)].
 
+
+-spec put_object(string(), string(), iolist(), rtcs_aws_config()) -> proplists:proplist().
+put_object(BucketName, Key, Value, #rtcs_aws_config{} = Config) ->
+    put_object(BucketName, Key, Value, [], Config).
+
+-spec put_object(string(), string(), iolist(), proplists:proplist(), [{string(), string()}] | rtcs_aws_config()) -> {proplists:proplist(), proplists:proplist()}.
+put_object(BucketName, Key, Value, Options, Config)
+  when is_record(Config, rtcs_aws_config) ->
+    put_object(BucketName, Key, Value, Options, [], Config).
+
+-spec put_object(string(), string(), iolist(), proplists:proplist(), [{string(), string()}], rtcs_aws_config()) -> {proplists:proplist(), proplists:proplist()}.
+put_object(BucketName, Key, Value, Options, HTTPHeaders0, Config)
+  when is_list(BucketName), is_list(Key), is_list(Value) orelse is_binary(Value),
+       is_list(Options) ->
+    {ContentType, HTTPHeaders} = case lists:keytake("Content-Type", 1, HTTPHeaders0) of
+                                     {value, {_, CType}, Rest} -> {CType, Rest};
+                                     false -> {"application/octet-stream", HTTPHeaders0}
+                                 end,
+    RequestHeaders = [{"x-amz-acl", encode_acl(proplists:get_value(acl, Options))}|HTTPHeaders]
+        ++ [{"x-amz-meta-" ++ string:to_lower(MKey), MValue} ||
+               {MKey, MValue} <- proplists:get_value(meta, Options, [])],
+    ReturnResponse = proplists:get_value(return_response, Options, false),
+    POSTData = {iolist_to_binary(Value), ContentType},
+    {Headers, Body} = s3_request(Config, put, BucketName, [$/|Key], [], [],
+                                 POSTData, RequestHeaders, []),
+    case ReturnResponse of
+        true ->
+            {Headers, Body};
+        false ->
+            [{version_id, proplists:get_value("x-amz-version-id", Headers, "null")}]
+    end.
+
+
+
+
+-spec create_bucket(string(), rtcs_aws_config()) -> ok.
+create_bucket(BucketName, #rtcs_aws_config{} = Config) ->
+    create_bucket(BucketName, private, Config).
+
+-spec create_bucket(string(), s3_bucket_acl(), rtcs_aws_config()) -> ok.
+create_bucket(BucketName, ACL, #rtcs_aws_config{} = Config) ->
+    create_bucket(BucketName, ACL, none, Config).
+
+-spec create_bucket(string(), s3_bucket_acl(), s3_location_constraint(), rtcs_aws_config()) -> ok.
+create_bucket(BucketName, ACL, LocationConstraint, Config)
+  when is_list(BucketName), is_atom(ACL), is_atom(LocationConstraint) ->
+    Headers = case ACL of
+                  private -> [];  %% private is the default
+                  _       -> [{"x-amz-acl", encode_acl(ACL)}]
+              end,
+    POSTData = case LocationConstraint of
+                   none -> {<<>>, "application/octet-stream"};
+                   Location when Location =:= eu; Location =:= us_west_1 ->
+                       LocationName = case Location of eu -> "EU"; us_west_1 -> "us-west-1" end,
+                       XML = {'CreateBucketConfiguration', [{xmlns, ?XMLNS_S3}],
+                              [{'LocationConstraint', [LocationName]}]},
+                       list_to_binary(xmerl:export_simple([XML], xmerl_xml))
+               end,
+    s3_simple_request(Config, put, BucketName, "/", "", [], POSTData, Headers).
+
+
 make_query_string(Params) ->
     string:join([[Key, "=", url_encode(value_to_string(Value))]
                  || {Key, Value} <- Params, Value =/= none, Value =/= undefined], "&").
@@ -252,6 +344,14 @@ url_encode([Char|String], Accum)
 extract_metadata(Headers) ->
     [{Key, Value} || {["x-amz-meta-"|Key], Value} <- Headers].
 
+
+encode_acl(undefined)                 -> undefined;
+encode_acl(private)                   -> "private";
+encode_acl(public_read)               -> "public-read";
+encode_acl(public_read_write)         -> "public-read-write";
+encode_acl(authenticated_read)        -> "authenticated-read";
+encode_acl(bucket_owner_read)         -> "bucket-owner-read";
+encode_acl(bucket_owner_full_control) -> "bucket-owner-full-control".
 
 -spec upgrade_config(rtcs_aws_config()) -> erlcloud:aws_config().
 upgrade_config(#rtcs_aws_config{access_key_id = KeyId,

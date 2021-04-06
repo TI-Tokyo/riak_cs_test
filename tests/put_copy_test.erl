@@ -49,7 +49,7 @@
 confirm() ->
     {UserConfig048, {RiakNodes, _CSNodes, _}} = rtcs:setup(1),
     UserConfig = rtcs_s3:upgrade_config(UserConfig048),
-    ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET, UserConfig)),
+    ?assertEqual(ok, rtcs_s3:create_bucket(?BUCKET, UserConfig)),
     Data = ?DATA0,
     ?assertEqual([{version_id, "null"}],
                  erlcloud_s3:put_object(?BUCKET, ?KEY, Data, UserConfig)),
