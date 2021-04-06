@@ -3,9 +3,6 @@
 %% version, https://github.com/basho/erlcloud/releases/tag/0.4.6,
 %% could not be (easily) built in otp-22, so here's some functions
 %% manually copied from it.
-%%
-%% The only post-copy change I made is include {?RCS_REWRITE_HEADER,
-%% Path}.
 
 -module(rtcs_s3).
 
@@ -89,8 +86,7 @@ s3_request(Config, Method, Host, Path, Subresources, Params, POSTData, Headers, 
     Authorization = make_authorization(Config, Method, ContentMD5, ContentType,
                                        Date, AmzHeaders, Host, EscapedPath, Subresources),
     FHeaders = [Header || {_, Value} = Header <- Headers, Value =/= undefined],
-    RequestHeaders = [{"date", Date}, {"authorization", Authorization},
-                      {?RCS_REWRITE_HEADER, Path} | FHeaders] ++
+    RequestHeaders = [{"date", Date}, {"authorization", Authorization} | FHeaders] ++
         case ContentMD5 of
             "" -> [];
             _ -> [{"content-md5", binary_to_list(ContentMD5)}]
