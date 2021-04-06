@@ -24,7 +24,7 @@
 -compile(nowarn_export_all).
 
 -include_lib("eunit/include/eunit.hrl").
--include("rtcs_erlcloud_aws.hrl").
+-include_lib("erlcloud/include/erlcloud_aws.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
 -import(rt, [join/2,
@@ -181,8 +181,8 @@ setup_admin_user(NumNodes, Vsn)
 
     %% Create admin user and set in cs and stanchion configs
     AdminCreds = rtcs_admin:create_admin_user(1),
-    #rtcs_aws_config{access_key_id=KeyID,
-                     secret_access_key=KeySecret} = AdminCreds,
+    #aws_config{access_key_id=KeyID,
+                secret_access_key=KeySecret} = AdminCreds,
 
     AdminConf = [{admin_key, KeyID}]
         ++ case Vsn of

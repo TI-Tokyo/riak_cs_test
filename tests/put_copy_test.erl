@@ -23,7 +23,6 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
--include("../include/rtcs_erlcloud_aws.hrl").
 
 -define(assert403(X),
         ?assertError({aws_error, {http_error, 403, _, _}}, (X))).
@@ -47,9 +46,8 @@
 -define(REPLACE_KEY, "replace-target").
 
 confirm() ->
-    {UserConfig048, {RiakNodes, _CSNodes, _}} = rtcs:setup(1),
-    UserConfig = rtcs_s3:upgrade_config(UserConfig048),
-    ?assertEqual(ok, rtcs_s3:create_bucket(?BUCKET, UserConfig)),
+    {UserConfig, {RiakNodes, _CSNodes, _}} = rtcs:setup(1),
+    ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET, UserConfig)),
     Data = ?DATA0,
     ?assertEqual([{version_id, "null"}],
                  erlcloud_s3:put_object(?BUCKET, ?KEY, Data, UserConfig)),
@@ -102,7 +100,7 @@ verify_others_copy(UserConfig, OtherUserConfig) ->
     Acl = [{acl, public_read}],
     ?assertEqual([{version_id,"null"}],
                  erlcloud_s3:put_object(?BUCKET, ?KEY, ?DATA0,
-                                        Acl, [], UserConfig)),
+                                    Acl, [], UserConfig)),
 
     %% make sure observable from Other
     Props = erlcloud_s3:get_object(?BUCKET, ?KEY, OtherUserConfig),
@@ -146,10 +144,10 @@ verify_multipart_copy(UserConfig) ->
 
     EtagList = [ {1, Etag1}, {2, Etag2} ],
     ?assertEqual(ok, erlcloud_s3_multipart:complete_upload(?BUCKET2,
-                                                           ?KEY3,
-                                                           UploadId,
-                                                           EtagList,
-                                                           UserConfig)),
+                                                       ?KEY3,
+                                                       UploadId,
+                                                       EtagList,
+                                                       UserConfig)),
 
     UploadsList2 = erlcloud_s3_multipart:list_uploads(?BUCKET2, [], UserConfig),
     Uploads2 = proplists:get_value(uploads, UploadsList2, []),
@@ -178,19 +176,19 @@ verify_security(Alice, Bob, Charlie) ->
 
     ?assertEqual([{version_id, "null"}],
                  erlcloud_s3:put_object(AlicesBucket, AlicesObject,
-                                        <<"I'm here!!">>, Alice)),
+                                    <<"I'm here!!">>, Alice)),
     ?assertEqual([{version_id, "null"}],
                  erlcloud_s3:put_object(AlicesBucket, AlicesPublicObject,
-                                        <<"deadbeef">>, [{acl, public_read}], Alice)),
+                                    <<"deadbeef">>, [{acl, public_read}], Alice)),
     ?assertEqual([{version_id, "null"}],
                  erlcloud_s3:put_object(AlicesPublicBucket, AlicesObject,
-                                        <<"deadly public beef">>, Alice)),
+                                    <<"deadly public beef">>, Alice)),
 
     %% setup Bob's box
     ?assertEqual(ok, erlcloud_s3:create_bucket(BobsBucket, Bob)),
     ?assertEqual([{version_id, "null"}],
                  erlcloud_s3:put_object(BobsBucket, BobsObject,
-                                        <<"bobfat">>, Bob)),
+                                    <<"bobfat">>, Bob)),
 
     %% >> setup Charlie's box
     ?assertEqual(ok, erlcloud_s3:create_bucket(CharliesBucket, Charlie)),
@@ -198,11 +196,11 @@ verify_security(Alice, Bob, Charlie) ->
     %% >> Bob can do it right
     %% Bring Alice's objects to Bob's bucket
     ?assert403(erlcloud_s3:copy_object(BobsBucket, AlicesObject,
-                                       AlicesBucket, AlicesObject, Bob)),
+                                   AlicesBucket, AlicesObject, Bob)),
 
     ?assertEqual([{copy_source_version_id, "false"}, {version_id, "null"}],
                  erlcloud_s3:copy_object(BobsBucket, AlicesPublicObject,
-                                         AlicesBucket, AlicesPublicObject, Bob)),
+                                     AlicesBucket, AlicesPublicObject, Bob)),
 
     %% TODO: put to public bucket is degrated for now
     %% ?assertEqual([{copy_source_version_id, "false"}, {version_id, "null"}],
@@ -212,7 +210,7 @@ verify_security(Alice, Bob, Charlie) ->
     %% Bring Bob's object to Alice's bucket
     ?assertEqual([{copy_source_version_id, "false"}, {version_id, "null"}],
                  erlcloud_s3:copy_object(AlicesPublicBucket, BobsObject,
-                                         BobsBucket, BobsObject, Bob)),
+                                     BobsBucket, BobsObject, Bob)),
     %% Cleanup Bob's
     ?assertEqual([{delete_marker, false}, {version_id, "null"}],
                  erlcloud_s3:delete_object(BobsBucket, AlicesPublicObject, Bob)),
@@ -224,16 +222,16 @@ verify_security(Alice, Bob, Charlie) ->
     %% >> Charlie can't do it
     %% try copying Alice's private object to Charlie's
     ?assert403(erlcloud_s3:copy_object(CharliesBucket, AlicesObject,
-                                       AlicesBucket, AlicesObject, Charlie)),
+                                   AlicesBucket, AlicesObject, Charlie)),
 
     ?assert403(erlcloud_s3:copy_object(AlicesPublicBucket, AlicesObject,
-                                       AlicesBucket, AlicesObject, Charlie)),
+                                   AlicesBucket, AlicesObject, Charlie)),
 
     %% try copy Alice's public object to Bob's
     ?assert403(erlcloud_s3:copy_object(BobsBucket, AlicesPublicObject,
-                                       AlicesBucket, AlicesPublicObject, Charlie)),
+                                   AlicesBucket, AlicesPublicObject, Charlie)),
     ?assert403(erlcloud_s3:copy_object(BobsBucket, AlicesObject,
-                                       AlicesPublicBucket, AlicesObject, Charlie)),
+                                   AlicesPublicBucket, AlicesObject, Charlie)),
 
     %% charlie tries to copy anonymously, which should fail in 403
     CSPort = Charlie#aws_config.s3_port,
@@ -242,8 +240,8 @@ verify_security(Alice, Bob, Charlie) ->
                                        CSPort, AlicesObject])),
     Headers = [{"x-amz-copy-source", string:join([AlicesBucket, AlicesObject], "/")},
                {"Content-Length", 0}],
-    {ok, Status, Hdr, _} = hackney:request(put, URL, Headers, [],
-                                           Charlie#aws_config.hackney_client_options),
+    {ok, Status, Hdr, _Msg} = ibrowse:send_req(URL, Headers, put, [],
+                                               Charlie#aws_config.http_options),
     lager:debug("request ~p ~p => ~p ~p", [URL, Headers, Status, Hdr]),
     ?assertEqual("403", Status),
 
@@ -253,7 +251,7 @@ verify_source_not_found(UserConfig) ->
     NonExistingKey = "non-existent-source",
     {'EXIT', {{aws_error, {http_error, 404, _, ErrorXml}}, _Stack}} =
         (catch erlcloud_s3:copy_object(?BUCKET2, ?KEY2,
-                                       ?BUCKET, NonExistingKey, UserConfig)),
+                                   ?BUCKET, NonExistingKey, UserConfig)),
     lager:debug("ErrorXml: ~s", [ErrorXml]),
     ?assert(string:str(ErrorXml,
                        "<Resource>/" ++ ?BUCKET ++
@@ -279,7 +277,7 @@ verify_replace_usermeta(UserConfig) ->
                 {meta, [{"key3", "val3"}, {"key4", "val4"}]}],
     ?assertEqual([{copy_source_version_id, "false"}, {version_id, "null"}],
                  erlcloud_s3:copy_object(?BUCKET, ?REPLACE_KEY, ?BUCKET, ?REPLACE_KEY,
-                                         Options1, Headers1, UserConfig)),
+                                     Options1, Headers1, UserConfig)),
     Props1 = erlcloud_s3:get_object(?BUCKET, ?REPLACE_KEY, UserConfig),
     lager:debug("Updated Obj: ~p", [Props1]),
     ?assertEqual(?DATA0, proplists:get_value(content, Props1)),

@@ -99,12 +99,9 @@ send_ssl_request(Config, Payload) ->
     ssl:close(Sock),
     ok.
 
-get_config_target_address(#aws_config{s3_host = Host, s3_port = Port, http_proxy = undefined}) ->
-    {Host, Port};
-get_config_target_address(#aws_config{s3_host = undefined, s3_port = Port, http_proxy = undefined}) ->
-    {"localhost", Port};
-get_config_target_address(#aws_config{http_proxy = PHost, s3_port = Port}) ->
-    {PHost, Port}.
+get_config_target_address(#aws_config{s3_port = Port, http_options = Opts}) ->
+    {proplists:get_value(proxy_host, Opts, "localhost"),
+     proplists:get_value(proxy_port, Opts, Port)}.
 
 base_header(B, K, CL, MD5, UserConfig, MetaTags) ->
     Host = io_lib:format("~s.s3.amazonaws.com", [B]),

@@ -36,14 +36,14 @@
          aws_config/3]).
 
 -include_lib("eunit/include/eunit.hrl").
--include("rtcs_erlcloud_aws.hrl").
+-include_lib("erlcloud/include/erlcloud_aws.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
 -define(S3_HOST, "s3.amazonaws.com").
 -define(DEFAULT_PROTO, "http").
 -define(PROXY_HOST, "localhost").
 
--spec storage_stats_json_request(#rtcs_aws_config{}, #rtcs_aws_config{}, string(), string()) ->
+-spec storage_stats_json_request(#aws_config{}, #aws_config{}, string(), string()) ->
                                         [{string(), {non_neg_integer(), non_neg_integer()}}].
 storage_stats_json_request(AdminConfig, UserConfig, Begin, End) ->
     Samples = samples_from_json_request(AdminConfig, UserConfig, {Begin, End}),
@@ -60,43 +60,44 @@ create_user_rpc(Node, Key, Secret) ->
     _Res = rpc:call(Node, riak_cs_user, create_user, [User, Email, Key, Secret]),
     aws_config(Key, Secret, rtcs_config:cs_port(1)).
 
--spec create_admin_user(atom()) -> #rtcs_aws_config{}.
+-spec create_admin_user(atom()) -> #aws_config{}.
 create_admin_user(Node) ->
     User = "admin",
     Email = "admin@me.com",
     {UserConfig, Id} = create_user(rtcs_config:cs_port(Node), Email, User),
     lager:info("Riak CS Admin account created with ~p",[Email]),
-    lager:info("KeyId = ~p",[UserConfig#rtcs_aws_config.access_key_id]),
-    lager:info("KeySecret = ~p",[UserConfig#rtcs_aws_config.secret_access_key]),
+    lager:info("KeyId = ~p",[UserConfig#aws_config.access_key_id]),
+    lager:info("KeySecret = ~p",[UserConfig#aws_config.secret_access_key]),
     lager:info("Id = ~p",[Id]),
     UserConfig.
 
--spec create_user(atom(), non_neg_integer()) -> #rtcs_aws_config{}.
+-spec create_user(atom(), non_neg_integer()) -> #aws_config{}.
 create_user(Node, UserIndex) ->
     {A, B, C} = erlang:timestamp(),
     User = "Test User" ++ integer_to_list(UserIndex),
     Email = lists:flatten(io_lib:format("~p~p~p@basho.com", [A, B, C])),
     {UserConfig, _Id} = create_user(rtcs_config:cs_port(Node), Email, User),
     lager:info("Created user ~p with keys ~p ~p", [Email,
-                                                   UserConfig#rtcs_aws_config.access_key_id,
-                                                   UserConfig#rtcs_aws_config.secret_access_key]),
+                                                   UserConfig#aws_config.access_key_id,
+                                                   UserConfig#aws_config.secret_access_key]),
     UserConfig.
 
--spec create_user(non_neg_integer(), string(), string()) -> {#rtcs_aws_config{}, string()}.
+-spec create_user(non_neg_integer(), string(), string()) -> {#aws_config{}, string()}.
 create_user(Port, EmailAddr, Name) ->
     %% create_user(Port, undefined, EmailAddr, Name).
     create_user(Port, aws_config("admin-key", "admin-secret", Port), EmailAddr, Name).
 
--spec create_user(non_neg_integer(), string(), string(), string()) -> {#rtcs_aws_config{}, string()}.
-create_user(Port, UserConfig, EmailAddr, Name) ->
+-spec create_user(non_neg_integer(), string(), string(), string()) -> {#aws_config{}, string()}.
+create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
     lager:debug("Trying to create user ~p", [EmailAddr]),
     Resource = "/riak-cs/user",
     ReqBody = "{\"email\":\"" ++ EmailAddr ++  "\", \"name\":\"" ++ Name ++"\"}",
     Delay = rt_config:get(rt_retry_delay),
     Retries = rt_config:get(rt_max_wait_time) div Delay,
-    OutputFun = fun() -> rtcs_s3:s3_request(
-                           UserConfig, post, "", Resource, [], "",
-                           {ReqBody, "application/json"}, [], [])
+    OutputFun = fun() -> erlcloud_s3:s3_request(
+                           UserConfig,
+                           post, "", Resource, [], "",
+                           {ReqBody, "application/json"}, [])
                 end,
     Condition = fun({'EXIT', Res}) ->
                         lager:error("create_user failing, Res: ~p", [Res]),
@@ -111,39 +112,39 @@ create_user(Port, UserConfig, EmailAddr, Name) ->
                                  K <- [<<"key_id">>, <<"key_secret">>, <<"id">>]],
     {aws_config(KeyId, KeySecret, Port), Id}.
 
--spec update_user(#rtcs_aws_config{}, non_neg_integer(), string(), string(), string()) -> string().
+-spec update_user(#aws_config{}, non_neg_integer(), string(), string(), string()) -> string().
 update_user(UserConfig, _Port, Resource, ContentType, UpdateDoc) ->
-    {_ResHeader, ResBody} = rtcs_s3:s3_request(
+    {_ResHeader, ResBody} = erlcloud_s3:s3_request(
                               UserConfig, put, "", Resource, [], "",
                               {UpdateDoc, ContentType}, [], []),
     lager:debug("ResBody: ~s", [ResBody]),
     ResBody.
 
--spec get_user(#rtcs_aws_config{}, non_neg_integer(), string(), string()) -> string().
+-spec get_user(#aws_config{}, non_neg_integer(), string(), string()) -> string().
 get_user(UserConfig, _Port, Resource, AcceptContentType) ->
     lager:debug("Retreiving user record"),
     Headers = [{"Accept", AcceptContentType}],
-    {_ResHeader, ResBody} = rtcs_s3:s3_request(
+    {_ResHeader, ResBody} = erlcloud_s3:s3_request(
                               UserConfig, get, "", Resource, [], "", "", Headers),
     lager:debug("ResBody: ~s", [ResBody]),
     ResBody.
 
--spec list_users(#rtcs_aws_config{}, non_neg_integer(), string(), string()) -> string().
+-spec list_users(#aws_config{}, non_neg_integer(), string(), string()) -> string().
 list_users(UserConfig, _Port, Resource, AcceptContentType) ->
     Headers = [{"Accept", AcceptContentType}],
-    {_ResHeader, ResBody} = rtcs_s3:s3_request(
+    {_ResHeader, ResBody} = erlcloud_s3:s3_request(
                               UserConfig, get, "", Resource, [], "", "", Headers),
     ResBody.
 
--spec(make_authorization(string(), string(), string(), #rtcs_aws_config{}, string()) -> string()).
+-spec(make_authorization(string(), string(), string(), #aws_config{}, string()) -> string()).
 make_authorization(Method, Resource, ContentType, Config, Date) ->
     make_authorization(Method, Resource, ContentType, Config, Date, []).
 
--spec(make_authorization(string(), string(), string(), #rtcs_aws_config{}, string(), [{string(), string()}]) -> string()).
+-spec(make_authorization(string(), string(), string(), #aws_config{}, string(), [{string(), string()}]) -> string()).
 make_authorization(Method, Resource, ContentType, Config, Date, AmzHeaders) ->
     make_authorization(s3, Method, Resource, ContentType, Config, Date, AmzHeaders).
 
--spec(make_authorization(atom(), string(), string(), string(), #rtcs_aws_config{}, string(), [{string(), string()}]) -> string()).
+-spec(make_authorization(atom(), string(), string(), string(), #aws_config{}, string(), [{string(), string()}]) -> string()).
 make_authorization(Type, Method, Resource, ContentType, Config, Date, AmzHeaders) ->
     Prefix = case Type of
                  s3 -> "AWS";
@@ -154,12 +155,12 @@ make_authorization(Type, Method, Resource, ContentType, Config, Date, AmzHeaders
                     StsAmzHeaderPart, Resource],
     lager:debug("StringToSign~n~s~n", [StringToSign]),
     Signature =
-        base64:encode_to_string(rtcs:sha_mac(Config#rtcs_aws_config.secret_access_key, StringToSign)),
-    lists:flatten([Prefix, " ", Config#rtcs_aws_config.access_key_id, $:, Signature]).
+        base64:encode_to_string(rtcs:sha_mac(Config#aws_config.secret_access_key, StringToSign)),
+    lists:flatten([Prefix, " ", Config#aws_config.access_key_id, $:, Signature]).
 
--spec aws_config(string(), string(), non_neg_integer()) -> #rtcs_aws_config{}.
+-spec aws_config(string(), string(), non_neg_integer()) -> #aws_config{}.
 aws_config(Key, Secret, Port) ->
-    rtcs_s3:new(Key,
+    erlcloud_s3:new(Key,
                 Secret,
                 ?S3_HOST,
                 Port, % inets issue precludes using ?S3_PORT
@@ -168,38 +169,38 @@ aws_config(Key, Secret, Port) ->
                 Port,
                 []).
 
--spec aws_config(#rtcs_aws_config{}, [{atom(), term()}]) -> #rtcs_aws_config{}.
+-spec aws_config(#aws_config{}, [{atom(), term()}]) -> #aws_config{}.
 aws_config(UserConfig, []) ->
     UserConfig;
 aws_config(UserConfig, [{port, Port}|Props]) ->
-    UpdConfig = rtcs_s3:new(UserConfig#rtcs_aws_config.access_key_id,
-                            UserConfig#rtcs_aws_config.secret_access_key,
-                            ?S3_HOST,
-                            Port, % inets issue precludes using ?S3_PORT
-                            ?DEFAULT_PROTO,
-                            ?PROXY_HOST,
-                            Port,
-                            []),
+    UpdConfig = erlcloud_s3:new(UserConfig#aws_config.access_key_id,
+                                UserConfig#aws_config.secret_access_key,
+                                ?S3_HOST,
+                                Port, % inets issue precludes using ?S3_PORT
+                                ?DEFAULT_PROTO,
+                                ?PROXY_HOST,
+                                Port,
+                                []),
     aws_config(UpdConfig, Props);
 aws_config(UserConfig, [{key, KeyId}|Props]) ->
-    UpdConfig = rtcs_s3:new(KeyId,
-                            UserConfig#rtcs_aws_config.secret_access_key,
-                            ?S3_HOST,
-                            UserConfig#rtcs_aws_config.s3_port, % inets issue precludes using ?S3_PORT
-                            ?DEFAULT_PROTO,
-                            ?PROXY_HOST,
-                            UserConfig#rtcs_aws_config.s3_port,
-                            []),
+    UpdConfig = erlcloud_s3:new(KeyId,
+                                UserConfig#aws_config.secret_access_key,
+                                ?S3_HOST,
+                                UserConfig#aws_config.s3_port, % inets issue precludes using ?S3_PORT
+                                ?DEFAULT_PROTO,
+                                ?PROXY_HOST,
+                                UserConfig#aws_config.s3_port,
+                                []),
     aws_config(UpdConfig, Props);
 aws_config(UserConfig, [{secret, Secret}|Props]) ->
-    UpdConfig = rtcs_s3:new(UserConfig#rtcs_aws_config.access_key_id,
-                            Secret,
-                            ?S3_HOST,
-                            UserConfig#rtcs_aws_config.s3_port, % inets issue precludes using ?S3_PORT
-                            ?DEFAULT_PROTO,
-                            ?PROXY_HOST,
-                            UserConfig#rtcs_aws_config.s3_port,
-                            []),
+    UpdConfig = erlcloud_s3:new(UserConfig#aws_config.access_key_id,
+                                Secret,
+                                ?S3_HOST,
+                                UserConfig#aws_config.s3_port, % inets issue precludes using ?S3_PORT
+                                ?DEFAULT_PROTO,
+                                ?PROXY_HOST,
+                                UserConfig#aws_config.s3_port,
+                                []),
     aws_config(UpdConfig, Props).
 
 
@@ -228,9 +229,9 @@ by_bucket_list([{BucketBin, {struct,[{<<"Objects">>, Objs},
     by_bucket_list(Rest, [{binary_to_list(BucketBin), {Objs, Bytes}}|Acc]).
 
 samples_from_json_request(AdminConfig, UserConfig, {Begin, End}) ->
-    KeyId = UserConfig#rtcs_aws_config.access_key_id,
+    KeyId = UserConfig#aws_config.access_key_id,
     StatsKey = string:join(["usage", KeyId, "bj", Begin, End], "/"),
-    GetResult = rtcs_s3:get_object("riak-cs", StatsKey, AdminConfig),
+    GetResult = erlcloud_s3:get_object("riak-cs", StatsKey, AdminConfig),
     Usage = mochijson2:decode(proplists:get_value(content, GetResult)),
     rtcs:json_get([<<"Storage">>, <<"Samples">>], Usage).
 
