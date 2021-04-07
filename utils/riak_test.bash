@@ -25,5 +25,5 @@ _riak_test()
             ;;
     esac
 }
-complete -F _riak_test riak_test
+complete -F _riak_test riak_test ./riak_test
 
