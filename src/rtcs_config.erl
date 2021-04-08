@@ -385,8 +385,12 @@ update_admin_creds(Config, AdminKey) ->
      proplists:delete(admin_key, Config)].
 
 update_cs_port(Config, N) ->
-    Config2 = [{riak_host, {"127.0.0.1", pb_port(N)}} | proplists:delete(riak_host, Config)],
-    [{listener, {"127.0.0.1", cs_port(N)}} | proplists:delete(listener, Config2)].
+    lists:foldl(
+      fun({K, V}, Acc) -> lists:keystore(K, 1, Acc, {K, V}) end,
+      Config,
+      [{riak_host, {"127.0.0.1", pb_port(N)}},
+       {listener, {"127.0.0.1", cs_port(N)}}
+      ]).
 
 update_stanchion_config(Prefix, Config, {AdminKey, _AdminSecret}) ->
     StanchionSection = proplists:get_value(stanchion, Config),
