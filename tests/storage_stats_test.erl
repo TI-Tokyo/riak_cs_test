@@ -238,7 +238,7 @@ calc_storage_stats(CSNode) ->
     %% FIXME: workaround for #766
     timer:sleep(1000),
     Res = rtcs_exec:calculate_storage(1),
-    lager:info("riak-cs-storage batch result: ~s", [Res]),
+    lager:info("riak-cs-admin storage batch result: ~s", [Res]),
     ExpectRegexp = "Batch storage calculation started.\n$",
     ?assertMatch({match, _}, re:run(Res, ExpectRegexp)),
     true = rt:expect_in_log(CSNode, "Finished storage calculation"),

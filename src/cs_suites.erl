@@ -231,7 +231,7 @@ apply_operation(stats_storage, CurrentCircle,
                 #state{admin_config=AdminConfig, begin_at=Begin,
                        cs_nodes=[CSNode|_], circles=Circles} = State) ->
     Res = rtcs_exec:calculate_storage(1),
-    lager:info("riak-cs-storage batch result: ~s", [Res]),
+    lager:info("riak-cs-admin storage batch result: ~s", [Res]),
     ExpectRegexp = "Batch storage calculation started.\n$",
     ?assertMatch({match, _}, re:run(Res, ExpectRegexp)),
     true = rt:expect_in_log(CSNode, "Finished storage calculation"),
