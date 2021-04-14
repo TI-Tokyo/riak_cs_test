@@ -262,9 +262,10 @@ stop_all(DevPath) ->
             %% Works, but I'd like it to brag a little more about it.
             Stop = fun(C) ->
                 Cmd = stop_command(C),
-                [Output | _Tail] = string:tokens(os:cmd(Cmd), "\n"),
+                Output = string:tokens(os:cmd(Cmd), "\n"),
                 Status = case Output of
-                    "ok" -> "ok";
+                    [] -> "ok";
+                    ["ok" | _] -> "ok";
                     _ -> "wasn't running"
                 end,
                 lager:info("Stopping Node... ~s ~~ ~s.", [Cmd, Status])
