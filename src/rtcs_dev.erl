@@ -150,7 +150,7 @@ get_conf(Node) ->
     get_conf(Path, N).
 
 get_conf(DevPath, N) ->
-    WildCard = io_lib:format("~s/dev/dev~b/~s/etc/*.conf", [DevPath, N, rtdev:devpath_mid_elem(DevPath)]),
+    WildCard = io_lib:format("~s/dev/dev~b/~s/etc/*.conf", [DevPath, N, rtdev:which_riak(DevPath)]),
     [Conf] = filelib:wildcard(WildCard),
     Conf.
 
@@ -183,8 +183,8 @@ update_app_config(Node, Config) when is_atom(Node) ->
     Path = relpath(node_version(N)),
     FileFormatString = "~s/dev/dev~b/~s/etc/~s.config",
 
-    AppConfigFile = io_lib:format(FileFormatString, [Path, N, rtdev:devpath_mid_elem(Path), "app"]),
-    AdvConfigFile = io_lib:format(FileFormatString, [Path, N, rtdev:devpath_mid_elem(Path), "advanced"]),
+    AppConfigFile = io_lib:format(FileFormatString, [Path, N, rtdev:which_riak(Path), "app"]),
+    AdvConfigFile = io_lib:format(FileFormatString, [Path, N, rtdev:which_riak(Path), "advanced"]),
     %% If there's an app.config, do it old style
     %% if not, use cuttlefish's adavnced.config
     case filelib:is_file(AppConfigFile) of
@@ -496,7 +496,7 @@ devpaths() ->
 all_the_files(DevPath, File) ->
     case filelib:is_dir(DevPath) of
         true ->
-            Wildcard = io_lib:format("~s/dev/*/~s/~s", [DevPath, rtdev:devpath_mid_elem(DevPath), File]),
+            Wildcard = io_lib:format("~s/dev/*/~s/~s", [DevPath, rtdev:which_riak(DevPath), File]),
             filelib:wildcard(Wildcard);
         _ ->
             lager:debug("~s is not a directory.", [DevPath]),
