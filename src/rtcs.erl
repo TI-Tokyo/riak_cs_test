@@ -146,10 +146,10 @@ deploy_nodes(NumNodes, InitialConfig, Vsn)
                                                    cs_nodes(NumNodes),
                                                    stanchion_node()},
 
-    NodeMap = orddict:from_list(lists:zip(RiakNodes, lists:seq(1, NumNodes))),
+    NodeMap = orddict:from_list(lists:zip(RiakNodes, lists:seq(1, NumNodes)) ++
+                                    lists:zip(CSNodes, lists:seq(1, NumNodes)) ++
+                                    [{StanchionNode, 1}]),
     rt_config:set(rt_nodes, NodeMap),
-    CSNodeMap = orddict:from_list(lists:zip(CSNodes, lists:seq(1, NumNodes))),
-    rt_config:set(rt_cs_nodes, CSNodeMap),
 
     {_RiakRoot, RiakVsn} = rtcs_dev:riak_root_and_vsn(Vsn, rt_config:get(build_type, oss)),
     lager:debug("setting rt_versions> ~p =>", [Vsn]),
