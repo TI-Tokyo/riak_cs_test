@@ -182,12 +182,14 @@ update_app_config(DevPath, Config) ->
 update_app_config_file(ConfigFile, Config) ->
     lager:info("rtcs_dev:update_app_config_file(~s, ~p)", [ConfigFile, Config]),
 
-    BaseConfig = case file:consult(ConfigFile) of
-        {ok, [ValidConfig]} ->
-            ValidConfig;
-        {error, enoent} ->
-            []
-    end,
+    BaseConfig =
+        case file:consult(ConfigFile) of
+            {ok, [ValidConfig]} ->
+                ValidConfig;
+            {error, enoent} ->
+                lager:warning("~s not found", [ConfigFile]),
+                []
+        end,
     MergeA = orddict:from_list(Config),
     MergeB = orddict:from_list(BaseConfig),
     NewConfig =
@@ -211,7 +213,7 @@ node_path(Node) ->
     Path = relpath(node_version(N)),
     lists:flatten(io_lib:format("~s/dev/dev~b/riak-cs", [Path, N])).
 
-create_dirs(Nodes) ->
+create_snmp_dirs(Nodes) ->
     Snmp = [node_path(Node) ++ "/data/snmp/agent/db" || Node <- Nodes],
     [?assertCmd("mkdir -p " ++ Dir) || Dir <- Snmp].
 
@@ -264,8 +266,7 @@ clean_data_dir_all(DevPath) ->
             Devs = filelib:wildcard(DevPath ++ "/dev/*"),
 
             Clean = fun(C) ->
-                            rm_dir(C ++ "/data"),
-                            lager:info("Deleted data dir in ~s", [C])
+                            rm_dir(C ++ "/" ++ rtdev:which_riak(DevPath) ++ "/data")
                     end,
             [Clean(D) || D <- Devs];
         _ -> lager:info("~s is not a directory.", [DevPath])

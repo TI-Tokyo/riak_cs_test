@@ -116,7 +116,7 @@ setup_harness(_Test, _Args) ->
     rt_cover:maybe_stop_on_nodes(),
     Path = relpath(root),
     %% Stop all discoverable nodes, not just nodes we'll be using for this test.
-    rt:pmap(fun(X) -> stop_all(X ++ "/dev") end, devpaths()),
+    rt:pmap(fun(X) -> stop_all(X) end, devpaths()),
 
     %% Reset nodes to base state
     lager:info("Resetting nodes to fresh state"),
@@ -574,7 +574,7 @@ wait_for_pid(PidStr, Timeout) ->
 stop_all(DevPath) ->
     case filelib:is_dir(DevPath) of
         true ->
-            Devs = filelib:wildcard(DevPath ++ "/dev*/"++which_riak(DevPath)++"/"),
+            Devs = filelib:wildcard(DevPath ++ "/dev/dev*/" ++ which_riak(DevPath)),
             Nodes = [?DEV(N) || N <- lists:seq(1, length(Devs))],
             MyNode = 'riak_test@127.0.0.1',
             case net_kernel:start([MyNode, longnames]) of

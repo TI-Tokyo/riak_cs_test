@@ -180,7 +180,7 @@ maybe_start_on_node(Node, Version) ->
         {current, _} -> true;
         _            -> false
     end,
-    CoverMods = cover:modules(), 
+    CoverMods = cover:modules(),
     ShouldStart = IsCurrent andalso
                   CoverMods /= [] andalso
                   erlang:whereis(?COVER_SERVER) /= undefined,
