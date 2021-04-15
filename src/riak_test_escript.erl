@@ -121,7 +121,7 @@ main(Args) ->
         [{level, ConsoleLagerLevel},
             {formatter, ConsoleFormatter},
             {formatter_config, ConsoleFormatConfig}],
-    FileBackend = 
+    FileBackend =
         [{file, "log/test.log"}, {level, ConsoleLagerLevel}],
     application:set_env(lager, error_logger_hwm, 250), %% helpful for debugging
     application:set_env(lager, handlers, [{lager_console_backend, ConsoleBackend},
@@ -136,6 +136,7 @@ main(Args) ->
     end,
 
     Verbose = proplists:is_defined(verbose, ParsedArgs),
+    Teardown = not proplists:get_value(keep, ParsedArgs, false),
 
     Suites = proplists:get_all_values(suites, ParsedArgs),
     case Suites of
@@ -189,11 +190,13 @@ main(Args) ->
     net_kernel:start([ENode]),
     erlang:set_cookie(node(), Cookie),
 
-    TestResults = lists:filter(fun results_filter/1, [ run_test(Test, Outdir, TestMetaData, Report, HarnessArgs, length(Tests)) || {Test, TestMetaData} <- Tests]),
+    TestResults = lists:filter(
+                    fun results_filter/1,
+                    [ run_test(Test, Outdir, TestMetaData, Report, HarnessArgs, length(Tests), Teardown)
+                      || {Test, TestMetaData} <- Tests]),
     [rt_cover:maybe_import_coverage(proplists:get_value(coverdata, R)) || R <- TestResults],
     Coverage = rt_cover:maybe_write_coverage(all, CoverDir),
 
-    Teardown = not proplists:get_value(keep, ParsedArgs, false),
     Batch = lists:member(batch, ParsedArgs),
     maybe_teardown(Teardown, TestResults, Coverage, Verbose, Batch),
     ok.
@@ -304,15 +307,12 @@ is_runnable_test({TestModule, _}) ->
     code:ensure_loaded(Mod),
     erlang:function_exported(Mod, Fun, 0).
 
-run_test(Test, Outdir, TestMetaData, Report, HarnessArgs, NumTests) ->
+run_test(Test, Outdir, TestMetaData, Report, HarnessArgs, NumTests, Teardown) ->
     rt_cover:maybe_start(Test),
     SingleTestResult = riak_test_runner:confirm(Test, Outdir, TestMetaData,
                                                 HarnessArgs),
     CoverDir = rt_config:get(cover_output, "coverage"),
-    case NumTests of
-        1 -> keep_them_up;
-        _ -> rt:teardown()
-    end,
+
     CoverageFile = rt_cover:maybe_export_coverage(Test,
                                                   CoverDir,
                                                   erlang:phash2(TestMetaData)),
@@ -340,7 +340,15 @@ run_test(Test, Outdir, TestMetaData, Report, HarnessArgs, NumTests) ->
                      WebHook <- get_webhooks()]
             end
     end,
+
     rt_cover:stop(),
+    _ = case {NumTests, Teardown} of
+            {1, true} ->
+                rt:teardown();
+            _ ->
+                keep_clusters
+        end,
+
     [{coverdata, CoverageFile} | SingleTestResult].
 
 maybe_post_debug_logs(Base) ->

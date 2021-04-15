@@ -120,6 +120,11 @@ pass() ->
     pass.
 
 teardown() ->
+    %% this ensures all configured nodes, not just those that were
+    %% started for a particular test, are stopped and their data dirs
+    %% cleaned
+    rtcs_dev:teardown(),
+
     %% catch application:stop(sasl),
     catch application:stop(erlcloud),
     catch application:stop(ibrowse).

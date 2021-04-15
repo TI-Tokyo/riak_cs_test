@@ -36,12 +36,13 @@ get_deps() ->
     lists:flatten(io_lib:format("~s/dev/dev1/riak-cs/lib", [relpath(cs_current)])).
 
 setup_harness(_Test, _Args) ->
+
     confirm_build_type(rt_config:get(build_type, oss)),
     %% Stop all discoverable nodes, not just nodes we'll be using for this test.
-    rt:pmap(fun(X) -> stop_all(X) end, devpaths()),
-
-    %% Reset nodes to base state
-    reset_cluster(),
+    lists:map(fun(X) -> stop_all(X) end,
+              ensure_riak_last(devpaths())),
+    lists:map(fun(X) -> clean_data_dir_all(X) end,
+              ensure_riak_last(devpaths())),
 
     lager:info("Cleaning up lingering pipe directories"),
     rt:pmap(fun(Dir) ->
@@ -493,12 +494,18 @@ get_version() ->
     end.
 
 teardown() ->
-    %% Stop all discoverable nodes, not just nodes we'll be using for this test.
-    rt:pmap(fun(X) ->
-                    stop_all(X ++ "/dev"),
-                    clean_data_dir_all(X)
-            end,
-            devpaths()).
+    ok.
+
+ensure_riak_last(DevPaths) ->
+    lists:sort(fun(P1, P2) ->
+                       case {rtdev:which_riak(P1), rtdev:which_riak(P2)} of
+                           {"riak", Other} when Other /= "riak" ->
+                               false;
+                           _ ->
+                               true
+                       end
+               end, DevPaths).
+
 
 whats_up() ->
     io:format("Here's what's running...~n"),
