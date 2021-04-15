@@ -51,7 +51,8 @@ confirm() ->
     %% regression of CS#756 must be the last test as it stops all Riak
     %% nodes.
     ok = verify_cs756(SetupInfo, "test-bucket-cs756"),
-    rtcs:pass().
+
+    pass.
 
 %% @doc Regression test for `riak_cs' <a href="https://github.com/basho/riak_cs/issues/296">
 %% issue 296</a>. The issue description is: 403 instead of 404 returned when

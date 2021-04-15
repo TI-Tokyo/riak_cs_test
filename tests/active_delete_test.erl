@@ -37,4 +37,4 @@ confirm() ->
     {ok, EvolvedState} = cs_suites:fold_with_state(InitialState, History),
     {ok, _FinalState}  = cs_suites:cleanup(EvolvedState),
 
-    rtcs:pass().
+    pass.

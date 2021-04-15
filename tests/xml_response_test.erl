@@ -57,7 +57,7 @@ verify_multipart_upload_response() ->
 
     verify_multipart_upload_response(Result, Host, Bucket, Key),
 
-    rtcs:pass().
+    pass.
 
 perform_multipart_upload(Bucket, Key, NumParts, PartSize, Config) ->
     lager:info("initiating multipart upload of '~s/~s'", [Bucket, Key]),

@@ -45,7 +45,7 @@ confirm() ->
     assert_access_stats(xml, UserConfig, Results),
     verify_stats_lost_logging(UserConfig, RiakNodes, CSNodes),
 
-    rtcs:pass().
+    pass.
 
 generate_some_accesses(UserConfig) ->
     generate_some_accesses(UserConfig, ?DURATION_SECS).

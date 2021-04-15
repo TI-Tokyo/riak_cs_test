@@ -61,7 +61,7 @@ confirm() ->
 
     ok = verify_max_buckets_per_user(UserConfig),
 
-    rtcs:pass().
+    pass.
 
 
 verify_create_delete(UserConfig) ->

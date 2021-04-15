@@ -56,7 +56,7 @@ confirm() ->
     ?assertEqual(ok, erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
 
     ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
-    rtcs:pass().
+    pass.
 
 generate_part_data(X, Size)
   when 0 =< X, X =< 255 ->

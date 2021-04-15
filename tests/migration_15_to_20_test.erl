@@ -54,19 +54,19 @@ confirm(upgrade_with_full_ops) ->
     {ok, InitialState} = cs_suites:new(SetupRes),
     {ok, EvolvedState} = cs_suites:fold_with_state(InitialState, upgrade_history()),
     {ok, _FinalState}  = cs_suites:cleanup(EvolvedState),
-    rtcs:pass();
+    pass;
 confirm(upgrade_with_reduced_ops) ->
     SetupRes = setup_previous(),
     {ok, InitialState} = cs_suites:new(SetupRes, rtcs:reduced_ops()),
     {ok, EvolvedState} = cs_suites:fold_with_state(InitialState, upgrade_history()),
     {ok, _FinalState}  = cs_suites:cleanup(EvolvedState),
-    rtcs:pass();
+    pass;
 confirm(no_upgrade_with_reduced_ops) ->
     SetupRes = rtcs:setup(2, rtcs_config:configs(custom_configs(current))),
     {ok, InitialState} = cs_suites:new(SetupRes, cs_suites:reduced_ops()),
     {ok, EvolvedState} = cs_suites:fold_with_state(InitialState, no_upgrade_history()),
     {ok, _FinalState}  = cs_suites:cleanup(EvolvedState),
-    rtcs:pass().
+    pass.
 
 setup_previous() ->
     PrevConfigs = rtcs_config:previous_configs(custom_configs(previous)),

@@ -105,7 +105,7 @@ confirm() ->
     ok = verify_all_data(UserConfig, Data2),
     lager:info("Downgrading to previous successfully done"),
 
-    rtcs:pass().
+    pass.
 
 %% TODO: add more data and test cases
 prepare_all_data(UserConfig) ->

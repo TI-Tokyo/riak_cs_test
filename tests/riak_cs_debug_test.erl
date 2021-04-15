@@ -78,7 +78,7 @@ confirm() ->
     ?assertNotMatchAny("^config/generated.configs/app.*.config", List3),
     ?assertNotMatchAny("^config/generated.configs/vm.*.args", List3),
 
-    rtcs:pass().
+    pass.
 
 restart_cs_node() ->
     rtcs_exec:stop_cs(1),

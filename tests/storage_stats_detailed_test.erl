@@ -51,7 +51,7 @@ confirm() ->
     assert_results_for_non_empty_bucket(AdminConfig, UserConfig, hd(CSNodes), ?BUCKET),
 
     storage_stats_test:confirm_2(SetupRes),
-    rtcs:pass().
+    pass.
 
 assert_results_for_empty_bucket(AdminConfig, UserConfig, CSNode, Bucket) ->
     rt:setup_log_capture(CSNode),
