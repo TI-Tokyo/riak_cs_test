@@ -157,8 +157,6 @@ deploy_nodes(NumNodes, InitialConfig, Vsn)
     VersionMap = lists:zip(lists:seq(1, NumNodes), lists:duplicate(NumNodes, RiakVsn)),
     rt_config:set(rt_versions, VersionMap),
 
-    rtcs_exec:stop_all_nodes(node_list(NumNodes), Vsn),
-
     rtcs_dev:create_dirs(RiakNodes),
 
     %% Set initial config
