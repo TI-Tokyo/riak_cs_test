@@ -127,24 +127,6 @@ riak_root_and_vsn(current, ee) ->  {?EE_ROOT, ee_current};
 riak_root_and_vsn(previous, oss) -> {?RIAK_ROOT, previous};
 riak_root_and_vsn(previous, ee) -> {?EE_ROOT, ee_previous}.
 
--spec reset_cluster() -> ok.
-reset_cluster() ->
-    [reset_nodes(Project, Path) ||
-        {Project, Path} <- [{riak,      rt_config:get(?RIAK_ROOT)},
-                            {riak_ee,   rt_config:get(?EE_ROOT)},
-                            {riak_cs,   rt_config:get(?CS_ROOT)},
-                            {stanchion, rt_config:get(?STANCHION_ROOT)}]],
-    ok.
-
--spec reset_nodes(atom(), string()) -> ok.
-reset_nodes(Project, Path) ->
-    %% Reset nodes to base state
-    lager:info("Resetting ~p nodes to fresh state", [Project]),
-    lager:debug("Project path for reset: ~p", [Path]),
-    rtdev:run_git(Path, "reset HEAD --hard"),
-    rtdev:run_git(Path, "clean -fd"),
-    ok.
-
 get_conf(Node) ->
     N = node_id(Node),
     Path = relpath(node_version(N)),
