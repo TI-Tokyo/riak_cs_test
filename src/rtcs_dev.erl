@@ -275,6 +275,20 @@ stop_all(DevPath) ->
     end,
     ok.
 
+clean_data_dir_all(DevPath) ->
+    case filelib:is_dir(DevPath) of
+        true ->
+            Devs = filelib:wildcard(DevPath ++ "/dev/*"),
+
+            Clean = fun(C) ->
+                            rm_dir(C ++ "/data"),
+                            lager:info("Deleted data dir in ~s", [C])
+                    end,
+            [Clean(D) || D <- Devs];
+        _ -> lager:info("~s is not a directory.", [DevPath])
+    end,
+    ok.
+
 stop_command(C) ->
     IsRiakCS = string:str(C, "riak_cs"),
     IsStanchion = string:str(C, "stanchion"),
@@ -480,7 +494,10 @@ get_version() ->
 
 teardown() ->
     %% Stop all discoverable nodes, not just nodes we'll be using for this test.
-    rt:pmap(fun(X) -> stop_all(X ++ "/dev") end,
+    rt:pmap(fun(X) ->
+                    stop_all(X ++ "/dev"),
+                    clean_data_dir_all(X)
+            end,
             devpaths()).
 
 whats_up() ->
