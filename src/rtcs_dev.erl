@@ -211,7 +211,8 @@ get_backends() ->
 node_path(Node) ->
     N = node_id(Node),
     Path = relpath(node_version(N)),
-    lists:flatten(io_lib:format("~s/dev/dev~b/riak-cs", [Path, N])).
+    WhichRiak = rtdev:which_riak(Path),
+    lists:flatten(io_lib:format("~s/dev/dev~b/~s", [Path, N, WhichRiak])).
 
 create_snmp_dirs(Nodes) ->
     Snmp = [node_path(Node) ++ "/data/snmp/agent/db" || Node <- Nodes],
