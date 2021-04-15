@@ -222,6 +222,7 @@ cs_config(UserExtra, OtherApps) ->
            {block_get_max_retries, 1},
            {proxy_get, enabled},
            {anonymous_user_creation, true},
+           {admin_key, "admin-key"},
            {stanchion_host, {"127.0.0.1", stanchion_port()}},
            {riak_host, {"127.0.0.1", 10017}},
            {cs_version, 010300}
