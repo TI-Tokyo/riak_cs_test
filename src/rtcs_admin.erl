@@ -116,7 +116,7 @@ create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
 update_user(UserConfig, _Port, Resource, ContentType, UpdateDoc) ->
     {_ResHeader, ResBody} = erlcloud_s3:s3_request(
                               UserConfig, put, "", Resource, [], "",
-                              {UpdateDoc, ContentType}, [], []),
+                              {UpdateDoc, ContentType}, []),
     lager:debug("ResBody: ~s", [ResBody]),
     ResBody.
 
