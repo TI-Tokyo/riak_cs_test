@@ -240,7 +240,7 @@ previous_stanchion_config() ->
      {stanchion,
       [
        {stanchion_port, stanchion_port()},
-       {riak_pb_port, 10017}
+       {riak_host, {"127.0.0.1", 10017}}
       ]
      }].
 
