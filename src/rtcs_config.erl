@@ -195,6 +195,7 @@ previous_cs_config(UserExtra, OtherApps) ->
             ]},
            {block_get_max_retries, 1},
            {proxy_get, enabled},
+           {admin_key, "admin-key"},
            {anonymous_user_creation, true},
            {riak_pb_port, 10017},
            {stanchion_port, stanchion_port()},

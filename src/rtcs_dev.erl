@@ -63,8 +63,13 @@ setup_harness(_Test, _Args) ->
 confirm_build_type(BuildType) ->
     [ok = confirm_build_type(BuildType, Vsn) || Vsn <- [cs_current, cs_previous]].
 
-confirm_build_type(BuildType, Vsn) ->
-    ReplPB = filename:join([relpath(Vsn), "dev/dev1/riak-cs/lib/riak_repl_pb_api*"]),
+confirm_build_type(BuildType, cs_current) ->
+    confirm_build_type(BuildType, cs_current, "/riak-cs");
+confirm_build_type(BuildType, cs_previous) ->
+    confirm_build_type(BuildType, cs_previous, "").
+
+confirm_build_type(BuildType, Vsn, ExtraPath) ->
+    ReplPB = filename:join([relpath(Vsn), "dev/dev1" ++ ExtraPath ++ "/lib/riak_repl_pb_api*"]),
     case {BuildType, filelib:wildcard(ReplPB)} of
         {oss, []} -> ok;
         {ee,  [_|_]} -> ok;

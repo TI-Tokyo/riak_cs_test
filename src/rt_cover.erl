@@ -178,6 +178,8 @@ maybe_start_on_node(Node, Version) ->
     IsCurrent = case Version of
         current      -> true;
         {current, _} -> true;
+        cs_current      -> true;
+        {cs_current, _} -> true;
         _            -> false
     end,
     CoverMods = cover:modules(),
