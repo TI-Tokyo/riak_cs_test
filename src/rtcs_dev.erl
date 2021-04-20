@@ -99,7 +99,7 @@ path(Key, _) ->
     Err = io_lib:format("Path '~p' requested but no value provided", [Key]),
     throw(lists:flatten(Err)).
 
-upgrade(Node, NewVersion) ->
+upgrade(Node, NewVersion, _CB) ->
     N = node_id(Node),
     Version = node_version(N),
     lager:info("Upgrading ~p : ~p -> ~p", [Node, Version, NewVersion]),
