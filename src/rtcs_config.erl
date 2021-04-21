@@ -116,7 +116,10 @@ riak_oss_config(Vsn, CsVsn, Backend) ->
     ].
 
 riak_core_config(current) ->
-    {riak_core, []};
+    {riak_core,
+     [{default_bucket_props, [{allow_mult, true}]},
+      {ring_creation_size, 8}]
+    };
 riak_core_config(previous) ->
     {riak_core,
      [{default_bucket_props, [{allow_mult, true}]},
@@ -198,7 +201,7 @@ previous_cs_config(UserExtra, OtherApps) ->
            {admin_key, "admin-key"},
            {anonymous_user_creation, true},
            {riak_pb_port, 10017},
-           {stanchion_port, stanchion_port()},
+           {stanchion_host, {"127.0.0.1", stanchion_port()}},
            {cs_version, 010300}
           ]
      }] ++ OtherApps.
@@ -239,7 +242,7 @@ previous_stanchion_config() ->
      lager_config(),
      {stanchion,
       [
-       {stanchion_port, stanchion_port()},
+       {host, {"127.0.0.1", stanchion_port()}},
        {riak_host, {"127.0.0.1", 10017}}
       ]
      }].
