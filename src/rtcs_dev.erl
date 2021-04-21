@@ -110,10 +110,10 @@ upgrade(Node, NewVersion, _CB) ->
     WhichRiak = rtdev:which_riak(OldPath),
 
     Commands = [
-        io_lib:format("cp -p -P -R \"~s/dev/dev~b/~s/data\" \"~s/dev/dev~b/~s\"",
-                       [OldPath, N, WhichRiak, NewPath, N, WhichRiak]),
         io_lib:format("rm -rf ~s/dev/dev~b/~s/data/*",
-                       [OldPath, N, WhichRiak])
+                       [NewPath, N, WhichRiak]),
+        io_lib:format("cp -p -P -R \"~s/dev/dev~b/~s/data\" \"~s/dev/dev~b/~s\"",
+                       [OldPath, N, WhichRiak, NewPath, N, WhichRiak])
     ],
     [ begin
         lager:info("Running: ~s", [Cmd]),
