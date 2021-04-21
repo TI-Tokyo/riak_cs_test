@@ -254,7 +254,7 @@ stop_all(DevPath) ->
                 Cmd = stop_command(C),
                 Output = string:tokens(os:cmd(Cmd), "\n"),
                 Status = case Output of
-                    [] -> "ok";
+                    [] -> "misconfigured?";
                     ["ok" | _] -> "ok";
                     _ -> "wasn't running"
                 end,
