@@ -83,17 +83,6 @@ confirm() ->
          rt:stop(RiakNode),
          rt:wait_until_unpingable(RiakNode),
 
-         %% get the bitcask directory
-         BitcaskDataDir = filename:join([rtcs_dev:node_path(RiakNode), "data", "bitcask"]),
-         lager:info("downgrading Bitcask datadir ~s...", [BitcaskDataDir]),
-         %% and run the downgrade script:
-         %% Downgrading from 2.0 does not work...
-         %% https://github.com/basho/bitcask/issues/178
-         %% And here's the downgrade script, which is downloaded at `make compile-riak-test`.
-         %% https://github.com/basho/bitcask/pull/184
-         Result = downgrade_bitcask:main([BitcaskDataDir]),
-         lager:info("downgrade script done: ~p", [Result]),
-
          ok = rt:upgrade(RiakNode, RiakPrevVsn),
          rt:wait_for_service(RiakNode, riak_kv),
          ok = rtcs_config:migrate_cs(current, previous, N, AdminCreds),
