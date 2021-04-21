@@ -57,10 +57,12 @@ confirm() ->
          rtcs_exec:start_cs(N, current)
      end
      || RiakNode <- RiakNodes],
+
     rt:wait_until_ring_converged(RiakNodes),
     rtcs_exec:stop_stanchion(previous),
     rtcs_config:migrate_stanchion(previous, current, AdminCreds),
     rtcs_exec:start_stanchion(current),
+    rt:wait_until_pingable(Stanchion),
 
     ok = verify_all_data(UserConfig, Data),
     ok = cleanup_all_data(UserConfig),
