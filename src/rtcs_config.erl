@@ -242,6 +242,7 @@ previous_stanchion_config() ->
      lager_config(),
      {stanchion,
       [
+       {admin_key, "admin-key"},
        {host, {"127.0.0.1", stanchion_port()}},
        {riak_host, {"127.0.0.1", 10017}}
       ]
@@ -252,6 +253,7 @@ stanchion_config() ->
      lager_config(),
      {stanchion,
       [
+       {admin_key, "admin-key"},
        {host, {"127.0.0.1", stanchion_port()}},
        {riak_host, {"127.0.0.1", 10017}}
       ]
