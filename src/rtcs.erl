@@ -141,6 +141,21 @@ riak_id_per_cluster(NumNodes) ->
 -spec deploy_nodes(list(), list(), current|previous) -> any().
 deploy_nodes(NumNodes, InitialConfig, Vsn)
   when Vsn =:= current orelse Vsn =:= previous ->
+
+    Nodes = {RiakNodes, CSNodes, StanchionNode} =
+        configure_clusters(NumNodes, InitialConfig, Vsn),
+
+    rtcs_exec:start_all_nodes(node_list(NumNodes), Vsn),
+
+    [ok = rt:wait_until_pingable(N) || N <- RiakNodes ++ CSNodes ++ [StanchionNode]],
+    [ok = rt:check_singleton_node(N) || N <- RiakNodes],
+    rt:wait_until_nodes_ready(RiakNodes),
+
+    lager:info("Deployed nodes: ~p", [Nodes]),
+
+    Nodes.
+
+configure_clusters(NumNodes, InitialConfig, Vsn) ->
     lager:info("Initial Config: ~p", [InitialConfig]),
     {RiakNodes, CSNodes, StanchionNode} = Nodes = {riak_nodes(NumNodes),
                                                    cs_nodes(NumNodes),
@@ -163,17 +178,12 @@ deploy_nodes(NumNodes, InitialConfig, Vsn)
     rtcs_config:set_configs(NumNodes,
                             InitialConfig,
                             Vsn),
-    rtcs_exec:start_all_nodes(node_list(NumNodes), Vsn),
 
-    [ok = rt:wait_until_pingable(N) || N <- RiakNodes ++ CSNodes ++ [StanchionNode]],
-    [ok = rt:check_singleton_node(N) || N <- RiakNodes],
-    rt:wait_until_nodes_ready(RiakNodes),
-
-    lager:info("NodeMap: ~p", [ NodeMap ]),
+    lager:info("NodeMap: ~p", [NodeMap]),
     lager:info("VersionMap: ~p", [VersionMap]),
-    lager:info("Deployed nodes: ~p", [Nodes]),
 
     Nodes.
+
 
 node_id(Node) ->
     NodeMap = rt_config:get(rt_cs_nodes),

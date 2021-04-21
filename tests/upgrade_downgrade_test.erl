@@ -28,12 +28,12 @@
 -define(KEY_MULTIPLE_BLOCK, "riak_test_key2").
 
 confirm() ->
-    PrevConfig = rtcs_config:previous_configs(),
-    {UserConfig, {RiakNodes, _CSNodes, _Stanchion}} =
-        rtcs:setup(2, PrevConfig, previous),
+    lager:info("Preparing current cluster...", []),
+    _CurrNodes = rtcs:configure_clusters(2, rtcs_config:configs([]), current),
 
-    lager:info("nodes> ~p", [rt_config:get(rt_nodes)]),
-    lager:info("versions> ~p", [rt_config:get(rt_versions)]),
+    PrevConfig = rtcs_config:previous_configs(),
+    {UserConfig, {RiakNodes, CSNodes, Stanchion}} =
+        rtcs:setup(2, PrevConfig, previous),
 
     {ok, Data} = prepare_all_data(UserConfig),
     ok = verify_all_data(UserConfig, Data),
