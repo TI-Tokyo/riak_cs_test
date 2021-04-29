@@ -46,7 +46,20 @@ setup(NumNodes, Configs, Vsn) ->
     Flavor = rt_config:get(flavor, basic),
     lager:info("Flavor : ~p", [Flavor]),
     application:ensure_all_started(erlcloud),
-    flavored_setup(NumNodes, Flavor, Configs, Vsn).
+
+    {_, [CSNode0|_], _} = Nodes = flavored_setup(NumNodes, Flavor, Configs, Vsn),
+
+    timer:sleep(1000),
+    AdminConfig =
+        case ssl_options(Configs) of
+            [] ->
+                setup_admin_user(NumNodes, Vsn);
+            _SSLOpts ->
+                rtcs_admin:create_user_rpc(CSNode0, "admin-key", "admin-secret")
+        end,
+
+    {AdminConfig, Nodes}.
+
 
 setup2x2() ->
     setup2x2([]).
@@ -86,23 +99,27 @@ setup_clusters(Configs, JoinFun, NumNodes, Vsn) ->
     application:load(sasl),
     application:set_env(sasl, sasl_error_logger, false),
 
-    {RiakNodes, _CSNodes, _Stanchion} = Nodes =
-        deploy_nodes(NumNodes, rtcs_config:configs(Configs, Vsn), Vsn),
-    rt:wait_until_nodes_ready(RiakNodes),
-    lager:info("Make cluster"),
+    {RiakNodes, CSNodes, StanchionNode} = Nodes =
+
+    Nodes = {RiakNodes, CSNodes, _StanchionNode} =
+        configure_clusters(NumNodes, rtcs_config:configs(Configs, Vsn), Vsn),
+
+    rt:pmap(fun(N) -> rtcs_dev:start(N, Vsn), rt:wait_for_service(N, riak_kv) end, RiakNodes),
+
+    lager:info("Make clusters"),
     JoinFun(RiakNodes),
     ?assertEqual(ok, wait_until_nodes_ready(RiakNodes)),
     ?assertEqual(ok, wait_until_no_pending_changes(RiakNodes)),
     rt:wait_until_ring_converged(RiakNodes),
-    AdminConfig =
-        case ssl_options(Configs) of
-            [] ->
-                setup_admin_user(NumNodes, Vsn);
-            _SSLOpts ->
-                rtcs_admin:create_user_rpc(hd(_CSNodes), "admin-key", "admin-secret")
-        end,
 
-    {AdminConfig, Nodes}.
+    rtcs_exec:start_stanchion(Vsn),
+    rt:wait_until(got_pong(StanchionNode, Vsn)),
+    lists:map(fun(N) -> rtcs_exec:start_cs(N, Vsn), rt:wait_until(got_pong(N, Vsn)) end, CSNodes),
+    lager:info("Clusters clustered"),
+    timer:sleep(1000),
+
+    Nodes.
+
 got_pong(Node, Vsn) ->
     Exec = rtcs_exec:node_executable(Node, Vsn),
     fun() ->
@@ -149,23 +166,6 @@ riak_id_per_cluster(NumNodes) ->
         basic -> [1];
         {multibag, _} = Flavor -> rtcs_bag:riak_id_per_cluster(NumNodes, Flavor)
     end.
-
--spec deploy_nodes(list(), list(), current|previous) -> any().
-deploy_nodes(NumNodes, InitialConfig, Vsn)
-  when Vsn =:= current orelse Vsn =:= previous ->
-
-    Nodes = {RiakNodes, CSNodes, StanchionNode} =
-        configure_clusters(NumNodes, InitialConfig, Vsn),
-
-    rtcs_exec:start_all_nodes(node_list(NumNodes), Vsn),
-
-    [ok = rt:wait_until_pingable(N) || N <- RiakNodes ++ CSNodes ++ [StanchionNode]],
-    [ok = rt:check_singleton_node(N) || N <- RiakNodes],
-    rt:wait_until_nodes_ready(RiakNodes),
-
-    lager:info("Deployed nodes: ~p", [Nodes]),
-
-    Nodes.
 
 configure_clusters(NumNodes, InitialConfig, Vsn) ->
     lager:info("Initial Config: ~p", [InitialConfig]),
