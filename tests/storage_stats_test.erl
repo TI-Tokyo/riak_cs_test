@@ -83,7 +83,9 @@ confirm_2({UserConfig, {RiakNodes, CSNodes, _Stanchion}}) ->
                           assert_storage_json_stats(Spec, JsonStat),
                           assert_storage_xml_stats(Spec, XmlStat)
                   end, TestSpecs),
-    pass.
+
+    rtcs_dev:pass().
+
 
 %% @doc garbage data to check #840 regression,
 %% due to this garbages, following tests may fail

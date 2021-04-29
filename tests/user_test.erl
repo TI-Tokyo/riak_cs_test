@@ -56,7 +56,7 @@ confirm() ->
     update_user_json_test_case(AdminUserConfig, HeadRiakNode),
     update_user_xml_test_case(AdminUserConfig, HeadRiakNode),
 
-    pass.
+    rtcs_dev:pass().
 
 japanese_aiueo() ->
     %% To avoid dependency on source code encoding, create list from chars.

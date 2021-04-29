@@ -174,6 +174,8 @@ configure_clusters(NumNodes, InitialConfig, Vsn) ->
 
     rtcs_dev:create_snmp_dirs(RiakNodes),
 
+    rtcs_dev:create_or_restore_config_backups(RiakNodes ++ CSNodes ++ [StanchionNode], Vsn),
+
     %% Set initial config
     rtcs_config:set_configs(NumNodes,
                             InitialConfig,

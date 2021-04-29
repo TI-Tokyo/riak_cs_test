@@ -40,7 +40,7 @@ confirm() ->
 
     %% Append your next regression tests here
 
-    pass.
+    rtcs_dev:pass().
 
 
 %% @doc Integration test for [https://github.com/basho/riak_cs/issues/631]

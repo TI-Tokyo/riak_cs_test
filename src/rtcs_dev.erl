@@ -79,6 +79,13 @@ confirm_build_type(BuildType, Vsn, ExtraPath) ->
             {error, {build_type_mismatch, Vsn}}
     end.
 
+
+pass() ->
+    {Nodes, _} = lists:unzip(rt_config:get(rt_nodes)),
+    restore_configs(Nodes, current),
+    pass.
+
+
 relpath(Vsn) ->
     Path = ?BUILD_PATHS,
     path(Vsn, Path).
@@ -534,3 +541,43 @@ get_node_logs(Base) ->
           {ok, Port} = file:open(Filename, [read, binary]),
           {lists:nthtail(RootLen, Filename), Port}
       end || Filename <- filelib:wildcard(Root ++ "/*/dev/dev*/riak-cs/log/*") ].
+
+
+create_or_restore_config_backups(Nodes, Vsn) ->
+    lists:foreach(
+      fun(Node) ->
+              ClusterPath = cluster_devpath(Node, Vsn),
+              NodePath = node_path(Node, Vsn),
+              ConfFile = io_lib:format("~s/etc/~s.conf", [NodePath, rtdev:which_riak(ClusterPath)]),
+              AdvCfgFile = io_lib:format("~s/etc/advanced.config", [NodePath]),
+              [begin
+                   case filelib:is_regular(F ++ ".backup") of
+                       true ->
+                           lager:warning("found existing backup of ~s; restoring it", [F]),
+                           [] = os:cmd(io_lib:format("cp -a \"~s.backup\" \"~s\"", [F, F]));
+                       false ->
+                           lager:info("backing up ~s", [F]),
+                           [] = os:cmd(io_lib:format("cp -a \"~s\" \"~s.backup\"", [F, F]))
+                   end
+               end || F <- [ConfFile, AdvCfgFile]]
+      end,
+      Nodes).
+
+restore_configs(Nodes, Vsn) ->
+    lists:foreach(
+      fun(Node) ->
+              ClusterPath = cluster_devpath(Node, Vsn),
+              NodePath = node_path(Node, Vsn),
+              ConfFile = io_lib:format("~s/etc/~s.conf", [NodePath, rtdev:which_riak(ClusterPath)]),
+              AdvCfgFile = io_lib:format("~s/etc/advanced.config", [NodePath]),
+              [begin
+                   case filelib:is_regular(F ++ ".backup") of
+                       false ->
+                           lager:warning("backup of ~s not found", [F]);
+                       true ->
+                           lager:info("restoring ~s", [F]),
+                           [] = os:cmd(io_lib:format("mv -f \"~s.backup\" \"~s\"", [F, F]))
+                   end
+               end || F <- [ConfFile, AdvCfgFile]]
+      end,
+      Nodes).

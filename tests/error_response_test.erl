@@ -67,5 +67,5 @@ confirm() ->
                  erlcloud_s3:create_bucket(?BUCKET2, ErrConfig)),
     rt_intercept:clean(Stanchion, riakc_pb_socket),
 
-    pass.
+    rtcs_dev:pass().
 

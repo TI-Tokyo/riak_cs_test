@@ -28,7 +28,7 @@ confirm() ->
     {UserConfig, _} = rtcs:setup(1, [{cs, [{riak_cs, CSConfig}]}]),
     % lager:info("UserConfig: ~p", [UserConfig]),
     ok = verify_cs1025(UserConfig),
-    pass.
+    rtcs_dev:pass().
 
 verify_cs1025(UserConfig) ->
     B = <<"booper">>,

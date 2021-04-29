@@ -96,7 +96,9 @@ confirm() ->
     ok = verify_all_data(UserConfig, Data2),
     lager:info("Downgrading to previous successfully done"),
 
-    pass.
+    rtcs_dev:restore_configs(RiakNodes ++ CSNodes ++ [Stanchion], previous),
+    rtcs_dev:restore_data_dirs(RiakNodes, previous),
+    rtcs_dev:pass().
 
 %% TODO: add more data and test cases
 prepare_all_data(UserConfig) ->

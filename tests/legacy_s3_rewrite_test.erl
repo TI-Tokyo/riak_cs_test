@@ -47,7 +47,7 @@ confirm() ->
     WaitTime = 2 * rt_config:get(rt_max_wait_time),
     case rtcs_exec:cmd(Cmd, [{cd, CsSrcDir}, {env, Env}, {args, Args}], WaitTime) of
         ok ->
-            pass;
+            rtcs_dev:pass();
         {error, Reason} ->
             lager:error("Error : ~p", [Reason]),
             error({?MODULE, Reason})
