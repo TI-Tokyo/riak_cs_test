@@ -38,9 +38,7 @@ get_deps() ->
 setup_harness(_Test, _Args) ->
 
     confirm_build_type(rt_config:get(build_type, oss)),
-    %% Stop all discoverable nodes, not just nodes we'll be using for this test.
-    lists:map(fun(X) -> stop_all(X) end,
-              ensure_riak_last(devpaths())),
+
     lists:map(fun(X) -> clean_data_dir_all(X) end,
               ensure_riak_last(devpaths())),
 
@@ -248,27 +246,6 @@ add_default_node_config(Nodes) ->
             lager:error("Invalid value for rt_default_config : ~p", [BadValue]),
             throw({invalid_config, {rt_default_config, BadValue}})
     end.
-
-stop_all(DevPath) ->
-    case filelib:is_dir(DevPath) of
-        true ->
-            Devs = filelib:wildcard(DevPath ++ "/dev/*"),
-
-            %% Works, but I'd like it to brag a little more about it.
-            Stop = fun(C) ->
-                Cmd = stop_command(C),
-                Output = string:tokens(os:cmd(Cmd), "\n"),
-                Status = case Output of
-                    [] -> "misconfigured?";
-                    ["ok" | _] -> "ok";
-                    _ -> "wasn't running"
-                end,
-                lager:info("Stopping Node... ~s ~~ ~s.", [Cmd, Status])
-            end,
-            [Stop(D) || D <- Devs];
-        _ -> lager:info("~s is not a directory.", [DevPath])
-    end,
-    ok.
 
 clean_data_dir_all(DevPath) ->
     case filelib:is_dir(DevPath) of
