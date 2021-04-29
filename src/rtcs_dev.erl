@@ -501,6 +501,30 @@ all_the_files(DevPath, File) ->
 devpath(Name, Vsn) ->
     rtcs_config:devpath(Name, Vsn).
 
+cluster_devpath(Node) ->
+    cluster_devpath(Node, current).
+cluster_devpath(Node, Vsn) ->
+    case atom_to_binary(Node, latin1) of
+        <<"dev", _/binary>> ->
+            devpath(riak, Vsn);
+        <<"rcs-dev", _/binary>> ->
+            devpath(cs, Vsn);
+        <<"stanchion", _/binary>> ->
+            devpath(stanchion, Vsn)
+    end.
+
+node_path(Node) ->
+    node_path(Node, current).
+node_path(Node, Vsn)
+  when is_atom(Node) andalso (Vsn == current orelse Vsn == previous) ->
+    ClusterDevpath = cluster_devpath(Node, Vsn),
+    case rtdev:which_riak(ClusterDevpath) of
+        "stanchion" ->
+            io_lib:format("~s/dev/stanchion", [ClusterDevpath]);
+        WhichRiak ->
+            io_lib:format("~s/dev/dev~b/~s", [ClusterDevpath, node_id(Node), WhichRiak])
+    end.
+
 versions() ->
     proplists:get_keys(rt_config:get(build_paths)) -- [root].
 
