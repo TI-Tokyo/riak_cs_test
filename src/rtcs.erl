@@ -103,6 +103,18 @@ setup_clusters(Configs, JoinFun, NumNodes, Vsn) ->
         end,
 
     {AdminConfig, Nodes}.
+got_pong(Node, Vsn) ->
+    Exec = rtcs_exec:node_executable(Node, Vsn),
+    fun() ->
+            case os:cmd(Exec ++ " ping") of
+                "pong\n" ->
+                    true;
+                _ ->
+                    os:cmd(Exec ++ " start"),
+                    false
+            end
+    end.
+
 
 ssl_options(Config) ->
     case proplists:get_value(cs, Config) of
