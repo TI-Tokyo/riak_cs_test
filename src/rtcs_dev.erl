@@ -117,10 +117,12 @@ upgrade(Node, NewVersion, _CB) ->
     WhichRiak = rtdev:which_riak(OldPath),
 
     Commands = [
-        io_lib:format("rm -rf ~s/dev/dev~b/~s/data/*",
-                       [NewPath, N, WhichRiak]),
-        io_lib:format("cp -p -P -R \"~s/dev/dev~b/~s/data\" \"~s/dev/dev~b/~s\"",
-                       [OldPath, N, WhichRiak, NewPath, N, WhichRiak])
+        io_lib:format("rm -rf \"~s/dev/dev~b/~s/data/leveldb\"", [NewPath, N, WhichRiak]),
+        io_lib:format("rm -rf \"~s/dev/dev~b/~s/data/bitcask\"", [NewPath, N, WhichRiak]),
+        io_lib:format("rm -rf \"~s/dev/dev~b/~s/data/ring\"", [NewPath, N, WhichRiak]),
+        io_lib:format("cp -p -P -R \"~s/dev/dev~b/~s/data/leveldb\" \"~s/dev/dev~b/~s/data\"", [OldPath, N, WhichRiak, NewPath, N, WhichRiak]),
+        io_lib:format("cp -p -P -R \"~s/dev/dev~b/~s/data/bitcask\" \"~s/dev/dev~b/~s/data\"", [OldPath, N, WhichRiak, NewPath, N, WhichRiak]),
+        io_lib:format("cp -p -P -R \"~s/dev/dev~b/~s/data/ring\" \"~s/dev/dev~b/~s/data\"", [OldPath, N, WhichRiak, NewPath, N, WhichRiak])
     ],
     [ begin
         lager:info("Running: ~s", [Cmd]),
