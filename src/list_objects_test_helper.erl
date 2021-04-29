@@ -126,7 +126,7 @@ test(UserConfig) ->
     ?assertEqual(ok, erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
 
     ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
-    rtcs:pass().
+    rtcs_dev:pass().
 
 load_objects(Bucket, Count, Config) ->
     load_objects(Bucket, Count, [], Config).
