@@ -117,7 +117,8 @@ riak_oss_config(Vsn, CsVsn, Backend) ->
 
 riak_core_config(current) ->
     {riak_core,
-     [{default_bucket_props, [{allow_mult, true}]},
+     [{schema_dirs, ["./share/schema"]},
+      {default_bucket_props, [{allow_mult, true}]},
       {ring_creation_size, 8}]
     };
 riak_core_config(previous) ->
