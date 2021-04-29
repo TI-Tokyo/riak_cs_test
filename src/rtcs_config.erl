@@ -230,7 +230,7 @@ cs_config(UserExtra, OtherApps) ->
            {admin_key, "admin-key"},
            {stanchion_host, {"127.0.0.1", stanchion_port()}},
            {riak_host, {"127.0.0.1", 10017}},
-           {cs_version, 010300}
+           {cs_version, 030000}
           ]
      }] ++ OtherApps.
 
