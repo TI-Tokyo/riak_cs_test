@@ -804,11 +804,6 @@ get_version(Vsn) ->
 get_version() ->
     get_version(current).
 
-teardown() ->
-    rt_cover:maybe_stop_on_nodes(),
-    %% Stop all discoverable nodes, not just nodes we'll be using for this test.
-    rt:pmap(fun(X) -> stop_all(X ++ "/dev") end, devpaths()).
-
 whats_up() ->
     io:format("Here's what's running...~n"),
 

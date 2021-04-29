@@ -154,17 +154,6 @@ get_app_config(DevPath, N) ->
     [Conf] = filelib:wildcard(WildCard),
     Conf.
 
-all_the_app_configs(DevPath) ->
-    lager:error("The dev path is ~p", [DevPath]),
-    case filelib:is_dir(DevPath) of
-        true ->
-            Devs = filelib:wildcard(DevPath ++ "/dev/dev*"),
-            [ Dev ++ "/riak-cs/etc/app.config" || Dev <- Devs];
-        _ ->
-            lager:debug("~s is not a directory.", [DevPath]),
-            []
-    end.
-
 update_app_config(all, Config) ->
     lager:info("rtcs_dev:update_app_config(all, ~p)", [Config]),
     [ update_app_config(DevPath, Config) || DevPath <- devpaths()];
@@ -215,12 +204,6 @@ update_app_config_file(ConfigFile, Config) ->
 get_backends() ->
     cs_multi_backend.
 
-node_path(Node) ->
-    N = node_id(Node),
-    Path = relpath(node_version(N)),
-    WhichRiak = rtdev:which_riak(Path),
-    lists:flatten(io_lib:format("~s/dev/dev~b/~s", [Path, N, WhichRiak])).
-
 create_snmp_dirs(Nodes) ->
     Snmp = [node_path(Node) ++ "/data/snmp/agent/db" || Node <- Nodes],
     [?assertCmd("mkdir -p " ++ Dir) || Dir <- Snmp].
@@ -259,18 +242,6 @@ clean_data_dir_all(DevPath) ->
         _ -> lager:info("~s is not a directory.", [DevPath])
     end,
     ok.
-
-stop_command(C) ->
-    IsRiakCS = string:str(C, "riak_cs"),
-    IsStanchion = string:str(C, "stanchion"),
-    if
-        IsRiakCS > 0 ->
-            C ++ "/riak-cs/bin/riak-cs stop";
-        IsStanchion > 0 ->
-            C ++ "/bin/stanchion stop";
-        true ->
-            C ++ "/riak/bin/riak stop"
-    end.
 
 stop(Node) ->
     RiakPid = rpc:call(Node, os, getpid, []),
@@ -388,13 +359,6 @@ execute_admin_cmd(Cmd, Options) ->
         false ->
             Result
     end.
-
-riak(Node, Args) ->
-    N = node_id(Node),
-    Path = relpath(node_version(N)),
-    Result = rtdev:run_riak(N, Path, Args),
-    lager:info("~s", [Result]),
-    {ok, Result}.
 
 node_id(Node) ->
     NodeMap = rt_config:get(rt_nodes),

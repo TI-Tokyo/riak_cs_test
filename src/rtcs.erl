@@ -144,19 +144,6 @@ ssl_options(Config) ->
            end
     end.
 
-pass() ->
-    teardown(),
-    pass.
-
-teardown() ->
-    %% this ensures all configured nodes, not just those that were
-    %% started for a particular test, are stopped and their data dirs
-    %% cleaned
-    rtcs_dev:teardown(),
-
-    %% catch application:stop(sasl),
-    catch application:stop(erlcloud),
-    catch application:stop(ibrowse).
 
 %% Return Riak node IDs, one per cluster.
 %% For example, in basic single cluster case, just return [1].
@@ -198,10 +185,6 @@ configure_clusters(NumNodes, InitialConfig, Vsn) ->
 
     Nodes.
 
-
-node_id(Node) ->
-    NodeMap = rt_config:get(rt_cs_nodes),
-    orddict:fetch(Node, NodeMap).
 
 setup_admin_user(NumNodes, Vsn)
   when Vsn =:= current orelse Vsn =:= previous ->
