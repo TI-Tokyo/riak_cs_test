@@ -43,26 +43,26 @@ confirm() ->
     {_, RiakCurrentVsn} =
         rtcs_dev:riak_root_and_vsn(current, rt_config:get(build_type, oss)),
 
-    %% Upgrade!!!
+    lager:info("Upgrading previous to current", []),
+    rt:pmap(fun(N) -> rtcs_exec:stop_cs(N, previous) end, CSNodes),
+    rtcs_exec:stop_stanchion(previous),
+    rt:pmap(fun(N) -> rtcs_dev:stop(N, previous) end, RiakNodes),
+
     [begin
          N = rtcs_dev:node_id(RiakNode),
-         lager:debug("upgrading ~p", [N]),
-         rtcs_exec:stop_cs(N, previous),
          ok = rt:upgrade(RiakNode, RiakCurrentVsn),
-         rt:wait_for_service(RiakNode, riak_kv),
          ok = rtcs_config:upgrade_cs(N, AdminCreds),
          rtcs:set_advanced_conf({cs, current, N},
                                 [{riak_cs,
-                                  [{riak_host, {"127.0.0.1", rtcs_config:pb_port(1)}}]}]),
-         rtcs_exec:start_cs(N, current)
-     end
-     || RiakNode <- RiakNodes],
-
-    rt:wait_until_ring_converged(RiakNodes),
-    rtcs_exec:stop_stanchion(previous),
+                                  [{riak_host, {"127.0.0.1", rtcs_config:pb_port(1)}}]}])
+     end || RiakNode <- RiakNodes],
     rtcs_config:migrate_stanchion(previous, current, AdminCreds),
+
+    rt:pmap(fun(N) -> rtcs_dev:start(N), rt:wait_for_service(N, riak_kv) end, RiakNodes),
+    rt:wait_until_ring_converged(RiakNodes),
     rtcs_exec:start_stanchion(current),
     rt:wait_until_pingable(Stanchion),
+    rt:pmap(fun(N) -> rtcs_exec:start_cs(N, current), rt:wait_until_pingable(N) end, CSNodes),
 
     ok = verify_all_data(UserConfig, Data),
     ok = cleanup_all_data(UserConfig),
@@ -74,24 +74,24 @@ confirm() ->
         rtcs_dev:riak_root_and_vsn(previous, rt_config:get(build_type, oss)),
 
 
-    %% Downgrade!!
+    lager:info("Downgrading current to previous", []),
+    rt:pmap(fun(N) -> rtcs_exec:stop_cs(N, current) end, CSNodes),
     rtcs_exec:stop_stanchion(current),
+    rt:pmap(fun(N) -> rtcs_dev:stop(N, current) end, RiakNodes),
+
     rtcs_config:migrate_stanchion(current, previous, AdminCreds),
-    rtcs_exec:start_stanchion(previous),
     [begin
          N = rtcs_dev:node_id(RiakNode),
-         lager:debug("downgrading ~p", [N]),
-         rtcs_exec:stop_cs(N, current),
-         rt:stop(RiakNode),
-         rt:wait_until_unpingable(RiakNode),
-
          ok = rt:upgrade(RiakNode, RiakPrevVsn),
-         rt:wait_for_service(RiakNode, riak_kv),
-         ok = rtcs_config:migrate_cs(current, previous, N, AdminCreds),
-         rtcs_exec:start_cs(N, previous)
+         ok = rtcs_config:migrate_cs(current, previous, N, AdminCreds)
      end
      || RiakNode <- RiakNodes],
+
+    rt:pmap(fun(N) -> rtcs_dev:start(N), rt:wait_for_service(N, riak_kv) end, RiakNodes),
     rt:wait_until_ring_converged(RiakNodes),
+    rtcs_exec:start_stanchion(previous),
+    rt:wait_until_pingable(Stanchion),
+    rt:pmap(fun(N) -> rtcs_exec:start_cs(N, previous), rt:wait_until_pingable(N) end, CSNodes),
 
     ok = verify_all_data(UserConfig, Data2),
     lager:info("Downgrading to previous successfully done"),

@@ -110,8 +110,6 @@ upgrade(Node, NewVersion, _CB) ->
     N = node_id(Node),
     Version = node_version(N),
     lager:info("Upgrading ~p : ~p -> ~p", [Node, Version, NewVersion]),
-    catch stop(Node),
-    rt:wait_until_unpingable(Node),
     OldPath = relpath(Version),
     NewPath = relpath(NewVersion),
     WhichRiak = rtdev:which_riak(OldPath),
@@ -130,8 +128,6 @@ upgrade(Node, NewVersion, _CB) ->
     end || Cmd <- Commands],
     VersionMap = orddict:store(N, NewVersion, rt_config:get(rt_versions)),
     rt_config:set(rt_versions, VersionMap),
-    start(Node),
-    rt:wait_until_pingable(Node),
     ok.
 
 -spec riak_root_and_vsn(atom(), atom()) -> {binary(), atom()}.
