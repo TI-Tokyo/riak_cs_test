@@ -27,10 +27,6 @@
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
--import(rt, [join/2,
-             wait_until_nodes_ready/1,
-             wait_until_no_pending_changes/1]).
-
 -define(DEVS(N), lists:concat(["dev", N, "@127.0.0.1"])).
 -define(DEV(N), list_to_atom(?DEVS(N))).
 -define(CSDEVS(N), lists:concat(["rcs-dev", N, "@127.0.0.1"])).
@@ -49,26 +45,33 @@ setup(NumNodes, Configs, Vsn) ->
 
     {_, [CSNode0|_], _} = Nodes = flavored_setup(NumNodes, Flavor, Configs, Vsn),
 
+    AdminConfig = make_admin(Configs, NumNodes, Vsn, CSNode0),
     timer:sleep(1000),
-    AdminConfig =
-        case ssl_options(Configs) of
-            [] ->
-                setup_admin_user(NumNodes, Vsn);
-            _SSLOpts ->
-                rtcs_admin:create_user_rpc(CSNode0, "admin-key", "admin-secret")
-        end,
 
     {AdminConfig, Nodes}.
 
 
-setup2x2() ->
-    setup2x2([]).
+make_admin(Configs, NumNodes, Vsn, CSNode0) ->
+    case ssl_options(Configs) of
+        [] ->
+            setup_admin_user(NumNodes, Vsn);
+        _SSLOpts ->
+            rtcs_admin:create_user_rpc(CSNode0, "admin-key", "admin-secret")
+    end.
 
 setup2x2(Configs) ->
+    {_, [CSNode0|_], _} = Nodes = setup2x2_2(Configs),
+
+    AdminConfig = make_admin(Configs, 4, current, CSNode0),
+    timer:sleep(1000),
+
+    {AdminConfig, Nodes}.
+
+setup2x2_2(Configs) ->
     JoinFun = fun(Nodes) ->
                       [A,B,C,D] = Nodes,
-                      join(B,A),
-                      join(D,C)
+                      rt:join(B,A),
+                      rt:join(D,C)
               end,
     setup_clusters(Configs, JoinFun, 4, current).
 
@@ -80,14 +83,14 @@ setupNxMsingles(N, M, Configs, Vsn)
   when Vsn =:= current orelse Vsn =:= previous ->
     JoinFun = fun(Nodes) ->
                       [Target | Joiners] = lists:sublist(Nodes, N),
-                      [join(J, Target) || J <- Joiners]
+                      [rt:join(J, Target) || J <- Joiners]
               end,
     setup_clusters(Configs, JoinFun, N + M, Vsn).
 
 flavored_setup(NumNodes, basic, Configs, Vsn) ->
     JoinFun = fun(Nodes) ->
                       [First|Rest] = Nodes,
-                      [join(Node, First) || Node <- Rest]
+                      [rt:join(Node, First) || Node <- Rest]
               end,
     setup_clusters(Configs, JoinFun, NumNodes, Vsn);
 flavored_setup(NumNodes, {multibag, _} = Flavor, Configs, Vsn)
@@ -108,14 +111,15 @@ setup_clusters(Configs, JoinFun, NumNodes, Vsn) ->
 
     lager:info("Make clusters"),
     JoinFun(RiakNodes),
-    ?assertEqual(ok, wait_until_nodes_ready(RiakNodes)),
-    ?assertEqual(ok, wait_until_no_pending_changes(RiakNodes)),
-    rt:wait_until_ring_converged(RiakNodes),
+    ok = rt:wait_until_nodes_ready(RiakNodes),
+    ok = rt:wait_until_no_pending_changes(RiakNodes),
+    ok = rt:wait_until_ring_converged(RiakNodes),
 
     rtcs_exec:start_stanchion(Vsn),
     rt:wait_until(got_pong(StanchionNode, Vsn)),
     lists:map(fun(N) -> rtcs_exec:start_cs(N, Vsn), rt:wait_until(got_pong(N, Vsn)) end, CSNodes),
     lager:info("Clusters clustered"),
+
     timer:sleep(1000),
 
     Nodes.
