@@ -65,7 +65,7 @@ create_admin_user(Node) ->
     User = "admin",
     Email = "admin@me.com",
     {UserConfig, Id} = create_user(rtcs_config:cs_port(Node), Email, User),
-    lager:info("Riak CS Admin account created with ~p",[Email]),
+    lager:info("Riak CS Admin account created with ~p", [Email]),
     lager:info("KeyId = ~p",[UserConfig#aws_config.access_key_id]),
     lager:info("KeySecret = ~p",[UserConfig#aws_config.secret_access_key]),
     lager:info("Id = ~p",[Id]),

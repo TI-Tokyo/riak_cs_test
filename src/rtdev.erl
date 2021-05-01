@@ -77,12 +77,12 @@ riak_debug_cmd(Path, N, Args) ->
     lists:flatten(io_lib:format("~s/dev/dev~b/~s/bin/~s ~s", [Path, N, WhichRiak, WhichDebug, ArgStr])).
 
 run_git(Path, Cmd) ->
-    lager:info("Running: ~s", [gitcmd(Path, Cmd)]),
+    lager:info("Running ~s", [gitcmd(Path, Cmd)]),
     {0, Out} = cmd(gitcmd(Path, Cmd)),
     Out.
 
 run_riak(N, Path, Cmd) ->
-    lager:info("Running: ~s", [riakcmd(Path, N, Cmd)]),
+    lager:info("Running ~s", [riakcmd(Path, N, Cmd)]),
     R = os:cmd(riakcmd(Path, N, Cmd)),
     case Cmd of
         "start" ->

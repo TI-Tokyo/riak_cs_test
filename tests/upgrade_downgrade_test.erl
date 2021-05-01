@@ -28,12 +28,12 @@
 -define(KEY_MULTIPLE_BLOCK, "riak_test_key2").
 
 confirm() ->
-    lager:info("Preparing current cluster...", []),
-    _CurrNodes = rtcs:configure_clusters(2, rtcs_config:configs([]), current),
+    NumNodes = 2,
+    prepare_current(NumNodes),
 
     PrevConfig = rtcs_config:previous_configs(),
     {UserConfig, {RiakNodes, CSNodes, Stanchion}} =
-        rtcs:setup(2, PrevConfig, previous),
+        rtcs:setup(NumNodes, PrevConfig, previous),
 
     {ok, Data} = prepare_all_data(UserConfig),
     ok = verify_all_data(UserConfig, Data),
@@ -99,6 +99,16 @@ confirm() ->
     rtcs_dev:restore_configs(RiakNodes ++ CSNodes ++ [Stanchion], previous),
     rtcs_dev:restore_data_dirs(RiakNodes, previous),
     rtcs_dev:pass().
+
+
+prepare_current(NumNodes) ->
+    lager:info("Preparing current cluster", []),
+    {RiakNodes, CSNodes, _StanchionNode} = rtcs:flavored_setup(NumNodes, rt_config:get(flavor, basic), rtcs_config:configs([]), current),
+    rt:pmap(fun(N) -> rtcs_exec:stop_cs(N, current) end, CSNodes),
+    rtcs_exec:stop_stanchion(current),
+    rt:pmap(fun(N) -> rtcs_dev:stop(N, current) end, RiakNodes),
+    ok.
+
 
 %% TODO: add more data and test cases
 prepare_all_data(UserConfig) ->

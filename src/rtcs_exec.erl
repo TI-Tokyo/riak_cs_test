@@ -160,7 +160,7 @@ repair_gc_bucket(N, Options, Vsn) ->
     [RepairScript] = filelib:wildcard(RepairScriptWild),
     Cmd = riakcscmd(Prefix, N, "escript " ++ RepairScript ++
                         " " ++ Options),
-    lager:info("Running ~p", [Cmd]),
+    lager:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
 
 exec_priv_escript(N, Command, Options) ->
@@ -182,7 +182,7 @@ exec_priv_escript(N, Command, Options, ByWhom) ->
                               "/" ++ Command ++
                               " " ++ Options)
           end,
-    lager:info("Running ~p", [Cmd]),
+    lager:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
 
 switch_stanchion_cs(N, Host, Port) -> switch_stanchion_cs(N, Host, Port, current).
@@ -190,21 +190,21 @@ switch_stanchion_cs(N, Host, Port) -> switch_stanchion_cs(N, Host, Port, current
 switch_stanchion_cs(N, Host, Port, Vsn) ->
     SubCmd = io_lib:format("switch ~s ~p", [Host, Port]),
     Cmd = riakcs_switchcmd(rtcs_config:devpath(cs, Vsn), N, SubCmd),
-    lager:info("Running ~p", [Cmd]),
+    lager:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
 
 show_stanchion_cs(N) -> show_stanchion_cs(N, current).
 
 show_stanchion_cs(N, Vsn) ->
     Cmd = riakcs_switchcmd(rtcs_config:devpath(cs, Vsn), N, "show"),
-    lager:info("Running ~p", [Cmd]),
+    lager:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
 
 start_stanchion() -> start_stanchion(current).
 
 start_stanchion(Vsn) ->
     Cmd = stanchioncmd(rtcs_config:devpath(stanchion, Vsn), "start"),
-    lager:info("Running ~p", [Cmd]),
+    lager:info("Running ~s", [Cmd]),
     R = os:cmd(Cmd),
     rtcs:maybe_load_intercepts(rtcs:stanchion_node()),
     R.
@@ -213,28 +213,28 @@ stop_stanchion() -> stop_stanchion(current).
 
 stop_stanchion(Vsn) ->
     Cmd = stanchioncmd(rtcs_config:devpath(stanchion, Vsn), "stop"),
-    lager:info("Running ~p", [Cmd]),
+    lager:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
 
 flush_access(N) -> flush_access(N, current).
 
 flush_access(N, Vsn) ->
     Cmd = riakcs_accesscmd(rtcs_config:devpath(cs, Vsn), N, "flush"),
-    lager:info("Running ~p", [Cmd]),
+    lager:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
 
 gc(N, SubCmd) -> gc(N, SubCmd, current).
 
 gc(N, SubCmd, Vsn) ->
     Cmd = riakcs_gccmd(rtcs_config:devpath(cs, Vsn), N, SubCmd),
-    lager:info("Running ~p", [Cmd]),
+    lager:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
 
 calculate_storage(N) -> calculate_storage(N, current).
 
 calculate_storage(N, Vsn) ->
     Cmd = riakcs_storagecmd(rtcs_config:devpath(cs, Vsn), N, "batch -r"),
-    lager:info("Running ~p", [Cmd]),
+    lager:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
 
 enable_proxy_get(SrcN, Vsn, SinkCluster) ->

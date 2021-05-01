@@ -37,7 +37,7 @@
 confirm() ->
     case rt_config:get(flavor, basic) of
         {multibag, _} ->
-            lager:info("select_gc_bucket script does not supprt multibag env."),
+            lager:info("select_gc_bucket script does not support multibag env."),
             lager:info("Skip the test."),
             rtcs_dev:pass();
         _ -> confirm1()

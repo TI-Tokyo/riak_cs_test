@@ -40,7 +40,7 @@ setup_harness(_Test, _Args) ->
     confirm_build_type(rt_config:get(build_type, oss)),
 
     lists:map(fun(X) -> clean_data_dir_all(X) end,
-              ensure_riak_last(devpaths())),
+              devpaths()),
 
     lager:info("Cleaning up lingering pipe directories"),
     rt:pmap(fun(Dir) ->
@@ -155,7 +155,6 @@ get_app_config(DevPath, N) ->
     Conf.
 
 update_app_config(all, Config) ->
-    lager:info("rtcs_dev:update_app_config(all, ~p)", [Config]),
     [ update_app_config(DevPath, Config) || DevPath <- devpaths()];
 update_app_config(Node, Config) when is_atom(Node) ->
     N = node_id(Node),
@@ -176,7 +175,7 @@ update_app_config(DevPath, Config) ->
     [update_app_config_file(AppConfig, Config) || AppConfig <- all_the_app_configs(DevPath)].
 
 update_app_config_file(ConfigFile, Config) ->
-    lager:info("rtcs_dev:update_app_config_file(~s, ~p)", [ConfigFile, Config]),
+    lager:debug("rtcs_dev:update_app_config_file(~s, ~s)", [ConfigFile, io_lib:format("\n~p\n", [Config])]),
 
     BaseConfig =
         case file:consult(ConfigFile) of

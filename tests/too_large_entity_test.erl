@@ -36,10 +36,10 @@
 confirm() ->
     {UserConfig, _} = rtcs:setup(1, [{cs, cs_config()}]),
 
-    lager:info("User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
+    lager:info("User is valid on the cluster, and has no buckets"),
 
-    ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
+    ?assertError({aws_error, {http_error, 404, [], _}}, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
 
     lager:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),

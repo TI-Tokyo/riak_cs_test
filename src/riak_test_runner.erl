@@ -53,7 +53,7 @@ confirm(TestModule, Outdir, TestMetaData, HarnessArgs) ->
     {Mod, Fun} = function_name(TestModule),
     {Status, Reason} = case check_prereqs(Mod) of
         true ->
-            lager:notice("Running Test ~s", [TestModule]),
+            lager:notice("\n\nRunning Test ~s", [TestModule]),
             execute(TestModule, {Mod, Fun}, TestMetaData);
         not_present ->
             {fail, test_does_not_exist};
@@ -61,7 +61,7 @@ confirm(TestModule, Outdir, TestMetaData, HarnessArgs) ->
             {fail, all_prereqs_not_present}
     end,
 
-    lager:notice("~s Test Run Complete ~p", [TestModule, Status]),
+    lager:notice("Test Run Complete for ~s: ~p", [TestModule, Status]),
     {ok, Logs} = stop_lager_backend(),
     Log = unicode:characters_to_binary(Logs),
 
@@ -93,9 +93,6 @@ execute(TestModule, {Mod, Fun}, TestMetaData) ->
     OldGroupLeader = group_leader(),
     NewGroupLeader = riak_test_group_leader:new_group_leader(self()),
     group_leader(NewGroupLeader, self()),
-
-    {0, UName} = rt:cmd("uname -a"),
-    lager:info("Test Runner `uname -a` : ~s", [UName]),
 
     Pid = spawn_link(?MODULE, return_to_exit, [Mod, Fun, []]),
     Ref = case rt_config:get(test_timeout, undefined) of
