@@ -269,15 +269,9 @@ set_advanced_conf(Node, NameValuePairs) when is_atom(Node) ->
     rtcs_dev:update_app_config_file(rtcs_dev:get_app_config(Node), NameValuePairs),
     ok;
 set_advanced_conf(DevPath, NameValuePairs) ->
-    AdvancedConfs = case rtcs_dev:all_the_files(DevPath, "riak-cs/etc/a*.config") of
-                        [] ->
-                            %% no advanced conf? But we _need_ them, so make 'em
-                            rtdev:make_advanced_confs(DevPath);
-                        Confs ->
-                            Confs
-                    end,
-    lager:info("AdvancedConfs = ~p~n", [AdvancedConfs]),
-    [rtcs_dev:update_app_config_file(RiakConf, NameValuePairs) || RiakConf <- AdvancedConfs],
+    Confs = rtcs_dev:all_the_files(DevPath, "etc/advanced.config"),
+    ?assertNotEqual(Confs, []),
+    [rtcs_dev:update_app_config_file(RiakConf, NameValuePairs) || RiakConf <- Confs],
     ok.
 
 assert_error_log_empty(N) ->
