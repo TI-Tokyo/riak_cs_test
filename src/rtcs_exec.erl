@@ -80,19 +80,27 @@ stop_all_nodes(NodeList, Vsn) ->
 start_cs(N) -> start_cs(N, current).
 
 start_cs(N, Vsn) ->
-    NodePath = rtcs_config:devpath(cs, Vsn),
-    Cmd = riakcscmd(NodePath, N, "start"),
-    lager:info("Running ~p", [Cmd]),
-    R = os:cmd(Cmd),
+    Exec = node_executable(N, Vsn),
+    lager:info("Running ~s start", [Exec]),
+    R = os:cmd(Exec ++ " start"),
     rtcs:maybe_load_intercepts(rtcs:cs_node(N)),
     R.
 
 stop_cs(N) -> stop_cs(N, current).
 
 stop_cs(N, Vsn) ->
-    Cmd = riakcscmd(rtcs_config:devpath(cs, Vsn), N, "stop"),
-    lager:info("Running ~p", [Cmd]),
-    os:cmd(Cmd).
+    Exec = node_executable(N, Vsn),
+    lager:info("Running ~s stop", [Exec]),
+    os:cmd(Exec ++ " stop").
+
+
+node_executable(Node) ->
+    node_executable(Node, current).
+node_executable(Node, Vsn) ->
+    NodePath = rtcs_dev:node_path(Node, Vsn),
+    WhichRiak = rtdev:which_riak(rtcs_dev:cluster_devpath(Node, Vsn)),
+    lists:flatten(io_lib:format("~s/bin/~s", [NodePath, WhichRiak])).
+
 
 riakcmd(Path, N, Cmd) ->
     lists:flatten(io_lib:format("~s ~s", [riak_binpath(Path, N), Cmd])).

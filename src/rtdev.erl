@@ -34,8 +34,14 @@ get_deps() ->
     lists:flatten(io_lib:format("~s/dev/dev1/~s/lib", [RelPath, which_riak(RelPath)])).
 
 riakcmd(Path, N, Cmd) ->
-    ExecName = rt_config:get(exec_name, "riak"),
-    io_lib:format("~s/dev/dev~b/~s/bin/~s ~s", [Path, N, which_riak(Path), ExecName, Cmd]).
+    WhichRiak = which_riak(Path),
+    ExecName = rt_config:get(exec_name, WhichRiak),
+    case WhichRiak of
+        "stanchion" ->
+            io_lib:format("~s/dev/stanchion/bin/stanchion ~s", [Path, Cmd]);
+        _ ->
+            io_lib:format("~s/dev/dev~b/~s/bin/~s ~s", [Path, N, WhichRiak, ExecName, Cmd])
+    end.
 
 riakreplcmd(Path, N, Cmd) ->
     io_lib:format("~s/dev/dev~b/riak/bin/riak repl ~s", [Path, N, Cmd]).
@@ -900,6 +906,8 @@ which_riak(S) ->
         ["riak" | _] -> "riak";
         ["", "riak_cs" | _] -> "riak-cs";
         ["riak_cs" | _] -> "riak-cs";
+        ["", "stanchion" | _] -> "stanchion";
+        ["stanchion" | _] -> "stanchion";
         _ -> ""
     end.
 

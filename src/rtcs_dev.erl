@@ -150,7 +150,7 @@ get_app_config(Node) ->
     get_conf(Path, N).
 
 get_app_config(DevPath, N) ->
-    WildCard = io_lib:format("~s/dev/dev~b/riak-cs/etc/a*.config", [DevPath, N]),
+    WildCard = io_lib:format("~s/dev/dev~b/~s/etc/a*.config", [DevPath, N, rtdev:which_riak(DevPath)]),
     [Conf] = filelib:wildcard(WildCard),
     Conf.
 
@@ -170,9 +170,7 @@ update_app_config(Node, Config) when is_atom(Node) ->
             update_app_config_file(AppConfigFile, Config);
         _ ->
             update_app_config_file(AdvConfigFile, Config)
-    end;
-update_app_config(DevPath, Config) ->
-    [update_app_config_file(AppConfig, Config) || AppConfig <- all_the_app_configs(DevPath)].
+    end.
 
 update_app_config_file(ConfigFile, Config) ->
     lager:debug("rtcs_dev:update_app_config_file(~s, ~s)", [ConfigFile, io_lib:format("\n~p\n", [Config])]),
@@ -243,18 +241,19 @@ clean_data_dir_all(DevPath) ->
     ok.
 
 stop(Node) ->
-    RiakPid = rpc:call(Node, os, getpid, []),
+    stop(Node, current).
+stop(Node, Vsn) ->
+    Pid = rpc:call(Node, os, getpid, []),
     N = node_id(Node),
-    rtdev:run_riak(N, relpath(node_version(N)), "stop"),
-    F = fun(_N) ->
-            os:cmd("kill -0 " ++ RiakPid) =/= []
-    end,
-    ?assertEqual(ok, rt:wait_until(Node, F)),
-    ok.
+    lager:debug("Stopping ~s (id ~p, pid ~s, devpath ~p)", [Node, N, Pid, cluster_devpath(Node, Vsn)]),
+    rtdev:run_riak(N, cluster_devpath(Node, Vsn), "stop"),
+    ok = rt:wait_until_unpingable(Node).
 
 start(Node) ->
+    start(Node, current).
+start(Node, Vsn) ->
     N = node_id(Node),
-    rtdev:run_riak(N, relpath(node_version(N)), "start"),
+    rtdev:run_riak(N, cluster_devpath(Node, Vsn), "start"),
     ok.
 
 attach(Node, Expected) ->
@@ -268,7 +267,7 @@ console(Node, Expected) ->
 
 interactive(Node, Command, Exp) ->
     N = node_id(Node),
-    Path = relpath(node_version(N)),
+    Path = relpath(node_version(Node)),
     Cmd = rtdev:riakcmd(Path, N, Command),
     lager:info("Opening a port for riak ~s.", [Command]),
     lager:debug("Calling open_port with cmd ~s", [binary_to_list(iolist_to_binary(Cmd))]),
@@ -452,13 +451,11 @@ devpaths() ->
                 ]).
 
 all_the_files(DevPath, File) ->
-    case filelib:is_dir(DevPath) of
-        true ->
-            Wildcard = io_lib:format("~s/dev/*/~s/~s", [DevPath, rtdev:which_riak(DevPath), File]),
-            filelib:wildcard(Wildcard);
-        _ ->
-            lager:debug("~s is not a directory.", [DevPath]),
-            []
+    case rtdev:which_riak(DevPath) of
+        "stanchion" ->
+            filelib:wildcard(io_lib:format("~s/dev/stanchion/~s", [DevPath, File]));
+        A ->
+            filelib:wildcard(io_lib:format("~s/dev/dev?/~s/~s", [DevPath, A, File]))
     end.
 
 devpath(Name, Vsn) ->
