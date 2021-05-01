@@ -417,5 +417,5 @@ node_list(NumNodes) ->
     [{CS1, R1, stanchion_node()} | tl(NL0)].
 
 intercept_path() ->
-      filename:join([rtcs_dev:srcpath(cs_src_root),
-                     "riak_test", "intercepts", "*.erl"]).
+    filename:join([rtcs_dev:srcpath(cs_src_root),
+                   "riak_cs_test", "intercepts", "*.erl"]).
