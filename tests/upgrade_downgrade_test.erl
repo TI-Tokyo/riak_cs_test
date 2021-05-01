@@ -59,10 +59,12 @@ confirm() ->
     rtcs_config:migrate_stanchion(previous, current, AdminCreds),
 
     rt:pmap(fun(N) -> rtcs_dev:start(N), rt:wait_for_service(N, riak_kv) end, RiakNodes),
-    rt:wait_until_ring_converged(RiakNodes),
+    ok = rt:wait_until_nodes_ready(RiakNodes),
+    ok = rt:wait_until_no_pending_changes(RiakNodes),
+    ok = rt:wait_until_ring_converged(RiakNodes),
     rtcs_exec:start_stanchion(current),
     rt:wait_until_pingable(Stanchion),
-    rt:pmap(fun(N) -> rtcs_exec:start_cs(N, current), rt:wait_until_pingable(N) end, CSNodes),
+    rt:pmap(fun(N) -> rtcs_exec:start_cs(N, current), rt:wait_until(rtcs:got_pong(N, current)) end, CSNodes),
 
     ok = verify_all_data(UserConfig, Data),
     ok = cleanup_all_data(UserConfig),
