@@ -20,7 +20,6 @@
 
 -module(error_response_test).
 
--compile(export_all).
 -export([confirm/0]).
 
 -include_lib("eunit/include/eunit.hrl").

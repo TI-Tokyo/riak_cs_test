@@ -18,7 +18,18 @@
 %%
 %% -------------------------------------------------------------------
 -module(rt_intercept).
--compile([export_all, nowarn_export_all]).
+
+-export([ load_intercepts/1
+        , load_intercepts/2
+        , add/2
+        , add_and_save/2
+        , are_intercepts_loaded/1
+        , intercept_files/0
+        , load_code/1
+        , clean/2
+        , wait_until_loaded/1
+        ]).
+
 -define(DEFAULT_INTERCEPT(Target),
         list_to_atom(atom_to_list(Target) ++ "_intercepts")).
 
@@ -61,7 +72,7 @@ load_code(Node, Globs) ->
 
 add_and_save(Node, Intercepts) ->
     CodePaths = rpc:call(Node, code, get_path, []),
-    ok = 
+    ok =
         case [P || P <- CodePaths, lists:suffix("basho-patches", P)] of
             [PatchesDir] ->
                 add(Node, Intercepts, PatchesDir);

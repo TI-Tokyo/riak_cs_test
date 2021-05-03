@@ -83,7 +83,7 @@ start_cs(N, Vsn) ->
     Exec = node_executable(N, Vsn),
     lager:info("Running ~s start", [Exec]),
     R = os:cmd(Exec ++ " start"),
-    rtcs:maybe_load_intercepts(rtcs:cs_node(N)),
+    rtcs:maybe_load_intercepts(N),
     R.
 
 stop_cs(N) -> stop_cs(N, current).
