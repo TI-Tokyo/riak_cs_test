@@ -60,7 +60,7 @@ confirm1() ->
         K <- [?KEY_DELETED_S, ?KEY_DELETED_L1, ?KEY_DELETED_L2]],
 
     timer:sleep(1000),
-    Res1 = rtcs_exec:exec_priv_escript(1, "internal/select_gc_bucket.erl",
+    Res1 = rtcs_exec:exec_priv_escript(1, "select_gc_bucket.erl",
                                   "-h 127.0.0.1 -p 10017 -e today "
                                   "-o " ++ BlockKeysFile),
     lager:debug("select_gc_bucket.erl log:\n~s", [Res1]),

@@ -57,21 +57,21 @@ confirm1() ->
                        ?KEY_ALIVE_MP, ?KEY_ORPHANED_MP, ?KEY_FALSE_ORPHANED_MP) ||
             Bucket <- [?BUCKET1, ?BUCKET2]],
     Home = rtcs_config:riakcs_home(rtcs_config:devpath(cs, current), 1),
-    os:cmd("rm -rf " ++ filename:join([Home, "maybe-orphaned-blocks"])),
-    os:cmd("rm -rf " ++ filename:join([Home, "actual-orphaned-blocks"])),
-    Res1 = rtcs_exec:exec_priv_escript(1, "internal/block_audit.erl",
-                                  "-h 127.0.0.1 -p 10017 -dd"),
+    file:delete(filename:join([Home, "riak-cs", "maybe-orphaned-blocks"])),
+    file:delete(filename:join([Home, "riak-cs", "actual-orphaned-blocks"])),
+    Res1 = rtcs_exec:exec_priv_escript(1, "block_audit.erl",
+                                       "-h 127.0.0.1 -p 10017 -dd"),
     lager:debug("block_audit.erl log:\n~s", [Res1]),
     lager:debug("block_audit.erl log:============= END"),
     fake_false_orphans(RiakNodes, FalseOrphans1 ++ FalseOrphans2),
-    Res2 = rtcs_exec:exec_priv_escript(1, "internal/ensure_orphan_blocks.erl",
+    Res2 = rtcs_exec:exec_priv_escript(1, "ensure_orphan_blocks.erl",
                                   "-h 127.0.0.1 -p 10017 -dd"),
     lager:debug("ensure_orphan_blocks.erl log:\n~s", [Res2]),
     lager:debug("ensure_orphan_blocks.erl log:============= END"),
     assert_result(?BUCKET1),
     assert_result(?BUCKET2),
 
-    BlockKeysFileList = [filename:join([Home, "actual-orphaned-blocks", B]) ||
+    BlockKeysFileList = [filename:join([Home, "riak-cs", "actual-orphaned-blocks", B]) ||
                         B <- [?BUCKET1, ?BUCKET2]],
     tools_helper:offline_delete({RiakNodes, CSNodes, Stanchion}, BlockKeysFileList),
     rtcs_dev:pass().
@@ -107,7 +107,7 @@ fake_false_orphans(RiakNodes, FalseOrphans) ->
 
 assert_result(Bucket) ->
     Home = rtcs_config:riakcs_home(rtcs_config:devpath(cs, current), 1),
-    OutFile1 = filename:join([Home, "actual-orphaned-blocks", Bucket]),
+    OutFile1 = filename:join([Home, "riak-cs", "actual-orphaned-blocks", Bucket]),
     {ok, Bin} = file:read_file(OutFile1),
     KeySeqs = [begin
                    [_RiakBucketHex, _RiakKeyHex,

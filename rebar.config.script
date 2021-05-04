@@ -1,3 +1,5 @@
+%% -*- erlang -*-
+
 case os:getenv("SMOKE_TEST") of
     false -> CONFIG;
     [] -> CONFIG;

@@ -386,8 +386,6 @@ async_start(Node) ->
 
 %% @doc Stop the specified Riak `Node'.
 stop(Node) ->
-    lager:info("Stopping riak on ~p", [Node]),
-    timer:sleep(10000), %% I know, I know!
     ?HARNESS:stop(Node).
     %%rpc:call(Node, init, stop, []).
 
@@ -1321,9 +1319,13 @@ restore_data_dir(Nodes, BackendFldr, BackupFldr) ->
 
 %% @doc Shutdown every node, this is for after a test run is complete.
 teardown() ->
+    lager:info("Tearing down", []),
+    rt_cover:maybe_stop_on_nodes(),
+
     %% stop all connected nodes, 'cause it'll be faster that
-    %%lager:info("RPC stopping these nodes ~p", [nodes()]),
-    %%[ rt:stop(Node) || Node <- nodes()],
+    lager:info("RPC stopping these nodes ~p", [nodes()]),
+    rt:pmap(fun stop/1, nodes()),
+
     %% Then do the more exhaustive harness thing, in case something was up
     %% but not connected.
     ?HARNESS:teardown().

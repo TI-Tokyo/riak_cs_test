@@ -45,34 +45,32 @@ stop_cs_and_stanchion_nodes(NodeList, Vsn) ->
               end, NodeList).
 
 start_all_nodes(NodeList, Vsn) ->
-    lists:map(fun({_CSNode, RiakNode, _Stanchion}) ->
+    lists:map(fun({CSNode, RiakNode, _Stanchion}) ->
                       N = rtdev:node_id(RiakNode),
                       rtdev:run_riak(N, rtcs_dev:relpath(
                                           rtdev:node_version(
                                             rtdev:node_id(RiakNode))), "start"),
                       rt:wait_for_service(RiakNode, riak_kv),
                       start_stanchion(Vsn),
-                      start_cs(N, Vsn);
-                 ({_CSNode, RiakNode}) ->
+                      start_cs(CSNode, Vsn);
+                 ({CSNode, RiakNode}) ->
                       N = rtcs_dev:node_id(RiakNode),
                       rtdev:run_riak(N, rtcs_dev:relpath(rtcs_dev:node_version(N)), "start"),
                       rt:wait_for_service(RiakNode, riak_kv),
-                      start_cs(N, Vsn)
+                      start_cs(CSNode, Vsn)
               end, NodeList).
 
 stop_all_nodes(NodeList, Vsn) ->
     lists:map(fun({CSNode, RiakNode, Stanchion}) ->
-                      N = rtcs_dev:node_id(RiakNode),
-                      stop_cs(N, Vsn),
+                      stop_cs(CSNode, Vsn),
                       stop_stanchion(Vsn),
-                      rtdev:run_riak(N, rtcs_dev:relpath(rtcs_dev:node_version(N)), "stop"),
+                      rtcs_dev:stop(RiakNode),
                       rt:wait_until_unpingable(CSNode),
                       rt:wait_until_unpingable(Stanchion),
                       rt:wait_until_unpingable(RiakNode);
                  ({CSNode, RiakNode}) ->
-                      N = rtcs_dev:node_id(RiakNode),
-                      stop_cs(N, Vsn),
-                      rtdev:run_riak(N, rtcs_dev:relpath(rtcs_dev:node_version(N)), "stop"),
+                      stop_cs(CSNode, Vsn),
+                      rtcs_dev:stop(RiakNode),
                       rt:wait_until_unpingable(CSNode),
                       rt:wait_until_unpingable(RiakNode)
               end, NodeList).
@@ -175,20 +173,13 @@ exec_priv_escript(N, Command, Options) ->
     exec_priv_escript(N, Command, Options, cs).
 
 exec_priv_escript(N, Command, Options, ByWhom) ->
-    CsPrefix = rtcs_config:devpath(cs, current),
     ExecuterPrefix = rtcs_config:devpath(ByWhom, current),
-    ScriptWild = string:join([riakcs_libpath(CsPrefix, N), "riak_cs*",
-                              "priv/tools/"] , "/"),
-    [ToolsDir] = filelib:wildcard(ScriptWild),
+    EscriptPath = filename:join(["priv", "tools", "internal", Command]),
     Cmd = case ByWhom of
               cs ->
-                  riakcscmd(ExecuterPrefix, N, "escript " ++ ToolsDir ++
-                                "/" ++ Command ++
-                                " " ++ Options);
+                  riakcscmd(ExecuterPrefix, N, "escript " ++ EscriptPath ++ " " ++ Options);
               riak ->
-                  riakcmd(ExecuterPrefix, N, "escript " ++ ToolsDir ++
-                              "/" ++ Command ++
-                              " " ++ Options)
+                  riakcmd(ExecuterPrefix, N, "escript " ++ EscriptPath ++ " " ++ Options)
           end,
     lager:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
