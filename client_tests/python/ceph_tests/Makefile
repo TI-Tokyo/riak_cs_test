@@ -1,7 +1,7 @@
 .PHONY: test clean env all
 .DEFAULT: all
 
-DEPS = env/lib/python2.7/site-packages
+DEPS = env/lib/python3.8/site-packages
 BIN = env/bin
 NOSE_ARGS = s3tests.functional.test_s3 -A
 NOSE_ATTR = (method != "post")

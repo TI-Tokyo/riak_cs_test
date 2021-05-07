@@ -3,7 +3,7 @@
 ## Dependencies
 
 * [virtualenv](http://www.virtualenv.org/en/latest/#installation) (I'm using 1.9.1)
-* Python (I'm using 2.7.2)
+* Python (I'm using 3.8)
 * `uuidgen` command (e.g. `apt-get install uuid-runtime` on Debian/Ubuntu)
 
 ## Configuration
