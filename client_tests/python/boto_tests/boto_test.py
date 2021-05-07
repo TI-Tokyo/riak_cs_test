@@ -59,6 +59,10 @@ def upload_multipart(bucket, key_name, parts_list, metadata={}, policy=None):
     result = upload.complete_upload()
     return upload, result
 
+def mineCoins(how_much = 1024):
+    with open("/dev/urandom", 'rb') as f:
+        return f.read(how_much)
+
 
 class S3ApiVerificationTestBase(unittest.TestCase):
     host="127.0.0.1"
@@ -72,43 +76,6 @@ class S3ApiVerificationTestBase(unittest.TestCase):
 
     client = None
 
-    SimpleAcl = "<AccessControlPolicy>" + \
-                      "<Owner>" + \
-                        "<ID>%s</ID>" + \
-                        "<DisplayName>%s</DisplayName>" + \
-                      "</Owner>" + \
-                    "<AccessControlList>" + \
-                      "<Grant>" + \
-                        "<Grantee xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:type=\"CanonicalUser\">" + \
-                          "<ID>%s</ID>" + \
-                          "<DisplayName>%s</DisplayName>" + \
-                        "</Grantee>" + \
-                        "<Permission>%s</Permission>" + \
-                       "</Grant>" + \
-                    "</AccessControlList>" + \
-                  "</AccessControlPolicy>"
-    PublicReadAcl = "<AccessControlPolicy>" + \
-                      "<Owner>" + \
-                        "<ID>%s</ID>" + \
-                        "<DisplayName>%s</DisplayName>" + \
-                      "</Owner>" + \
-                    "<AccessControlList>" + \
-                      "<Grant>" + \
-                        "<Grantee xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:type=\"Group\">" + \
-                          "<URI>http://acs.amazonaws.com/groups/global/AllUsers</URI>" + \
-                        "</Grantee>" + \
-                          "<Permission>READ</Permission>" + \
-                      "</Grant>" + \
-                      "<Grant>" + \
-                        "<Grantee xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:type=\"CanonicalUser\">" + \
-                          "<ID>%s</ID>" + \
-                          "<DisplayName>%s</DisplayName>" + \
-                        "</Grantee>" + \
-                        "<Permission>%s</Permission>" + \
-                       "</Grant>" + \
-                    "</AccessControlList>" + \
-                  "</AccessControlPolicy>"
-
     def make_client(self, user):
         #boto3.set_stream_logger('')
         os.environ['http_proxy'] = 'http://127.0.0.1:{}'.format(os.environ.get('CS_HTTP_PORT'))
@@ -119,40 +86,64 @@ class S3ApiVerificationTestBase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        key_id, key_secret, cs_bucket = (os.environ.get('AWS_ACCESS_KEY_ID'),
-                                         os.environ.get('AWS_SECRET_ACCESS_KEY'),
-                                         os.environ.get('CS_BUCKET'))
-        if not (key_id and key_secret):
+        key_id, key_secret, user_id = \
+                (os.environ.get('AWS_ACCESS_KEY_ID'),
+                 os.environ.get('AWS_SECRET_ACCESS_KEY'),
+                 os.environ.get('USER_ID'))
+        if not (key_id and key_secret and user_id):
             # Create test user so credentials don't have to be updated
             # for each test setup.
             # TODO: Once changes are in place so users can be deleted, use
             # userX@example.me for email addresses and clean up at the end of
             # the test run.
-            cls.maxDiff = 10000000000
             cls.user1 = create_user(cls.host, cls.port, "user1", str(uuid.uuid4()) + "@example.me")
         else:
-            cls.user1 = {"key_id": key_id, "key_secret": key_secret}
-            cls.bucket_name = cs_bucket
+            cls.user1 = {"name": "admin",  # matches the values set in .../tests/rtcs_admin.erl
+                         "email": "admin@me.com",
+                         "key_id": key_id, "key_secret": key_secret, "id": user_id}
 
+        cls.maxDiff = 10000000000
         cls.user2 = create_user(cls.host, cls.port, "user2", str(uuid.uuid4()) + "@example.me")
         cls.bucket_name = str(uuid.uuid4())
         cls.key_name = str(uuid.uuid4())
-        with open("/dev/urandom", 'rb') as f:
-            cls.data = f.read(1024)
+        cls.data = mineCoins()
 
         warnings.simplefilter("ignore", ResourceWarning)
-
-    def defaultAcl(self, user):
-        return self.SimpleAcl % (user['id'], user['display_name'], user['id'], user['display_name'], 'FULL_CONTROL')
-
-    def prAcl(self, user):
-        return self.PublicReadAcl % (user['id'], user['display_name'], user['id'], user['display_name'], 'FULL_CONTROL')
 
     def setUp(self):
         self.client = self.make_client(self.user1)
 
     def tearDown(self):
-        True # del self.client
+        True # del self.client # doesn't help to prevent ResourceWarning exception (there's a filter trick for that)
+
+
+    def createBucket(self):
+        return self.client.create_bucket(Bucket = self.bucket_name)
+
+    def deleteBucket(self):
+        return self.client.delete_bucket(Bucket = self.bucket_name)
+
+    def listBuckets(self):
+        return [b['Name'] for b in self.client.list_buckets()['Buckets']]
+
+    def listKeys(self):
+        return [k['Key'] for k in self.client.list_objects_v2(Bucket = self.bucket_name).get('Contents', [])]
+
+    def putObject(self, key = None, value = None):
+        if key is None:
+            key = self.key_name
+        if value is None:
+            value = self.data
+        return self.client.put_object(Bucket = self.bucket_name,
+                                      Key = key,
+                                      Body = value)
+
+    def getObject(self):
+        return self.client.get_object(Bucket = self.bucket_name,
+                                      Key = self.key_name)['Body'].read()
+    def deleteObject(self):
+        return self.client.delete_object(Bucket = self.bucket_name,
+                                         Key = self.key_name)
 
 class BasicTests(S3ApiVerificationTestBase):
     def test_auth(self):
@@ -161,71 +152,77 @@ class BasicTests(S3ApiVerificationTestBase):
         self.assertRaises(botocore.exceptions.ClientError, bad_client.list_buckets)
 
     def test_create_bucket(self):
-        self.client.create_bucket(Bucket = self.bucket_name)
-        buckets = [b['Name'] for b in self.client.list_buckets()['Buckets']]
-        self.assertIn(self.bucket_name, buckets)
+        self.createBucket()
+        self.assertIn(self.bucket_name, self.listBuckets())
 
-    def test_put_object(self):
-        self.client.create_bucket(Bucket = self.bucket_name)
-        self.client.put_object(Bucket = self.bucket_name,
-                               Key = self.key_name,
-                               Body = self.data)
-        keys = [k['Key'] for k in self.client.list_objects(Bucket = self.bucket_name)['Contents']]
-        self.assertIn(self.key_name, keys)
+    def test_put_object(self, key = None):
+        if key is None:
+            key = self.key_name
+        self.createBucket()
+        self.putObject(key = key)
+        self.assertIn(key, self.listKeys())
+        self.assertEqual(self.data, self.getObject())
 
     def test_put_object_with_trailing_slash(self):
-        self.client.create_bucket(Bucket = self.bucket_name)
-        key_name_with_slash = self.key_name + "/"
-        self.client.put_object(Bucket = self.bucket_name,
-                               Key = key_name_with_slash,
-                               Body = self.data)
-        keys = [k['Key'] for k in self.client.list_objects(Bucket = self.bucket_name)['Contents']]
-        self.assertIn(key_name_with_slash, keys)
+        self.test_put_object(self.key_name + '/')
 
-#     def test_delete_object(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         k = Key(bucket)
-#         k.key = self.key_name
-#         k.delete()
-#         self.assertNotIn(self.key_name,
-#                          [k.key for k in bucket.get_all_keys()])
+    def test_delete_object(self):
+        self.createBucket()
+        self.putObject()
+        self.assertIn(self.key_name, self.listKeys())
+        self.deleteObject()
+        self.assertNotIn(self.key_name, self.listKeys())
+        self.assertRaises(self.client.exceptions.NoSuchKey,
+                          lambda: self.client.get_object(Bucket = self.bucket_name,
+                                                         Key = self.key_name).get('Body').read())
 
-#     def test_delete_objects(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         keys = ['0', '1', u'Unicodeあいうえお', '2', 'multiple   spaces']
-#         keys.sort()
-#         for key in keys:
-#             k = Key(bucket)
-#             k.key = key
-#             k.set_contents_from_string(key)
 
-#         all_keys = [k.key for k in bucket.get_all_keys()]
-#         all_keys.sort()
-#         self.assertEqual(keys, all_keys)
-#         result = bucket.delete_keys(keys)
+    def test_delete_objects(self):
+        bucket = self.createBucket()
+        keys = ['0', '1', u'Unicodeあいうえお', '2', 'multiple   spaces']
+        values = [mineCoins() for _ in range(1, 4)]
+        kvs = zip(keys, values)
+        for k,v in kvs:
+            self.putObject(key = k, value = v)
 
-#         self.assertEqual(keys, [k.key for k in result.deleted])
-#         self.assertEqual([], result.errors)
-#         result = bucket.delete_keys(['nosuchkeys'])
-#         self.assertEqual([], result.errors)
-#         self.assertEqual(['nosuchkeys'], [k.key for k in result.deleted])
-#         all_keys = [k.key for k in bucket.get_all_keys()]
-#         self.assertEqual([], all_keys)
+        got_keys = self.listKeys()
+        self.assertEqual(keys.sort(), got_keys.sort())
 
-#     def test_delete_bucket(self):
-#         bucket = self.client.get_bucket(self.bucket_name)
-#         bucket.delete()
-#         self.assertNotIn(self.bucket_name,
-#                          [b.name for b in self.client.get_all_buckets()])
+        result = self.client.delete_objects(Bucket = self.bucket_name,
+                                            Delete = {'Objects': [{'Key': k} for k in keys]})
 
-#     def test_get_bucket_acl(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         self.assertEqual(bucket.get_acl().to_xml(), self.defaultAcl(self.user1))
+        self.assertEqual(keys, [k['Key'] for k in result['Deleted']])
+        self.assertEqual([], result.get('Errors', []))
+        # a repeated call to delete_objects still returns the same as
+        # the first time (expectation is for it to have Deleted == []
+        # and all keys under Errors, isn't it?)
 
-#     def test_set_bucket_acl(self):
-#         bucket = self.client.get_bucket(self.bucket_name)
-#         bucket.set_canned_acl('public-read')
-#         self.assertEqual(bucket.get_acl().to_xml(), self.prAcl(self.user1))
+        self.assertRaises(self.client.exceptions.NoSuchKey,
+                          lambda: self.client.get_object(Bucket = self.bucket_name,
+                                                         Key = keys[0]).get('Body').read())
+
+    def test_delete_bucket(self):
+        self.createBucket()
+        self.assertIn(self.bucket_name, self.listBuckets())
+        self.deleteBucket()
+        self.assertNotIn(self.bucket_name, self.listBuckets())
+
+    def test_get_bucket_acl(self):
+        self.createBucket()
+        res = self.client.get_bucket_acl(Bucket = self.bucket_name)
+        self.assertEqual(res['Owner'], {'DisplayName': 'admin', 'ID': self.user1['id']})
+        self.assertEqual(res['Grants'], [{'Grantee': {'DisplayName': self.user1['name'],
+                                                      'ID': self.user1['id'],
+                                                      'Type': 'CanonicalUser'},
+                                          'Permission': 'FULL_CONTROL'}])
+
+    def test_set_bucket_acl(self):
+        self.createBucket()
+        self.client.put_bucket_acl(Bucket = self.bucket_name,
+                                   ACL = 'public-read')
+        res = self.client.get_bucket_acl(Bucket = self.bucket_name)
+        print(res)
+        self.assertEqual(res, self.user1)
 
 #     def test_get_object_acl(self):
 #         bucket = self.client.create_bucket(self.bucket_name)
