@@ -32,38 +32,6 @@ import warnings
 warnings.simplefilter("ignore", ResourceWarning)
 
 
-def create_user(host, port, name, email):
-    url = 'http://{0}:{1}/riak-cs/user'.format(host, port)
-    conn = httplib2.Http()
-    resp, content = conn.request(url, "POST",
-                                 headers = {"Content-Type": "application/json"},
-                                 body = json.dumps({"email": email, "name": name}))
-    conn.close()
-    return json.loads(content)
-
-# Take a boto 'Key' and returns a hex
-# digest of the md5 (calculated by actually
-# retrieving the bytes and calculating the md5)
-def md5_from_key(boto_key):
-    m = hashlib.md5()
-    for byte in boto_key:
-        m.update(byte)
-    return m.hexdigest()
-
-# `parts_list` should be a list of file-like objects
-def upload_multipart(bucket, key_name, parts_list, metadata={}, policy=None):
-    upload = bucket.initiate_multipart_upload(key_name, metadata=metadata,
-                                              policy=policy)
-    for index, val in enumerate(parts_list):
-        upload.upload_part_from_file(val, index + 1)
-    result = upload.complete_upload()
-    return upload, result
-
-def mineCoins(how_much = 1024):
-    with open("/dev/urandom", 'rb') as f:
-        return f.read(how_much)
-
-
 class S3ApiVerificationTestBase(unittest.TestCase):
     host="127.0.0.1"
     try:
@@ -102,7 +70,6 @@ class S3ApiVerificationTestBase(unittest.TestCase):
                          "email": "admin@me.com",
                          "key_id": key_id, "key_secret": key_secret, "id": user_id}
 
-        cls.maxDiff = 10000000000
         cls.user2 = create_user(cls.host, cls.port, "user2", str(uuid.uuid4()) + "@example.me")
         cls.bucket_name = str(uuid.uuid4())
         cls.key_name = str(uuid.uuid4())
@@ -138,12 +105,34 @@ class S3ApiVerificationTestBase(unittest.TestCase):
                                       Key = key,
                                       Body = value)
 
-    def getObject(self):
+    def getObject(self, key = None):
+        if key is None:
+            key = self.key_name
         return self.client.get_object(Bucket = self.bucket_name,
-                                      Key = self.key_name)['Body'].read()
+                                      Key = key)['Body'].read()
     def deleteObject(self):
         return self.client.delete_object(Bucket = self.bucket_name,
                                          Key = self.key_name)
+
+    def verifyDictListsIdentical(self, cc1, cc2):
+        [self.assertIn(c, cc1) for c in cc2]
+        [self.assertIn(c, cc2) for c in cc1]
+
+def create_user(host, port, name, email):
+    os.environ['http_proxy'] = ''
+    url = 'http://{0}:{1}/riak-cs/user'.format(host, port)
+    conn = httplib2.Http()
+    resp, content = conn.request(url, "POST",
+                                 headers = {"Content-Type": "application/json"},
+                                 body = json.dumps({"email": email, "name": name}))
+    conn.close()
+    return json.loads(content)
+
+def mineCoins(how_much = 1024):
+    with open("/dev/urandom", 'rb') as f:
+        return f.read(how_much)
+
+
 
 class BasicTests(S3ApiVerificationTestBase):
     def test_auth(self):
@@ -211,64 +200,75 @@ class BasicTests(S3ApiVerificationTestBase):
         self.createBucket()
         res = self.client.get_bucket_acl(Bucket = self.bucket_name)
         self.assertEqual(res['Owner'], {'DisplayName': 'admin', 'ID': self.user1['id']})
-        self.assertEqual(res['Grants'], [{'Grantee': {'DisplayName': self.user1['name'],
-                                                      'ID': self.user1['id'],
-                                                      'Type': 'CanonicalUser'},
-                                          'Permission': 'FULL_CONTROL'}])
+        self.verifyDictListsIdentical(res['Grants'],
+                                      [userAcl(self.user1, 'FULL_CONTROL')])
 
     def test_set_bucket_acl(self):
         self.createBucket()
         self.client.put_bucket_acl(Bucket = self.bucket_name,
                                    ACL = 'public-read')
         res = self.client.get_bucket_acl(Bucket = self.bucket_name)
-        print(res)
-        self.assertEqual(res, self.user1)
+        self.assertEqual(res['Owner']['DisplayName'], self.user1['name'])
+        self.assertEqual(res['Owner']['ID'], self.user1['id'])
+        self.verifyDictListsIdentical(res['Grants'],
+                                      [publicAcl('READ'), userAcl(self.user1, 'FULL_CONTROL')])
 
-#     def test_get_object_acl(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         k = Key(bucket)
-#         k.key = self.key_name
-#         k.set_contents_from_string(self.data)
-#         self.assertEqual(k.get_contents_as_string(), self.data)
-#         self.assertEqual(k.get_acl().to_xml(), self.defaultAcl(self.user1))
+    def test_get_object_acl(self):
+        self.createBucket()
+        self.putObject()
+        res = self.client.get_object_acl(Bucket = self.bucket_name,
+                                         Key = self.key_name)
+        self.assertEqual(res['Grants'], [userAcl(self.user1, 'FULL_CONTROL')])
 
-#     def test_set_object_acl(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         k = Key(bucket)
-#         k.key = self.key_name
-#         k.set_canned_acl('public-read')
-#         self.assertEqual(k.get_acl().to_xml(), self.prAcl(self.user1))
+    def test_set_object_acl(self):
+        self.createBucket()
+        self.putObject()
+        self.client.put_object_acl(Bucket = self.bucket_name,
+                                   Key = self.key_name,
+                                   ACL = 'public-read')
+        res = self.client.get_object_acl(Bucket = self.bucket_name,
+                                         Key = self.key_name)
+        self.verifyDictListsIdentical(res['Grants'],
+                                      [publicAcl('READ'), userAcl(self.user1, 'FULL_CONTROL')])
 
-# class MultiPartUploadTests(S3ApiVerificationTestBase):
-#     def multipart_md5_helper(self, parts, key_suffix=u''):
-#         key_name = unicode(str(uuid.uuid4())) + key_suffix
-#         stringio_parts = [StringIO(p) for p in parts]
-#         expected_md5 = hashlib.md5(''.join(parts)).hexdigest()
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         upload, result = upload_multipart(bucket, key_name, stringio_parts)
-#         key = Key(bucket, key_name)
-#         actual_md5 = md5_from_key(key)
-#         self.assertEqual(expected_md5, actual_md5)
-#         self.assertEqual(key_name, result.key_name)
-#         return upload, result
+def userAcl(user, permission):
+    return {'Grantee': {'DisplayName': user['name'],
+                        'ID': user['id'],
+                        'Type': 'CanonicalUser'},
+            'Permission': permission}
+def publicAcl(permission):
+    return {'Grantee': {'Type': 'Group',
+                        'URI': 'http://acs.amazonaws.com/groups/global/AllUsers'},
+            'Permission': permission}
 
-#     def test_small_strings_upload_1(self):
-#         parts = ['this is part one', 'part two is just a rewording',
-#                  'surprise that part three is pretty much the same',
-#                  'and the last part is number four']
-#         self.multipart_md5_helper(parts)
 
-#     def test_small_strings_upload_2(self):
-#         parts = ['just one lonely part']
-#         self.multipart_md5_helper(parts)
 
-#     def test_small_strings_upload_3(self):
-#         parts = [str(uuid.uuid4()) for _ in xrange(100)]
-#         self.multipart_md5_helper(parts)
+class MultiPartUploadTests(S3ApiVerificationTestBase):
+    def multipart_md5_helper(self, parts, key_suffix=u''):
+        key_name = str(uuid.uuid4()) + key_suffix
+        stringio_parts = [StringIO(str(p)) for p in parts]
+        expected_md5 = hashlib.md5(bytes(b''.join(parts))).hexdigest()
+        self.createBucket()
+        upload_id, result = self.upload_multipart(key_name, parts)
 
-#     def test_small_strings_upload_4(self):
-#         parts = [str(uuid.uuid4()) for _ in xrange(20)]
-#         self.multipart_md5_helper(parts)
+        actual_md5 = hashlib.md5(bytes(self.getObject(key_name))).hexdigest()
+        self.assertEqual(expected_md5, actual_md5)
+        self.assertEqual(key_name, result['Key'])
+        return upload_id, result
+
+    def test_small_strings_upload_1(self):
+        parts = [b'this is part one', b'part two is just a rewording',
+                 b'surprise that part three is pretty much the same',
+                 b'and the last part is number four']
+        self.multipart_md5_helper(parts)
+
+    def test_small_strings_upload_2(self):
+        parts = [b'just one lonely part']
+        self.multipart_md5_helper(parts)
+
+    def test_small_strings_upload_3(self):
+        parts = [uuid.uuid4().bytes for _ in range(100)]
+        self.multipart_md5_helper(parts)
 
 #     def test_acl_is_set(self):
 #         parts = [str(uuid.uuid4()) for _ in xrange(5)]
@@ -307,6 +307,39 @@ class BasicTests(S3ApiVerificationTestBase):
 #         uploads = list(bucket.list_multipart_uploads())
 #         for u in uploads:
 #             self.assertEqual(u.key_name, key_name)
+
+    def upload_multipart(self, key, parts_list,
+                         metadata = {}, acl = None):
+        pp = {'Bucket': self.bucket_name,
+              'Key': key,
+              'Metadata': metadata}
+        if acl:
+            pp['ACL'] = acl
+        upload_id = self.client.create_multipart_upload(**pp)['UploadId']
+        etags = []
+        for index, val in list(enumerate(parts_list)):
+            res = self.client.upload_part(UploadId = upload_id,
+                                          Bucket = self.bucket_name,
+                                          Key = key,
+                                          Body = val,
+                                          PartNumber = index + 1)
+            etags += [{'ETag': res['ETag'], 'PartNumber': index + 1}]
+        result = self.client.complete_multipart_upload(UploadId = upload_id,
+                                                       Bucket = self.bucket_name,
+                                                       Key = key,
+                                                       MultipartUpload = {'Parts': etags})
+        return upload_id, result
+
+# Take a boto 'Key' and returns a hex
+# digest of the md5 (calculated by actually
+# retrieving the bytes and calculating the md5)
+def md5_from_key(boto_key):
+    m = hashlib.md5()
+    for byte in bytes(boto_key):
+        m.update(byte)
+    return m.hexdigest()
+
+# `parts_list` should be a list of file-like objects
 
 def one_kb_string():
     "Return a 1KB string of all a's"

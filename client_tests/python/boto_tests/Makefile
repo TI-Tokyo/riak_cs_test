@@ -13,10 +13,7 @@ $(DEPS) $(BIN): requirements.txt env
 	@env/bin/pip install -r requirements.txt
 	rm -f $(DEPS)/boto/auth.pyc
 
-test: test-auth-v2 test-auth-v4
-
-test-auth-v2: $(DEPS) $(BIN)
-	env CS_AUTH=auth-v2 env/bin/python boto_test.py
+test: test-auth-v4
 
 test-auth-v4: $(DEPS) $(BIN)
 	env CS_AUTH=auth-v4 env/bin/python boto_test.py
