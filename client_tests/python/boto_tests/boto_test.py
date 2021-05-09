@@ -19,7 +19,7 @@
 ## under the License.
 ##
 ## ---------------------------------------------------------------------
-import os, httplib2, json, unittest, uuid, hashlib
+import os, httplib2, json, unittest, uuid, hashlib, base64
 from io import StringIO
 from file_generator import FileGenerator
 
@@ -244,18 +244,6 @@ def publicAcl(permission):
 
 
 class MultiPartUploadTests(S3ApiVerificationTestBase):
-    def multipart_md5_helper(self, parts, key_suffix=u''):
-        key_name = str(uuid.uuid4()) + key_suffix
-        stringio_parts = [StringIO(str(p)) for p in parts]
-        expected_md5 = hashlib.md5(bytes(b''.join(parts))).hexdigest()
-        self.createBucket()
-        upload_id, result = self.upload_multipart(key_name, parts)
-
-        actual_md5 = hashlib.md5(bytes(self.getObject(key_name))).hexdigest()
-        self.assertEqual(expected_md5, actual_md5)
-        self.assertEqual(key_name, result['Key'])
-        return upload_id, result
-
     def test_small_strings_upload_1(self):
         parts = [b'this is part one', b'part two is just a rewording',
                  b'surprise that part three is pretty much the same',
@@ -270,43 +258,50 @@ class MultiPartUploadTests(S3ApiVerificationTestBase):
         parts = [uuid.uuid4().bytes for _ in range(100)]
         self.multipart_md5_helper(parts)
 
-#     def test_acl_is_set(self):
-#         parts = [str(uuid.uuid4()) for _ in xrange(5)]
-#         key_name = str(uuid.uuid4())
-#         stringio_parts = [StringIO(p) for p in parts]
-#         expected_md5 = hashlib.md5(''.join(parts)).hexdigest()
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         upload = upload_multipart(bucket, key_name, stringio_parts,
-#                                   policy='public-read')
-#         key = Key(bucket, key_name)
-#         actual_md5 = md5_from_key(key)
-#         self.assertEqual(expected_md5, actual_md5)
-#         self.assertEqual(key.get_acl().to_xml(), self.prAcl(self.user1))
+    def test_acl_is_set(self):
+        parts = [uuid.uuid4().bytes for _ in range(5)]
+        key_name = str(uuid.uuid4())
+        expected_md5 = hashlib.md5(bytes(b''.join(parts))).hexdigest()
+        self.createBucket()
+        self.upload_multipart(key_name, parts,
+                              acl = 'public-read')
+        actual_md5 = hashlib.md5(bytes(self.getObject(key_name))).hexdigest()
+        self.assertEqual(expected_md5, actual_md5)
+        res = self.client.get_object_acl(Bucket = self.bucket_name,
+                                         Key = key_name)
+        self.assertEqual(res['Owner']['DisplayName'], self.user1['name'])
+        self.assertEqual(res['Owner']['ID'], self.user1['id'])
+        self.verifyDictListsIdentical(res['Grants'],
+                                      [publicAcl('READ'), userAcl(self.user1, 'FULL_CONTROL')])
 
-#     def test_standard_storage_class(self):
-#         # Test for bug reported in
-#         # https://github.com/basho/riak_cs/pull/575
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         key_name = 'test_standard_storage_class'
-#         _never_finished_upload = bucket.initiate_multipart_upload(key_name)
-#         uploads = list(bucket.list_multipart_uploads())
-#         for u in uploads:
-#             self.assertEqual(u.storage_class, 'STANDARD')
-#         self.assertTrue(True)
+    def test_standard_storage_class(self):
+        # Test for bug reported in
+        # https://github.com/basho/riak_cs/pull/575
+        self.createBucket()
+        key_name = 'test_standard_storage_class'
+        self.client.create_multipart_upload(Bucket = self.bucket_name,
+                                            Key = self.key_name)
+        uploads = self.client.list_multipart_uploads(Bucket = self.bucket_name)['Uploads']
+        for u in uploads:
+            self.assertEqual(u['StorageClass'], 'STANDARD')
+        self.assertTrue(True)
 
-#     def test_upload_japanese_key(self):
-#         parts = ['this is part one', 'part two is just a rewording',
-#                  'surprise that part three is pretty much the same',
-#                  'and the last part is number four']
-#         self.multipart_md5_helper(parts, key_suffix=u'日本語サフィックス')
+    def test_upload_japanese_key(self):
+        parts = [b'this is part one', b'part two is just a rewording',
+                 b'surprise that part three is pretty much the same',
+                 b'and the last part is number four']
+        self.multipart_md5_helper(parts, key_suffix=u'日本語サフィックス')
 
-#     def test_list_japanese_key(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         key_name = u'test_日本語キーのリスト'
-#         _never_finished_upload = bucket.initiate_multipart_upload(key_name)
-#         uploads = list(bucket.list_multipart_uploads())
-#         for u in uploads:
-#             self.assertEqual(u.key_name, key_name)
+    def test_list_japanese_key(self):
+        self.createBucket()
+        key_name = u'test_日本語キーのリスト'
+        self.client.create_multipart_upload(Bucket = self.bucket_name,
+                                            Key = key_name)
+        uploads = self.client.list_multipart_uploads(Bucket = self.bucket_name)['Uploads']
+        for u in uploads:
+            self.assertEqual(u['Key'], key_name)
+        self.assertTrue(True)
+
 
     def upload_multipart(self, key, parts_list,
                          metadata = {}, acl = None):
@@ -330,161 +325,132 @@ class MultiPartUploadTests(S3ApiVerificationTestBase):
                                                        MultipartUpload = {'Parts': etags})
         return upload_id, result
 
-# Take a boto 'Key' and returns a hex
-# digest of the md5 (calculated by actually
-# retrieving the bytes and calculating the md5)
-def md5_from_key(boto_key):
-    m = hashlib.md5()
-    for byte in bytes(boto_key):
-        m.update(byte)
-    return m.hexdigest()
+    def multipart_md5_helper(self, parts, key_suffix=u''):
+        key_name = str(uuid.uuid4()) + key_suffix
+        expected_md5 = hashlib.md5(bytes(b''.join(parts))).hexdigest()
+        self.createBucket()
+        upload_id, result = self.upload_multipart(key_name, parts)
 
-# `parts_list` should be a list of file-like objects
+        actual_md5 = hashlib.md5(bytes(self.getObject(key_name))).hexdigest()
+        self.assertEqual(expected_md5, actual_md5)
+        self.assertEqual(key_name, result['Key'])
+        return upload_id, result
 
-def one_kb_string():
-    "Return a 1KB string of all a's"
-    return ''.join(['a' for _ in xrange(1024)])
 
-def kb_gen_fn(num_kilobytes):
-    s = one_kb_string()
-    def fn():
-        return (s for _ in xrange(num_kilobytes))
-    return fn
 
-def kb_file_gen(num_kilobytes):
-    gen_fn = kb_gen_fn(num_kilobytes)
-    return FileGenerator(gen_fn, num_kilobytes * 1024)
+class FileGenTest(unittest.TestCase):
+    def test_read_twice(self):
+        """ Read 2KB file and reset (seek to the head) and re-read 2KB """
+        num_kb = 2
+        f = kb_file_gen(num_kb)
 
-def mb_file_gen(num_megabytes):
-    return kb_file_gen(num_megabytes * 1024)
+        first1 = f.read(1024)
+        self.assertEqual(1024, len(first1))
+        first2 = f.read(1024)
+        self.assertEqual(1024, len(first2))
+        self.assertEqual(2048, f.pos)
+        self.assertEqual(b'', f.read(1))
+        self.assertEqual(b'', f.read(1))
+        self.assertEqual(2048, f.pos)
 
-def md5_from_file(file_object):
-    m = hashlib.md5()
-    update_md5_from_file(m, file_object)
-    return m.hexdigest()
+        f.seek(0)
+        self.assertEqual(0, f.pos)
+        second1 = f.read(1024)
+        self.assertEqual(1024, len(first1))
+        second2 = f.read(1024)
+        self.assertEqual(1024, len(second2))
+        self.assertEqual(2048, f.pos)
+        self.assertEqual(b'', f.read(1))
+        self.assertEqual(b'', f.read(1))
 
-def md5_from_files(file_objects):
-    "note the plural"
-    m = hashlib.md5()
-    for f in file_objects:
-        update_md5_from_file(m, f)
-    return m.hexdigest()
 
-def update_md5_from_file(md5_object, file_object):
-    "Helper function for calculating the hex md5 of a file-like object"
-    go = True
-    while go:
-        byte = file_object.read(8196)
-        if byte:
-            md5_object.update(byte)
-        else:
-            go = False
-    return md5_object
+class LargerFileUploadTest(S3ApiVerificationTestBase):
+    "Larger, regular key uploads"
 
-def remove_double_quotes(string):
-    "remove double quote from a string"
-    return string.replace('"', '')
+    def upload_helper(self, num_kilobytes):
+        key_name = str(uuid.uuid4())
+        bucket = self.createBucket()
+        md5_expected = md5_from_file(kb_file_gen(num_kilobytes))
+        file_obj = kb_file_gen(num_kilobytes)
+        self.putObject(key_name, file_obj)
+        got_object = self.client.get_object(Bucket = self.bucket_name,
+                                            Key = key_name)
+        actual_md5 = hashlib.md5(bytes(got_object['Body'].read())).hexdigest()
+        self.assertEqual(md5_expected, actual_md5)
+        self.assertEqual(md5_expected, remove_double_quotes(got_object['ETag']))
 
-# class FileGenTest(unittest.TestCase):
-#     def test_read_twice(self):
-#         """ Read 2KB file and reset (seek to the head) and re-read 2KB """
-#         num_kb = 2
-#         f = kb_file_gen(num_kb)
+    def test_1kb(self):
+        return self.upload_helper(1)
 
-#         first1 = f.read(1024)
-#         self.assertEqual(1024, len(first1))
-#         first2 = f.read(1024)
-#         self.assertEqual(1024, len(first2))
-#         self.assertEqual(2048, f.pos)
-#         self.assertEqual('', f.read(1))
-#         self.assertEqual('', f.read(1))
-#         self.assertEqual(2048, f.pos)
+    def test_2kb(self):
+        return self.upload_helper(2)
 
-#         f.seek(0)
-#         self.assertEqual(0, f.pos)
-#         second1 = f.read(1024)
-#         self.assertEqual(1024, len(first1))
-#         second2 = f.read(1024)
-#         self.assertEqual(1024, len(second2))
-#         self.assertEqual(2048, f.pos)
-#         self.assertEqual('', f.read(1))
-#         self.assertEqual('', f.read(1))
+    def test_256kb(self):
+        return self.upload_helper(256)
 
-# class LargerFileUploadTest(S3ApiVerificationTestBase):
-#     "Larger, regular key uploads"
+    def test_512kb(self):
+        return self.upload_helper(512)
 
-#     def upload_helper(self, num_kilobytes):
-#         key_name = str(uuid.uuid4())
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         md5_expected = md5_from_file(kb_file_gen(num_kilobytes))
-#         file_obj = kb_file_gen(num_kilobytes)
-#         key = Key(bucket, key_name)
-#         key.set_contents_from_file(file_obj,
-#                                    md5=key.get_md5_from_hexdigest(md5_expected))
-#         self.assertEqual(md5_expected, remove_double_quotes(key.etag))
+    def test_1mb(self):
+        return self.upload_helper(1 * 1024)
 
-#     def test_1kb(self):
-#         return self.upload_helper(1)
+    def test_4mb(self):
+        return self.upload_helper(4 * 1024)
 
-#     def test_2kb(self):
-#         return self.upload_helper(2)
+    def test_8mb(self):
+        return self.upload_helper(8 * 1024)
 
-#     def test_256kb(self):
-#         return self.upload_helper(256)
+    def test_16mb(self):
+        return self.upload_helper(16 * 1024)
 
-#     def test_512kb(self):
-#         return self.upload_helper(512)
+    def test_32mb(self):
+        return self.upload_helper(32 * 1024)
 
-#     def test_1mb(self):
-#         return self.upload_helper(1 * 1024)
 
-#     def test_4mb(self):
-#         return self.upload_helper(4 * 1024)
+class LargerMultipartFileUploadTest(S3ApiVerificationTestBase):
+    """
+    Larger, multipart file uploads - to pass this test,
+    requires '{enforce_multipart_part_size, false},' entry at riak_cs's app.config
+    """
 
-#     def test_8mb(self):
-#         return self.upload_helper(8 * 1024)
+    def upload_parts_helper(self, zipped_parts_and_md5s, expected_md5):
+        self.createBucket()
+        key_name = str(uuid.uuid4())
+        upload_id = self.client.create_multipart_upload(Bucket = self.bucket_name,
+                                                        Key = key_name)['UploadId']
+        etags = []
+        for idx, (part, md5_of_part) in enumerate(zipped_parts_and_md5s):
+            res = self.client.upload_part(UploadId = upload_id,
+                                          Bucket = self.bucket_name,
+                                          Key = key_name,
+                                          Body = part,
+                                          PartNumber = idx + 1)
+            self.assertEqual(res['ETag'], '"' + md5_of_part + '"')
+            etags += [{'ETag': res['ETag'], 'PartNumber': idx + 1}]
+        self.client.complete_multipart_upload(UploadId = upload_id,
+                                              Bucket = self.bucket_name,
+                                              Key = key_name,
+                                              MultipartUpload = {'Parts': etags})
+        actual_md5 = hashlib.md5(bytes(self.getObject(key_name))).hexdigest()
+        self.assertEqual(expected_md5, actual_md5)
 
-#     def test_16mb(self):
-#         return self.upload_helper(16 * 1024)
+    def from_mb_list(self, mb_list):
+        md5_list = [md5_from_file(mb_file_gen(m)) for m in mb_list]
+        expected_md5 = md5_from_files([mb_file_gen(m) for m in mb_list])
+        parts = [mb_file_gen(m) for m in mb_list]
+        self.upload_parts_helper(zip(parts, md5_list), expected_md5)
 
-#     def test_32mb(self):
-#         return self.upload_helper(32 * 1024)
+    def test_upload_1(self):
+        mb_list = [5, 6, 5, 7, 8, 9]
+        self.from_mb_list(mb_list)
 
-# class LargerMultipartFileUploadTest(S3ApiVerificationTestBase):
-#     """
-#     Larger, multipart file uploads - to pass this test,
-#     requires '{enforce_multipart_part_size, false},' entry at riak_cs's app.config
-#     """
+    def test_upload_2(self):
+        mb_list = [10, 11, 5, 7, 9, 14, 12]
+        self.from_mb_list(mb_list)
 
-#     def upload_parts_helper(self, zipped_parts_and_md5s, expected_md5):
-#         key_name = str(uuid.uuid4())
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         upload = bucket.initiate_multipart_upload(key_name)
-#         key = Key(bucket, key_name)
-#         for idx, (part, md5_of_part) in enumerate(zipped_parts_and_md5s):
-#             upload.upload_part_from_file(part, idx + 1,
-#                                          md5=key.get_md5_from_hexdigest(md5_of_part))
-#         upload.complete_upload()
-#         actual_md5 = md5_from_key(key)
-#         self.assertEqual(expected_md5, actual_md5)
-
-#     def from_mb_list(self, mb_list):
-#         md5_list = [md5_from_file(mb_file_gen(m)) for m in mb_list]
-#         expected_md5 = md5_from_files([mb_file_gen(m) for m in mb_list])
-#         parts = [mb_file_gen(m) for m in mb_list]
-#         self.upload_parts_helper(zip(parts, md5_list), expected_md5)
-
-#     def test_upload_1(self):
-#         mb_list = [5, 6, 5, 7, 8, 9]
-#         self.from_mb_list(mb_list)
-
-#     def test_upload_2(self):
-#         mb_list = [10, 11, 5, 7, 9, 14, 12]
-#         self.from_mb_list(mb_list)
-
-#     def test_upload_3(self):
-#         mb_list = [15, 14, 13, 12, 11, 10]
-#         self.from_mb_list(mb_list)
+    def test_upload_3(self):
+        mb_list = [15, 14, 13, 12, 11, 10]
+        self.from_mb_list(mb_list)
 
 # class UnicodeNamedObjectTest(S3ApiVerificationTestBase):
 #     ''' test to check unicode object name works '''
@@ -891,6 +857,52 @@ def remove_double_quotes(string):
 #             print(e)
 #             self.assertEqual(e.status, 404)
 #             self.assertEqual(e.reason, 'Not Found')
-    
+
+
+def one_kb_string():
+    "Return a 1KB string of all a's"
+    return ''.join(['a' for _ in range(1024)])
+
+def kb_gen_fn(num_kilobytes):
+    s = one_kb_string()
+    def fn():
+        return (s for _ in range(num_kilobytes))
+    return fn
+
+def kb_file_gen(num_kilobytes):
+    gen_fn = kb_gen_fn(num_kilobytes)
+    return FileGenerator(gen_fn, num_kilobytes * 1024)
+
+def mb_file_gen(num_megabytes):
+    return kb_file_gen(num_megabytes * 1024)
+
+def md5_from_file(file_object):
+    m = hashlib.md5()
+    update_md5_from_file(m, file_object)
+    return m.hexdigest()
+
+def md5_from_files(file_objects):
+    "note the plural"
+    m = hashlib.md5()
+    for f in file_objects:
+        update_md5_from_file(m, f)
+    return m.hexdigest()
+
+def update_md5_from_file(md5_object, file_object):
+    "Helper function for calculating the hex md5 of a file-like object"
+    go = True
+    while go:
+        byte = file_object.read(8196)
+        if byte:
+            md5_object.update(byte)
+        else:
+            go = False
+    return md5_object
+
+def remove_double_quotes(string):
+    "remove double quote from a string"
+    return string.replace('"', '')
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

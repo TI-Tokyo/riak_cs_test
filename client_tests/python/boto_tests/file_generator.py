@@ -44,7 +44,7 @@ class FileGenerator(object):
         s = ''.join('a' for _ in xrange(1024))
         # the generator to drive the file, 1MB (1KB * 1024)
         def fn():
-            return (s for _ in xrange(1024))
+            return (s for _ in range(1024))
         fg = FileGenerator(fn, 1024 ** 2)
 
         # now remember, each FileGenerator instance can only
@@ -99,20 +99,20 @@ class FileGenerator(object):
             res = self.buf + ''.join(list(self.gen))
             self.pos = len(res)
             self.buf = ''
-            return res
+            return bytes(res, encoding = "ascii")
         else:
             if self.buf:
                 res = self.buf[:max_size]
                 self.buf = self.buf[max_size:]
                 self.pos += len(res)
-                return res
+                return bytes(res, encoding = "ascii")
             else:
                 try:
-                    data = self.gen.next()
+                    data = next(self.gen)
                     res = data[:max_size]
                     self.buf = data[max_size:]
                     self.pos += len(res)
-                    return res
+                    return bytes(res, encoding = "ascii")
                 except StopIteration:
-                    return ''
+                    return b''
 
