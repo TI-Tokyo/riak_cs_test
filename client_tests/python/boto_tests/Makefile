@@ -13,7 +13,7 @@ $(DEPS) $(BIN): requirements.txt env
 	@env/bin/pip install -r requirements.txt
 	rm -f $(DEPS)/boto/auth.pyc
 
-test:
+test: $(DEPS)
 	env env/bin/python boto_test.py
 
 clean:

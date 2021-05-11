@@ -45,12 +45,15 @@ class S3ApiVerificationTestBase(unittest.TestCase):
     client = None
 
     def make_client(self, user):
-        #boto3.set_stream_logger('')
+        # setting proxies via config parameter is broken, so:
         os.environ['http_proxy'] = 'http://127.0.0.1:{}'.format(os.environ.get('CS_HTTP_PORT'))
-        return boto3.client('s3',
-                            use_ssl = False,
-                            aws_access_key_id = user['key_id'],
-                            aws_secret_access_key = user['key_secret'])
+        client = boto3.client('s3',
+                              use_ssl = False,
+                              aws_access_key_id = user['key_id'],
+                              aws_secret_access_key = user['key_secret'])
+        client.meta.events.register_first('before-sign.s3.PutBucketPolicy', add_json_header)
+        return client
+
 
     @classmethod
     def setUpClass(cls):
@@ -110,13 +113,21 @@ class S3ApiVerificationTestBase(unittest.TestCase):
             key = self.key_name
         return self.client.get_object(Bucket = self.bucket_name,
                                       Key = key)['Body'].read()
-    def deleteObject(self):
+    def deleteObject(self, key = None):
+        if key is None:
+            key = self.key_name
         return self.client.delete_object(Bucket = self.bucket_name,
-                                         Key = self.key_name)
+                                         Key = key)
 
     def verifyDictListsIdentical(self, cc1, cc2):
         [self.assertIn(c, cc1) for c in cc2]
         [self.assertIn(c, cc2) for c in cc1]
+
+# this is to inject the right headers for put_bucket_policy call
+def add_json_header(request, **kwargs):
+    request.headers.add_header('content-type', 'application/json')
+
+
 
 def create_user(host, port, name, email):
     os.environ['http_proxy'] = ''
@@ -182,9 +193,6 @@ class BasicTests(S3ApiVerificationTestBase):
 
         self.assertEqual(keys, [k['Key'] for k in result['Deleted']])
         self.assertEqual([], result.get('Errors', []))
-        # a repeated call to delete_objects still returns the same as
-        # the first time (expectation is for it to have Deleted == []
-        # and all keys under Errors, isn't it?)
 
         self.assertRaises(self.client.exceptions.NoSuchKey,
                           lambda: self.client.get_object(Bucket = self.bucket_name,
@@ -452,73 +460,101 @@ class LargerMultipartFileUploadTest(S3ApiVerificationTestBase):
         mb_list = [15, 14, 13, 12, 11, 10]
         self.from_mb_list(mb_list)
 
-# class UnicodeNamedObjectTest(S3ApiVerificationTestBase):
-#     ''' test to check unicode object name works '''
-#     utf8_key_name = u"utf8ファイル名.txt"
-#     #                     ^^^^^^^^^ filename in Japanese
+class UnicodeNamedObjectTest(S3ApiVerificationTestBase):
+    ''' test to check unicode object name works '''
+    utf8_key_name = u"utf8ファイル名.txt"
+    #                     ^^^^^^^^^ filename in Japanese
 
-#     def test_unicode_object(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         k = Key(bucket)
-#         k.key = UnicodeNamedObjectTest.utf8_key_name
-#         k.set_contents_from_string(self.data)
-#         self.assertEqual(k.get_contents_as_string(), self.data)
-#         self.assertIn(UnicodeNamedObjectTest.utf8_key_name,
-#                       [obj.key for obj in bucket.list()])
+    def test_unicode_object(self):
+        self.createBucket()
+        key = UnicodeNamedObjectTest.utf8_key_name
+        self.putObject(key = key)
+        self.assertEqual(self.getObject(key = key), self.data)
+        self.assertIn(key, self.listKeys())
 
-#     def test_delete_object(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         k = Key(bucket)
-#         k.key = UnicodeNamedObjectTest.utf8_key_name
-#         k.delete()
-#         self.assertNotIn(UnicodeNamedObjectTest.utf8_key_name,
-#                          [obj.key for obj in bucket.list()])
+    def test_delete_object(self):
+        self.createBucket()
+        key = UnicodeNamedObjectTest.utf8_key_name
+        self.putObject(key = key)
+        self.deleteObject(key = key)
+        self.assertNotIn(key, self.listKeys())
 
 
-# class BucketPolicyTest(S3ApiVerificationTestBase):
-#     "test bucket policy"
+class BucketPolicyTest(S3ApiVerificationTestBase):
+    "test bucket policy"
 
-#     def test_no_policy(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         bucket.delete_policy()
-#         try:                    bucket.get_policy()
-#         except S3ResponseError: pass
-#         else:                   self.fail()
+    def test_no_policy(self):
+        self.createBucket()
+        self.client.delete_bucket_policy(Bucket = self.bucket_name)
+        try:
+            self.client.get_bucket_policy(Bucket = self.bucket_name)
+        except botocore.exceptions.ClientError as e:
+            self.assertEqual(e.response['Error']['Code'], 'NoSuchBucketPolicy')
+        else:
+            self.fail()
 
-#     def create_bucket_and_set_policy(self, policy_template):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         bucket.delete_policy()
-#         policy = policy_template % bucket.name
-#         bucket.set_policy(policy, headers={'content-type':'application/json'})
-#         return bucket
+    def create_bucket_and_set_policy(self, policy):
+        self.createBucket()
+        #boto3.set_stream_logger('')
+        self.client.put_bucket_policy(Bucket = self.bucket_name,
+                                      Policy = json.dumps(policy))
 
-#     def test_put_policy_invalid_ip(self):
-#         policy_template = '''
-# {"Version":"2008-10-17","Statement":[{"Sid":"Stmtaaa","Effect":"Allow","Principal":"*","Action":["s3:GetObjectAcl","s3:GetObject"],"Resource":"arn:aws:s3:::%s/*","Condition":{"IpAddress":{"aws:SourceIp":"0"}}}]}
-# '''
-#         try:
-#             self.create_bucket_and_set_policy(policy_template)
-#         except S3ResponseError as e:
-#             self.assertEqual(e.status, 400)
-#             self.assertEqual(e.reason, 'Bad Request')
+    def test_put_policy_invalid_ip(self):
+        policy = {
+            "Version":"2020-10-17",
+            "Statement":[
+                {
+                    "Sid":"Stmtaaa",
+                    "Effect":"Allow",
+                    "Principal":"*",
+                    "Action":["s3:GetObjectAcl","s3:GetObject"],
+                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Condition":{"IpAddress":{"aws:SourceIp":"0"}}
+                 }
+            ]
+        }
+        try:
+            self.create_bucket_and_set_policy(policy)
+        except botocore.exceptions.ClientError as e:
+            self.assertEqual(e.response['Error']['Code'], 'MalformedPolicy')
 
-#     def test_put_policy(self):
-#         ### old version name
-#         policy_template = '''
-# {"Version":"2008-10-17","Statement":[{"Sid":"Stmtaaa","Effect":"Allow","Principal":"*","Action":["s3:GetObjectAcl","s3:GetObject"],"Resource":"arn:aws:s3:::%s/*","Condition":{"IpAddress":{"aws:SourceIp":"127.0.0.1/32"}}}]}
-# '''
-#         bucket = self.create_bucket_and_set_policy(policy_template)
-#         got_policy = bucket.get_policy()
-#         self.assertEqual(policy_template % bucket.name , got_policy)
+    def test_put_policy(self):
+        ### old version name
+        policy = {
+            "Version":"2008-10-17",
+            "Statement":[
+                {
+                    "Sid":"Stmtaaa",
+                    "Effect":"Allow",
+                    "Principal":"*",
+                    "Action":["s3:GetObjectAcl","s3:GetObject"],
+                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Condition":{"IpAddress":{"aws:SourceIp":"127.0.0.1/32"}}
+                 }
+            ]}
 
-#     def test_put_policy_2(self):
-#         ### new version name, also regression of #911
-#         policy_template = '''
-# {"Version":"2012-10-17","Statement":[{"Sid":"Stmtaaa","Effect":"Allow","Principal":"*","Action":["s3:GetObjectAcl","s3:GetObject"],"Resource":"arn:aws:s3:::%s/*","Condition":{"IpAddress":{"aws:SourceIp":"127.0.0.1/32"}}}]}
-# '''
-#         bucket = self.create_bucket_and_set_policy(policy_template)
-#         got_policy = bucket.get_policy()
-#         self.assertEqual(policy_template % bucket.name, got_policy)
+        self.create_bucket_and_set_policy(policy)
+        got_policy = self.client.get_bucket_policy(Bucket = self.bucket_name)['Policy']
+        self.assertEqual(policy, json.loads(got_policy))
+
+    def test_put_policy_2(self):
+        ### new version name, also regression of #911
+        policy = {
+            "Version":"2012-10-17",
+            "Statement":[
+                {
+                    "Sid":"Stmtaaa",
+                    "Effect":"Allow",
+                    "Principal":"*",
+                    "Action":["s3:GetObjectAcl","s3:GetObject"],
+                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Condition":{"IpAddress":{"aws:SourceIp":"127.0.0.1/32"}}
+                }
+            ]}
+
+        self.create_bucket_and_set_policy(policy)
+        got_policy = self.client.get_bucket_policy(Bucket = self.bucket_name)['Policy']
+        self.assertEqual(policy, json.loads(got_policy))
 
 #     def test_put_policy_3(self):
 #         policy_template = '''
