@@ -20,7 +20,6 @@
 ##
 ## ---------------------------------------------------------------------
 import os, httplib2, json, unittest, uuid, hashlib, base64
-from io import StringIO
 from file_generator import FileGenerator
 
 import boto3
@@ -33,7 +32,7 @@ warnings.simplefilter("ignore", ResourceWarning)
 
 
 class S3ApiVerificationTestBase(unittest.TestCase):
-    host="127.0.0.1"
+    host = None
     try:
         port=int(os.environ['CS_HTTP_PORT'])
     except KeyError:
@@ -57,6 +56,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.host = "127.0.0.1"
         key_id, key_secret, user_id = \
                 (os.environ.get('AWS_ACCESS_KEY_ID'),
                  os.environ.get('AWS_SECRET_ACCESS_KEY'),
@@ -99,14 +99,15 @@ class S3ApiVerificationTestBase(unittest.TestCase):
     def listKeys(self):
         return [k['Key'] for k in self.client.list_objects_v2(Bucket = self.bucket_name).get('Contents', [])]
 
-    def putObject(self, key = None, value = None):
+    def putObject(self, key = None, value = None, metadata = {}):
         if key is None:
             key = self.key_name
         if value is None:
             value = self.data
         return self.client.put_object(Bucket = self.bucket_name,
                                       Key = key,
-                                      Body = value)
+                                      Body = value,
+                                      Metadata = metadata)
 
     def getObject(self, key = None):
         if key is None:
@@ -123,6 +124,40 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         [self.assertIn(c, cc1) for c in cc2]
         [self.assertIn(c, cc2) for c in cc1]
 
+    def upload_multipart(self, key, parts_list,
+                         metadata = {}, acl = None):
+        pp = {'Bucket': self.bucket_name,
+              'Key': key,
+              'Metadata': metadata}
+        if acl:
+            pp['ACL'] = acl
+        upload_id = self.client.create_multipart_upload(**pp)['UploadId']
+        etags = []
+        for index, val in list(enumerate(parts_list)):
+            res = self.client.upload_part(UploadId = upload_id,
+                                          Bucket = self.bucket_name,
+                                          Key = key,
+                                          Body = val,
+                                          PartNumber = index + 1)
+            etags += [{'ETag': res['ETag'], 'PartNumber': index + 1}]
+        result = self.client.complete_multipart_upload(UploadId = upload_id,
+                                                       Bucket = self.bucket_name,
+                                                       Key = key,
+                                                       MultipartUpload = {'Parts': etags})
+        return upload_id, result
+
+    def multipart_md5_helper(self, parts, key_suffix=u''):
+        key_name = str(uuid.uuid4()) + key_suffix
+        expected_md5 = hashlib.md5(bytes(b''.join(parts))).hexdigest()
+        self.createBucket()
+        upload_id, result = self.upload_multipart(key_name, parts)
+
+        actual_md5 = hashlib.md5(bytes(self.getObject(key_name))).hexdigest()
+        self.assertEqual(expected_md5, actual_md5)
+        self.assertEqual(key_name, result['Key'])
+        return upload_id, result
+
+
 # this is to inject the right headers for put_bucket_policy call
 def add_json_header(request, **kwargs):
     request.headers.add_header('content-type', 'application/json')
@@ -131,7 +166,7 @@ def add_json_header(request, **kwargs):
 
 def create_user(host, port, name, email):
     os.environ['http_proxy'] = ''
-    url = 'http://{0}:{1}/riak-cs/user'.format(host, port)
+    url = 'http://%s:%d/riak-cs/user' % (host, port)
     conn = httplib2.Http()
     resp, content = conn.request(url, "POST",
                                  headers = {"Content-Type": "application/json"},
@@ -309,40 +344,6 @@ class MultiPartUploadTests(S3ApiVerificationTestBase):
         for u in uploads:
             self.assertEqual(u['Key'], key_name)
         self.assertTrue(True)
-
-
-    def upload_multipart(self, key, parts_list,
-                         metadata = {}, acl = None):
-        pp = {'Bucket': self.bucket_name,
-              'Key': key,
-              'Metadata': metadata}
-        if acl:
-            pp['ACL'] = acl
-        upload_id = self.client.create_multipart_upload(**pp)['UploadId']
-        etags = []
-        for index, val in list(enumerate(parts_list)):
-            res = self.client.upload_part(UploadId = upload_id,
-                                          Bucket = self.bucket_name,
-                                          Key = key,
-                                          Body = val,
-                                          PartNumber = index + 1)
-            etags += [{'ETag': res['ETag'], 'PartNumber': index + 1}]
-        result = self.client.complete_multipart_upload(UploadId = upload_id,
-                                                       Bucket = self.bucket_name,
-                                                       Key = key,
-                                                       MultipartUpload = {'Parts': etags})
-        return upload_id, result
-
-    def multipart_md5_helper(self, parts, key_suffix=u''):
-        key_name = str(uuid.uuid4()) + key_suffix
-        expected_md5 = hashlib.md5(bytes(b''.join(parts))).hexdigest()
-        self.createBucket()
-        upload_id, result = self.upload_multipart(key_name, parts)
-
-        actual_md5 = hashlib.md5(bytes(self.getObject(key_name))).hexdigest()
-        self.assertEqual(expected_md5, actual_md5)
-        self.assertEqual(key_name, result['Key'])
-        return upload_id, result
 
 
 
@@ -531,8 +532,8 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
                     "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
                     "Condition":{"IpAddress":{"aws:SourceIp":"127.0.0.1/32"}}
                  }
-            ]}
-
+            ]
+        }
         self.create_bucket_and_set_policy(policy)
         got_policy = self.client.get_bucket_policy(Bucket = self.bucket_name)['Policy']
         self.assertEqual(policy, json.loads(got_policy))
@@ -550,168 +551,240 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
                     "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
                     "Condition":{"IpAddress":{"aws:SourceIp":"127.0.0.1/32"}}
                 }
-            ]}
-
+            ]
+        }
         self.create_bucket_and_set_policy(policy)
         got_policy = self.client.get_bucket_policy(Bucket = self.bucket_name)['Policy']
         self.assertEqual(policy, json.loads(got_policy))
 
-#     def test_put_policy_3(self):
-#         policy_template = '''
-# {"Version":"somebadversion","Statement":[{"Sid":"Stmtaaa","Effect":"Allow","Principal":"*","Action":["s3:GetObjectAcl","s3:GetObject"],"Resource":"arn:aws:s3:::%s/*","Condition":{"IpAddress":{"aws:SourceIp":"127.0.0.1/32"}}}]}
-# '''
-#         try:
-#             self.create_bucket_and_set_policy(policy_template)
-#         except S3ResponseError as e:
-#             self.assertEqual(e.status, 400)
-#             self.assertEqual(e.reason, 'Bad Request')
+    def test_put_policy_3(self):
+        policy = {
+            "Version":"somebadversion",
+            "Statement":[
+                {
+                    "Sid":"Stmtaaa",
+                    "Effect":"Allow",
+                    "Principal":"*",
+                    "Action":["s3:GetObjectAcl","s3:GetObject"],
+                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Condition":{"IpAddress":{"aws:SourceIp":"127.0.0.1/32"}}
+                }
+            ]
+        }
+        try:
+            self.create_bucket_and_set_policy(policy)
+        except botocore.exceptions.ClientError as e:
+            self.assertEqual(e.response['Error']['Code'], 'MalformedPolicy')
+
+    def test_ip_addr_policy(self):
+        policy = {
+            "Version":"2008-10-17",
+            "Statement":[
+                {
+                    "Sid":"Stmtaaa",
+                    "Effect":"Deny",
+                    "Principal":"*",
+                    "Action":["s3:GetObject"],
+                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Condition":{"IpAddress":{"aws:SourceIp":"%s" % self.host}}
+                }
+            ]
+        }
+        self.create_bucket_and_set_policy(policy)
+
+        key_name = str(uuid.uuid4())
+        self.putObject(key = key_name)
+        try:
+            self.getObject(key = key_name)
+            self.fail()
+        except botocore.exceptions.ClientError as e:
+            self.assertEqual(e.response['Error']['Code'], '404')
+
+        policy = {
+            "Version":"2008-10-17",
+            "Statement":[
+                {
+                    "Sid":"Stmtaaa",
+                    "Effect":"Allow",
+                    "Principal":"*",
+                    "Action":["s3:GetObject"],
+                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Condition":{"IpAddress":{"aws:SourceIp":"%s" % self.host}}
+                }
+            ]
+        }
+        self.client.put_bucket_policy(Bucket = self.bucket_name,
+                                      Policy = json.dumps(policy))
+        self.getObject(key = key_name) ## throws nothing
 
 
-#     def test_ip_addr_policy(self):
-#         policy_template = '''
-# {"Version":"2008-10-17","Statement":[{"Sid":"Stmtaaa","Effect":"Deny","Principal":"*","Action":["s3:GetObject"],"Resource":"arn:aws:s3:::%s/*","Condition":{"IpAddress":{"aws:SourceIp":"%s"}}}]}
-# ''' % ('%s', self.host)
-#         bucket = self.create_bucket_and_set_policy(policy_template)
+    def test_invalid_transport_addr_policy(self):
+        self.createBucket()
+        key_name = str(uuid.uuid4())
+        self.putObject(key = key_name)
 
-#         key_name = str(uuid.uuid4())
-#         key = Key(bucket, key_name)
+        policy = {
+            "Version":"2008-10-17",
+            "Statement":[
+                {
+                    "Sid":"Stmtaaa0",
+                    "Effect":"Allow",
+                    "Principal":"*",
+                    "Action":["s3:GetObject"],
+                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Condition":{"Bool":{"aws:SecureTransport":"wat"}}
+                }
+            ]
+        }
+        try:
+            self.client.put_bucket_policy(Bucket = self.bucket_name,
+                                          Policy = json.dumps(policy))
+        except botocore.exceptions.ClientError as e:
+            self.assertEqual(e.response['Error']['Code'], 'MalformedPolicy')
 
-#         key.set_contents_from_string(self.data)
-#         bucket.list()
-#         try:
-#             key.get_contents_as_string()
-#             self.fail()
-#         except S3ResponseError as e:
-#             self.assertEqual(e.status, 404)
-#             self.assertEqual(e.reason, 'Not Found')
+    def test_transport_addr_policy(self):
+        self.createBucket()
+        key_name = str(uuid.uuid4())
+        self.putObject(key = key_name)
 
-#         policy = '''
-# {"Version":"2008-10-17","Statement":[{"Sid":"Stmtaaa","Effect":"Allow","Principal":"*","Action":["s3:GetObject"],"Resource":"arn:aws:s3:::%s/*","Condition":{"IpAddress":{"aws:SourceIp":"%s"}}}]}
-# ''' % (bucket.name, self.host)
-#         self.assertTrue(bucket.set_policy(policy, headers={'content-type':'application/json'}))
-#         key.get_contents_as_string() ## throws nothing
+        policy = {
+            "Version":"2008-10-17",
+            "Statement":[
+                {
+                    "Sid":"Stmtaaa0",
+                    "Effect":"Allow",
+                    "Principal":"*",
+                    "Action":["s3:GetObject"],
+                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Condition":{"Bool":{"aws:SecureTransport":False}}
+                }
+            ]
+        }
+        self.client.put_bucket_policy(Bucket = self.bucket_name,
+                                      Policy = json.dumps(policy))
+        self.assertEqual(self.getObject(key = key_name), self.data)
 
+        ## policy accepts anyone who comes with http
+        os.environ['http_proxy'] = ''
+        conn = httplib2.Http()
+        resp, content = conn.request('http://%s:%d/%s' % (self.host, self.port, key_name), "GET",
+                                     headers = {"Host": "%s.s3.amazonaws.com" % self.bucket_name})
+        conn.close()
+        self.assertEqual(resp['status'], '200')
+        self.assertEqual(content, self.getObject(key = key_name))
 
-#     def test_invalid_transport_addr_policy(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         key_name = str(uuid.uuid4())
-#         key = Key(bucket, key_name)
-#         key.set_contents_from_string(self.data)
+        ## anyone without https may not do any operation
+        policy = {
+            "Version":"2008-10-17",
+            "Statement":[
+                {
+                    "Sid":"Stmtaaa0",
+                    "Effect":"Deny",
+                    "Principal":"*",
+                    "Action":"*",
+                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Condition":{"Bool":{"aws:SecureTransport":False}}
+                 }
+            ]
+        }
+        self.client.put_bucket_policy(Bucket = self.bucket_name,
+                                      Policy = json.dumps(policy))
 
-#         ## anyone may GET this object
-#         policy = '''
-# {"Version":"2008-10-17","Statement":[{"Sid":"Stmtaaa0","Effect":"Allow","Principal":"*","Action":["s3:GetObject"],"Resource":"arn:aws:s3:::%s/*","Condition":{"Bool":{"aws:SecureTransport":wat}}}]}
-# ''' % bucket.name
-#         try:
-#             bucket.set_policy(policy, headers={'content-type':'application/json'})
-#         except S3ResponseError as e:
-#             self.assertEqual(e.status, 400)
-#             self.assertEqual(e.reason, 'Bad Request')
-
-#     def test_transport_addr_policy(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         key_name = str(uuid.uuid4())
-#         key = Key(bucket, key_name)
-#         key.set_contents_from_string(self.data)
-
-#         ## anyone may GET this object
-#         policy = '''
-# {"Version":"2008-10-17","Statement":[{"Sid":"Stmtaaa0","Effect":"Allow","Principal":"*","Action":["s3:GetObject"],"Resource":"arn:aws:s3:::%s/*","Condition":{"Bool":{"aws:SecureTransport":false}}}]}
-# ''' % bucket.name
-#         self.assertTrue(bucket.set_policy(policy, headers={'content-type':'application/json'}))
-#         key.get_contents_as_string()
-
-#         ## policy accepts anyone who comes with http
-#         client = httplib.HTTPConnection(self.host, self.port)
-#         headers = { "Host" : "%s.s3.amazonaws.com" % bucket.name }
-#         client.request('GET', ("/%s" % key_name) , None, headers)
-#         response = client.getresponse()
-#         self.assertEqual(response.status, 200)
-#         self.assertEqual(response.read(), key.get_contents_as_string())
-
-#         ## anyone without https may not do any operation
-#         policy = '''
-# {"Version":"2008-10-17","Statement":[{"Sid":"Stmtaaa0","Effect":"Deny","Principal":"*","Action":"*","Resource":"arn:aws:s3:::%s/*","Condition":{"Bool":{"aws:SecureTransport":false}}}]}
-# ''' % bucket.name
-#         self.assertTrue(bucket.set_policy(policy, headers={'content-type':'application/json'}))
-
-#         ## policy accepts anyone who comes with http
-#         client = httplib.HTTPConnection(self.host, self.port)
-#         headers = { "Host" : "%s.s3.amazonaws.com" % bucket.name }
-#         client.request('GET', ("/%s" % key_name) , None, headers)
-#         response = client.getresponse()
-#         self.assertEqual(response.status, 403)
-#         self.assertEqual(response.reason, 'Forbidden')
+        os.environ['http_proxy'] = ''
+        conn = httplib2.Http()
+        resp, content = conn.request('http://%s:%d/%s' % (self.host, self.port, key_name), "GET",
+                                     headers = {"Host": "%s.s3.amazonaws.com" % self.bucket_name})
+        conn.close()
+        self.assertEqual(resp['status'], '403')
 
 
-# class MultipartUploadTestsUnderPolicy(S3ApiVerificationTestBase):
+class MultipartUploadTestsUnderPolicy(S3ApiVerificationTestBase):
 
-#     def test_small_strings_upload_1(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         parts = ['this is part one', 'part two is just a rewording',
-#                  'surprise that part three is pretty much the same',
-#                  'and the last part is number four']
-#         stringio_parts = [StringIO(p) for p in parts]
-#         expected_md5 = hashlib.md5(''.join(parts)).hexdigest()
+    def test_small_strings_upload_1(self):
+        self.createBucket()
+        parts = [b'this is part one', b'part two is just a rewording',
+                 b'surprise that part three is pretty much the same',
+                 b'and the last part is number four']
+        expected_md5 = hashlib.md5(b''.join(parts)).hexdigest()
 
-#         key_name = str(uuid.uuid4())
-#         key = Key(bucket, key_name)
+        key_name = str(uuid.uuid4())
 
-#         ## anyone may PUT this object
-#         policy = '''
-# {"Version":"2008-10-17","Statement":[{"Sid":"Stmtaaa0","Effect":"Allow","Principal":"*","Action":["s3:PutObject"],"Resource":"arn:aws:s3:::%s/*","Condition":{"Bool":{"aws:SecureTransport":false}}}]}
-# ''' % bucket.name
-#         self.assertTrue(bucket.set_policy(policy, headers={'content-type':'application/json'}))
+        ## anyone may PUT this object
+        policy = {
+            "Version":"2008-10-17",
+            "Statement":[
+                {
+                    "Sid":"Stmtaaa0",
+                    "Effect":"Allow",
+                    "Principal":"*",
+                    "Action":["s3:PutObject"],
+                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Condition":{"Bool":{"aws:SecureTransport":False}}
+                 }
+            ]}
+        self.client.put_bucket_policy(Bucket = self.bucket_name,
+                                      Policy = json.dumps(policy))
+        upload_id, result = self.upload_multipart(key_name, parts)
+        actual_md5 = hashlib.md5(bytes(self.getObject(key_name))).hexdigest()
+        self.assertEqual(expected_md5, actual_md5)
 
-#         upload = upload_multipart(bucket, key_name, stringio_parts)
-#         actual_md5 = md5_from_key(key)
-#         self.assertEqual(expected_md5, actual_md5)
+        ## anyone without https may not do any operation
+        policy = {
+            "Version":"2008-10-17",
+            "Statement":[
+                {
+                    "Sid":"Stmtaaa0",
+                    "Effect":"Deny",
+                    "Principal":"*",
+                    "Action":["s3:PutObject"],
+                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Condition":{"Bool":{"aws:SecureTransport":False}}
+                }
+            ]
+        }
+        self.client.put_bucket_policy(Bucket = self.bucket_name,
+                                      Policy = json.dumps(policy))
+        try:
+            self.upload_multipart(key_name, parts)
+            self.fail()
+        except botocore.exceptions.ClientError as e:
+            self.assertEqual(e.response['Error']['Code'], 'AccessDenied')
 
-#         ## anyone without https may not do any operation
-#         policy = '''
-# {"Version":"2008-10-17","Statement":[{"Sid":"Stmtaaa0","Effect":"Deny","Principal":"*","Action":["s3:PutObject"],"Resource":"arn:aws:s3:::%s/*","Condition":{"Bool":{"aws:SecureTransport":false}}}]}
-# ''' % bucket.name
-#         self.assertTrue(bucket.set_policy(policy, headers={'content-type':'application/json'}))
+class ObjectMetadataTest(S3ApiVerificationTestBase):
+    "Test object metadata, e.g. Content-Encoding, x-amz-meta-*, for PUT/GET"
 
-#         try:
-#             upload = upload_multipart(bucket, key_name, stringio_parts)
-#             self.fail()
-#         except S3ResponseError as e:
-#             self.assertEqual(e.status, 403)
-#             self.assertEqual(e.reason, 'Forbidden')
+    metadata = {
+        "Content-Disposition": 'attachment; filename="metaname.txt"',
+        "Content-Encoding": 'identity',
+        "Cache-Control": "max-age=3600",
+        "Expires": "Tue, 19 Jan 2038 03:14:07 GMT",
+        "mtime": "1364742057",
+        "UID": "0",
+        "with-hypen": "1",
+        "space-in-value": "abc xyz"
+    }
+    updated_metadata = {
+        "Content-Disposition": 'attachment; filename="newname.txt"',
+        "Cache-Control": "private",
+        "Expires": "Tue, 19 Jan 2038 03:14:07 GMT",
+        "mtime": "2222222222",
+        "uid": "0",
+        "space-in-value": "ABC XYZ",
+        "new-entry": "NEW"
+    }
 
-# class ObjectMetadataTest(S3ApiVerificationTestBase):
-#     "Test object metadata, e.g. Content-Encoding, x-amz-meta-*, for PUT/GET"
-
-#     metadata = {
-#         "Content-Disposition": 'attachment; filename="metaname.txt"',
-#         "Content-Encoding": 'identity',
-#         "Cache-Control": "max-age=3600",
-#         "Expires": "Tue, 19 Jan 2038 03:14:07 GMT",
-#         "mtime": "1364742057",
-#         "UID": "0",
-#         "with-hypen": "1",
-#         "space-in-value": "abc xyz"}
-
-#     updated_metadata = {
-#         "Content-Disposition": 'attachment; filename="newname.txt"',
-#         "Cache-Control": "private",
-#         "Expires": "Tue, 19 Jan 2038 03:14:07 GMT",
-#         "mtime": "2222222222",
-#         "uid": "0",
-#         "space-in-value": "ABC XYZ",
-#         "new-entry": "NEW"}
-
-#     def test_normal_object_metadata(self):
-#         key_name = str(uuid.uuid4())
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         key = Key(bucket, key_name)
-#         for k,v in self.metadata.items():
-#             key.set_metadata(k, v)
-#         key.set_contents_from_string("test_normal_object_metadata")
-#         self.assert_metadata(bucket, key_name)
-#         self.change_metadata(bucket, key_name)
-#         self.assert_updated_metadata(bucket, key_name)
+    def test_normal_object_metadata(self):
+        key_name = str(uuid.uuid4())
+        key_name2 = str(uuid.uuid4())
+        self.createBucket()
+        self.client.put_object(Bucket = self.bucket_name,
+                               Key = key_name,
+                               Body = "test_normal_object_metadata",
+                               Metadata = self.metadata,
+                               ACL = 'bucket-owner-full-control')
+        self.assert_metadata(key_name)
+        self.change_metadata(key_name, key_name2)
+        self.assert_updated_metadata(key_name2)
 
 #     def test_mp_object_metadata(self):
 #         key_name = str(uuid.uuid4())
@@ -722,51 +795,65 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
 #         self.change_metadata(bucket, key_name)
 #         self.assert_updated_metadata(bucket, key_name)
 
-#     def assert_metadata(self, bucket, key_name):
-#         key = Key(bucket, key_name)
-#         key.get_contents_as_string()
+    def assert_metadata(self, key_name):
+        res = self.client.get_object(Bucket = self.bucket_name,
+                                     Key = key_name)
 
-#         self.assertEqual(key.content_disposition,
-#                          'attachment; filename="metaname.txt"')
-#         self.assertEqual(key.content_encoding, "identity")
-#         self.assertEqual(key.cache_control, "max-age=3600")
-#         # TODO: Expires header can be accessed by boto?
-#         # self.assertEqual(key.expires, "Tue, 19 Jan 2038 03:14:07 GMT")
-#         self.assertEqual(key.get_metadata("mtime"), "1364742057")
-#         self.assertEqual(key.get_metadata("uid"), "0")
-#         self.assertEqual(key.get_metadata("with-hypen"), "1")
-#         self.assertEqual(key.get_metadata("space-in-value"), "abc xyz")
-#         # x-amz-meta-* headers should be normalized to lowercase
-#         self.assertEqual(key.get_metadata("Mtime"), None)
-#         self.assertEqual(key.get_metadata("MTIME"), None)
-#         self.assertEqual(key.get_metadata("Uid"), None)
-#         self.assertEqual(key.get_metadata("UID"), None)
-#         self.assertEqual(key.get_metadata("With-Hypen"), None)
-#         self.assertEqual(key.get_metadata("Space-In-Value"), None)
+        # self.assertEqual(res['ContentDisposition'],
+        #                  'attachment; filename="metaname.txt"')
+        # self.assertEqual(res['ContentEncoding'], "identity")
+        # self.assertEqual(res['CacheControl'], "max-age=3600")
+        # self.assertEqual(res['Expires'], "Tue, 19 Jan 2038 03:14:07 GMT")
+        hh = res['ResponseMetadata']['HTTPHeaders']
+        md = res['Metadata']
+        self.assertEqual(hh['x-amz-meta-content-disposition'], self.metadata['Content-Disposition']),
+        self.assertEqual(hh['x-amz-meta-content-encoding'], self.metadata['Content-Encoding'])
+        self.assertEqual(hh['x-amz-meta-cache-control'], self.metadata['Cache-Control'])
+        self.assertEqual(hh['x-amz-meta-expires'], self.metadata['Expires'])
+        self.assertEqual(hh['x-amz-meta-mtime'], self.metadata["mtime"])
+        self.assertEqual(hh['x-amz-meta-uid'], self.metadata["UID"])
+        self.assertEqual(hh['x-amz-meta-with-hypen'], self.metadata["with-hypen"])
+        self.assertEqual(hh['x-amz-meta-space-in-value'], self.metadata["space-in-value"])
+        # x-amz-meta-* headers should be normalized to lowercase
+        self.assertEqual(md.get("Mtime"), None)
+        self.assertEqual(md.get("MTIME"), None)
+        self.assertEqual(md.get("Uid"), None)
+        self.assertEqual(md.get("UID"), None)
+        self.assertEqual(md.get("With-Hypen"), None)
+        self.assertEqual(md.get("Space-In-Value"), None)
 
-#     def change_metadata(self, bucket, key_name):
-#         key = Key(bucket, key_name)
-#         key.copy(bucket.name, key_name, self.updated_metadata)
+    def change_metadata(self, src_key_name, dest_key_name):
+        old_md = self.client.get_object(Bucket = self.bucket_name,
+                                        Key = src_key_name)['Metadata']
+        new_md = {**old_md, **self.updated_metadata}
+        self.client.copy_object(Bucket = self.bucket_name,
+                                Key = dest_key_name,
+                                CopySource = "%s/%s" % (self.bucket_name, src_key_name),
+                                MetadataDirective = 'REPLACE',
+                                Metadata = new_md)
 
-#     def assert_updated_metadata(self, bucket, key_name):
-#         key = Key(bucket, key_name)
-#         key.get_contents_as_string()
+    def assert_updated_metadata(self, key_name):
+        res = self.client.get_object(Bucket = self.bucket_name,
+                                     Key = key_name)
 
-#         # unchanged
-#         self.assertEqual(key.get_metadata("uid"), "0")
-#         # updated
-#         self.assertEqual(key.content_disposition,
-#                          'attachment; filename="newname.txt"')
-#         self.assertEqual(key.cache_control, "private")
-#         self.assertEqual(key.get_metadata("mtime"), "2222222222")
-#         self.assertEqual(key.get_metadata("space-in-value"), "ABC XYZ")
-#         # removed
-#         self.assertEqual(key.content_encoding, None)
-#         self.assertEqual(key.get_metadata("with-hypen"), None)
-#         # inserted
-#         self.assertEqual(key.get_metadata("new-entry"), "NEW")
-#         # TODO: Expires header can be accessed by boto?
-#         # self.assertEqual(key.expires, "Tue, 19 Jan 2038 03:14:07 GMT")
+        hh = res['ResponseMetadata']['HTTPHeaders']
+        md = res['Metadata']
+        self.assertEqual(hh['x-amz-meta-content-disposition'], self.updated_metadata['Content-Disposition']),
+        self.assertEqual(hh['x-amz-meta-content-encoding'], self.updated_metadata['Content-Encoding'])
+        self.assertEqual(hh['x-amz-meta-cache-control'], self.updated_metadata['Cache-Control'])
+        self.assertEqual(hh['x-amz-meta-expires'], self.updated_metadata['Expires'])
+        self.assertEqual(hh['x-amz-meta-mtime'], self.updated_metadata["mtime"])
+        self.assertEqual(hh['x-amz-meta-uid'], self.updated_metadata["UID"])
+        self.assertEqual(hh['x-amz-meta-with-hypen'], self.updated_metadata["with-hypen"])
+        self.assertEqual(hh['x-amz-meta-space-in-value'], self.updated_metadata["space-in-value"])
+        # x-amz-meta-* headers should be normalized to lowercase
+        self.assertEqual(md.get("Mtime"), None)
+        self.assertEqual(md.get("MTIME"), None)
+        self.assertEqual(md.get("Uid"), None)
+        self.assertEqual(md.get("UID"), None)
+        self.assertEqual(md.get("With-Hypen"), None)
+        self.assertEqual(md.get("Space-In-Value"), None)
+
 
 # class ContentMd5Test(S3ApiVerificationTestBase):
 #     def test_catches_bad_md5(self):
@@ -917,8 +1004,8 @@ def md5_from_file(file_object):
     update_md5_from_file(m, file_object)
     return m.hexdigest()
 
+# note the plural
 def md5_from_files(file_objects):
-    "note the plural"
     m = hashlib.md5()
     for f in file_objects:
         update_md5_from_file(m, f)
@@ -936,7 +1023,6 @@ def update_md5_from_file(md5_object, file_object):
     return md5_object
 
 def remove_double_quotes(string):
-    "remove double quote from a string"
     return string.replace('"', '')
 
 
