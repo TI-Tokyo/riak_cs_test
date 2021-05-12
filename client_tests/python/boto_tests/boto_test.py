@@ -775,35 +775,28 @@ class ObjectMetadataTest(S3ApiVerificationTestBase):
 
     def test_normal_object_metadata(self):
         key_name = str(uuid.uuid4())
-        key_name2 = str(uuid.uuid4())
         self.createBucket()
         self.client.put_object(Bucket = self.bucket_name,
                                Key = key_name,
                                Body = "test_normal_object_metadata",
-                               Metadata = self.metadata,
-                               ACL = 'bucket-owner-full-control')
+                               Metadata = self.metadata)
         self.assert_metadata(key_name)
-        self.change_metadata(key_name, key_name2)
-        self.assert_updated_metadata(key_name2)
+        self.change_metadata(key_name)
+        self.assert_updated_metadata(key_name)
 
-#     def test_mp_object_metadata(self):
-#         key_name = str(uuid.uuid4())
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         upload = upload_multipart(bucket, key_name, [StringIO("part1")],
-#                                   metadata=self.metadata)
-#         self.assert_metadata(bucket, key_name)
-#         self.change_metadata(bucket, key_name)
-#         self.assert_updated_metadata(bucket, key_name)
+    def test_mp_object_metadata(self):
+        key_name = str(uuid.uuid4())
+        bucket = self.createBucket()
+        upload = self.upload_multipart(key_name, [b"part1"],
+                                       metadata = self.metadata)
+        self.assert_metadata(key_name)
+        self.change_metadata(key_name)
+        self.assert_updated_metadata(key_name)
 
     def assert_metadata(self, key_name):
         res = self.client.get_object(Bucket = self.bucket_name,
                                      Key = key_name)
 
-        # self.assertEqual(res['ContentDisposition'],
-        #                  'attachment; filename="metaname.txt"')
-        # self.assertEqual(res['ContentEncoding'], "identity")
-        # self.assertEqual(res['CacheControl'], "max-age=3600")
-        # self.assertEqual(res['Expires'], "Tue, 19 Jan 2038 03:14:07 GMT")
         hh = res['ResponseMetadata']['HTTPHeaders']
         md = res['Metadata']
         self.assertEqual(hh['x-amz-meta-content-disposition'], self.metadata['Content-Disposition']),
@@ -822,15 +815,12 @@ class ObjectMetadataTest(S3ApiVerificationTestBase):
         self.assertEqual(md.get("With-Hypen"), None)
         self.assertEqual(md.get("Space-In-Value"), None)
 
-    def change_metadata(self, src_key_name, dest_key_name):
-        old_md = self.client.get_object(Bucket = self.bucket_name,
-                                        Key = src_key_name)['Metadata']
-        new_md = {**old_md, **self.updated_metadata}
+    def change_metadata(self, key_name):
         self.client.copy_object(Bucket = self.bucket_name,
-                                Key = dest_key_name,
-                                CopySource = "%s/%s" % (self.bucket_name, src_key_name),
+                                Key = key_name,
+                                CopySource = "%s/%s" % (self.bucket_name, key_name),
                                 MetadataDirective = 'REPLACE',
-                                Metadata = new_md)
+                                Metadata = self.updated_metadata)
 
     def assert_updated_metadata(self, key_name):
         res = self.client.get_object(Bucket = self.bucket_name,
@@ -838,14 +828,13 @@ class ObjectMetadataTest(S3ApiVerificationTestBase):
 
         hh = res['ResponseMetadata']['HTTPHeaders']
         md = res['Metadata']
-        self.assertEqual(hh['x-amz-meta-content-disposition'], self.updated_metadata['Content-Disposition']),
-        self.assertEqual(hh['x-amz-meta-content-encoding'], self.updated_metadata['Content-Encoding'])
-        self.assertEqual(hh['x-amz-meta-cache-control'], self.updated_metadata['Cache-Control'])
-        self.assertEqual(hh['x-amz-meta-expires'], self.updated_metadata['Expires'])
-        self.assertEqual(hh['x-amz-meta-mtime'], self.updated_metadata["mtime"])
-        self.assertEqual(hh['x-amz-meta-uid'], self.updated_metadata["UID"])
-        self.assertEqual(hh['x-amz-meta-with-hypen'], self.updated_metadata["with-hypen"])
-        self.assertEqual(hh['x-amz-meta-space-in-value'], self.updated_metadata["space-in-value"])
+        expected_md = self.updated_metadata
+        self.assertEqual(hh['x-amz-meta-content-disposition'], expected_md['Content-Disposition']),
+        self.assertEqual(hh['x-amz-meta-cache-control'], expected_md['Cache-Control'])
+        self.assertEqual(hh['x-amz-meta-expires'], expected_md['Expires'])
+        self.assertEqual(hh['x-amz-meta-mtime'], expected_md["mtime"])
+        self.assertEqual(hh['x-amz-meta-uid'], expected_md["uid"])
+        self.assertEqual(hh['x-amz-meta-space-in-value'], expected_md["space-in-value"])
         # x-amz-meta-* headers should be normalized to lowercase
         self.assertEqual(md.get("Mtime"), None)
         self.assertEqual(md.get("MTIME"), None)
@@ -855,36 +844,43 @@ class ObjectMetadataTest(S3ApiVerificationTestBase):
         self.assertEqual(md.get("Space-In-Value"), None)
 
 
-# class ContentMd5Test(S3ApiVerificationTestBase):
-#     def test_catches_bad_md5(self):
-#         '''Make sure Riak CS catches a bad content-md5 header'''
-#         key_name = str(uuid.uuid4())
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         key = Key(bucket, key_name)
-#         s = StringIO('not the real content')
-#         x = compute_md5(s)
-#         with self.assertRaises(S3ResponseError):
-#             key.set_contents_from_string('this is different from the md5 we calculated', md5=x)
+class ContentMd5Test(S3ApiVerificationTestBase):
+    def test_catches_bad_md5(self):
+        '''Make sure Riak CS catches a bad content-md5 header'''
+        key_name = str(uuid.uuid4())
+        bucket = self.createBucket()
+        s = b'not the real content'
+        bad_md5 = hashlib.md5(s).hexdigest()
+        try:
+            self.client.put_object(Bucket = self.bucket_name,
+                                   Key = key_name,
+                                   Body = 'this is different from the md5 we calculated',
+                                   ContentMD5 = bad_md5)
+        except botocore.exceptions.ClientError as e:
+            self.assertEqual(e.response['Error']['Code'], 'InvalidDigest')
 
-#     def test_bad_md5_leaves_old_object_alone(self):
-#         '''Github #705 Regression test:
-#            Make sure that overwriting an object using a bad md5
-#            simply leaves the old version in place.'''
-#         key_name = str(uuid.uuid4())
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         value = 'good value'
 
-#         good_key = Key(bucket, key_name)
-#         good_key.set_contents_from_string(value)
+    def test_bad_md5_leaves_old_object_alone(self):
+        '''Github #705 Regression test:
+           Make sure that overwriting an object using a bad md5
+           simply leaves the old version in place.'''
+        key_name = str(uuid.uuid4())
+        self.createBucket()
+        value = b'good value'
+        self.client.put_object(Bucket = self.bucket_name,
+                               Key = key_name,
+                               Body = value)
+        bad_value = b'not the real content'
+        bad_md5 = hashlib.md5(bad_value).hexdigest()
+        try:
+            self.client.put_object(Bucket = self.bucket_name,
+                                   Key = key_name,
+                                   Body = 'this is different from the md5 we calculated',
+                                   ContentMD5 = bad_md5)
+        except botocore.exceptions.ClientError as e:
+            self.assertEqual(e.response['Error']['Code'], 'InvalidDigest')
 
-#         bad_key = Key(bucket, key_name)
-#         s = StringIO('not the real content')
-#         x = compute_md5(s)
-#         try:
-#             bad_key.set_contents_from_string('this is different from the md5 we calculated', md5=x)
-#         except S3ResponseError:
-#             pass
-#         self.assertEqual(good_key.get_contents_as_string(), value)
+        self.assertEqual(self.getObject(key = key_name), value)
 
 # class SimpleCopyTest(S3ApiVerificationTestBase):
 
