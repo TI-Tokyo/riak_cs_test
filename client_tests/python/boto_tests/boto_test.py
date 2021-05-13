@@ -318,8 +318,6 @@ class MultiPartUploadTests(S3ApiVerificationTestBase):
                                       [publicAcl('READ'), userAcl(self.user1, 'FULL_CONTROL')])
 
     def test_standard_storage_class(self):
-        # Test for bug reported in
-        # https://github.com/basho/riak_cs/pull/575
         self.createBucket()
         key_name = 'test_standard_storage_class'
         self.client.create_multipart_upload(Bucket = self.bucket_name,
@@ -349,7 +347,7 @@ class MultiPartUploadTests(S3ApiVerificationTestBase):
 
 class FileGenTest(unittest.TestCase):
     def test_read_twice(self):
-        """ Read 2KB file and reset (seek to the head) and re-read 2KB """
+        # Read 2KB file and reset (seek to the head) and re-read 2KB
         num_kb = 2
         f = kb_file_gen(num_kb)
 
@@ -462,7 +460,7 @@ class LargerMultipartFileUploadTest(S3ApiVerificationTestBase):
         self.from_mb_list(mb_list)
 
 class UnicodeNamedObjectTest(S3ApiVerificationTestBase):
-    ''' test to check unicode object name works '''
+    "test to check unicode object name works"
     utf8_key_name = u"utf8ファイル名.txt"
     #                     ^^^^^^^^^ filename in Japanese
 
@@ -520,7 +518,6 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
             self.assertEqual(e.response['Error']['Code'], 'MalformedPolicy')
 
     def test_put_policy(self):
-        ### old version name
         policy = {
             "Version":"2008-10-17",
             "Statement":[
@@ -539,7 +536,6 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
         self.assertEqual(policy, json.loads(got_policy))
 
     def test_put_policy_2(self):
-        ### new version name, also regression of #911
         policy = {
             "Version":"2012-10-17",
             "Statement":[
@@ -846,7 +842,6 @@ class ObjectMetadataTest(S3ApiVerificationTestBase):
 
 class ContentMd5Test(S3ApiVerificationTestBase):
     def test_catches_bad_md5(self):
-        '''Make sure Riak CS catches a bad content-md5 header'''
         key_name = str(uuid.uuid4())
         bucket = self.createBucket()
         s = b'not the real content'
@@ -861,9 +856,9 @@ class ContentMd5Test(S3ApiVerificationTestBase):
 
 
     def test_bad_md5_leaves_old_object_alone(self):
-        '''Github #705 Regression test:
-           Make sure that overwriting an object using a bad md5
-           simply leaves the old version in place.'''
+        # Github #705 Regression test:
+        # Make sure that overwriting an object using a bad md5
+        # simply leaves the old version in place.
         key_name = str(uuid.uuid4())
         self.createBucket()
         value = b'good value'
@@ -882,100 +877,114 @@ class ContentMd5Test(S3ApiVerificationTestBase):
 
         self.assertEqual(self.getObject(key = key_name), value)
 
-# class SimpleCopyTest(S3ApiVerificationTestBase):
+class SimpleCopyTest(S3ApiVerificationTestBase):
 
-#     def create_test_object(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         k = Key(bucket)
-#         k.key = self.key_name
-#         k.set_contents_from_string(self.data)
-#         self.assertEqual(k.get_contents_as_string(), self.data)
-#         self.assertIn(self.key_name,
-#                       [k.key for k in bucket.get_all_keys()])
-#         return k
+    def test_put_copy_object(self):
+        self.createBucket()
+        self.putObject()
 
-#     def test_put_copy_object(self):
-#         k = self.create_test_object()
+        target_bucket_name = str(uuid.uuid4())
+        target_key_name = str(uuid.uuid4())
+        self.client.create_bucket(Bucket = target_bucket_name)
 
-#         target_bucket_name = str(uuid.uuid4())
-#         target_key_name = str(uuid.uuid4())
-#         target_bucket = self.client.create_bucket(target_bucket_name)
+        self.client.copy_object(Bucket = target_bucket_name,
+                                CopySource = '%s/%s' % (self.bucket_name, self.key_name),
+                                Key = target_key_name)
 
-#         target_bucket.copy_key(target_key_name, self.bucket_name, self.key_name)
+        self.assertEqual(self.client.get_object(Bucket = self.bucket_name, Key = self.key_name)['Body'].read(),
+                         self.data)
+        self.assertEqual(self.client.get_object(Bucket = self.bucket_name, Key = self.key_name)['Body'].read(),
+                         self.client.get_object(Bucket = target_bucket_name, Key = target_key_name)['Body'].read())
+        self.assertIn(target_key_name,
+                      [k['Key'] for k in self.client.list_objects_v2(Bucket = target_bucket_name).get('Contents', [])])
 
-#         target_key = Key(target_bucket)
-#         target_key.key = target_key_name
-#         self.assertEqual(target_key.get_contents_as_string(), self.data)
-#         self.assertIn(target_key_name,
-#                       [k.key for k in target_bucket.get_all_keys()])
+    def test_put_copy_object_from_mp(self):
+        self.createBucket()
+        upload_id, result = self.upload_multipart(self.key_name, [self.data])
 
-#     def test_put_copy_object_from_mp(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         (upload, result) = upload_multipart(bucket, self.key_name, [StringIO(self.data)])
+        target_bucket_name = str(uuid.uuid4())
+        target_key_name = str(uuid.uuid4())
+        target_bucket = self.client.create_bucket(Bucket = target_bucket_name)
 
-#         target_bucket_name = str(uuid.uuid4())
-#         target_key_name = str(uuid.uuid4())
-#         target_bucket = self.client.create_bucket(target_bucket_name)
+        self.client.copy_object(Bucket = target_bucket_name,
+                                CopySource = '%s/%s' % (self.bucket_name, self.key_name),
+                                Key = target_key_name)
 
-#         target_bucket.copy_key(target_key_name, self.bucket_name, self.key_name)
+        self.assertEqual(self.client.get_object(Bucket = self.bucket_name, Key = self.key_name)['Body'].read(),
+                         self.data)
+        self.assertEqual(self.client.get_object(Bucket = self.bucket_name, Key = self.key_name)['Body'].read(),
+                         self.client.get_object(Bucket = target_bucket_name, Key = target_key_name)['Body'].read())
+        self.assertIn(target_key_name,
+                      [k['Key'] for k in self.client.list_objects_v2(Bucket = target_bucket_name).get('Contents', [])])
 
-#         target_key = Key(target_bucket)
-#         target_key.key = target_key_name
-#         self.assertEqual(target_key.get_contents_as_string(), self.data)
-#         self.assertIn(target_key_name,
-#                       [k.key for k in target_bucket.get_all_keys()])
+    def test_upload_part_from_non_mp(self):
+        self.createBucket()
+        self.putObject()
 
-#     def test_upload_part_from_non_mp(self):
-#         k = self.create_test_object()
+        target_bucket_name = str(uuid.uuid4())
+        target_key_name = str(uuid.uuid4())
+        self.client.create_bucket(Bucket = target_bucket_name)
 
-#         target_bucket_name = str(uuid.uuid4())
-#         target_key_name = str(uuid.uuid4())
-#         target_bucket = self.client.create_bucket(target_bucket_name)
-#         start_offset=0
-#         end_offset=9
-#         target_bucket = self.client.create_bucket(target_bucket_name)
-#         upload = target_bucket.initiate_multipart_upload(target_key_name)
-#         upload.copy_part_from_key(self.bucket_name, self.key_name, part_num=1,
-#                                   start=start_offset, end=end_offset)
-#         upload.complete_upload()
-#         print([k.key for k in target_bucket.get_all_keys()])
+        start_offset, end_offset = 0, 9
+        upload_id = self.client.create_multipart_upload(Bucket = target_bucket_name,
+                                                        Key = target_key_name)['UploadId']
+        res = self.client.upload_part_copy(Bucket = target_bucket_name,
+                                           Key = target_key_name,
+                                           PartNumber = 1,
+                                           UploadId = upload_id,
+                                           CopySource = "%s/%s" % (self.bucket_name, self.key_name),
+                                           CopySourceRange = "bytes=%d-%d" % (start_offset, end_offset))
+        etags = [{'ETag': res['CopyPartResult']['ETag'], 'PartNumber': 1}]
 
-#         target_key = Key(target_bucket)
-#         target_key.key = target_key_name
-#         self.assertEqual(self.data[start_offset:(end_offset+1)],
-#                          target_key.get_contents_as_string())
+        self.client.complete_multipart_upload(Bucket = target_bucket_name,
+                                              Key = target_key_name,
+                                              UploadId = upload_id,
+                                              MultipartUpload = {'Parts': etags})
 
-#     def test_upload_part_from_mp(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
-#         key_name = str(uuid.uuid4())
-#         (upload, result) = upload_multipart(bucket, key_name, [StringIO(self.data)])
+        self.assertEqual(self.data[start_offset:(end_offset+1)],
+                         self.client.get_object(Bucket = target_bucket_name,
+                                                Key = target_key_name)['Body'].read())
 
-#         target_bucket_name = str(uuid.uuid4())
-#         target_bucket = self.client.create_bucket(target_bucket_name)
-#         start_offset=0
-#         end_offset=9
-#         upload2 = target_bucket.initiate_multipart_upload(key_name)
-#         upload2.copy_part_from_key(self.bucket_name, self.key_name, part_num=1,
-#                                    start=start_offset, end=end_offset)
-#         upload2.complete_upload()
+    def test_upload_part_from_mp(self):
+        self.createBucket()
+        key_name = str(uuid.uuid4())
+        upload1_id, result = self.upload_multipart(key_name, [self.data])
 
-#         target_key = Key(target_bucket, key_name)
-#         self.assertEqual(self.data[start_offset:(end_offset+1)],
-#                          target_key.get_contents_as_string())
+        target_bucket_name = str(uuid.uuid4())
+        target_bucket = self.client.create_bucket(Bucket = target_bucket_name)
 
-#     def test_put_copy_from_non_existing_key_404(self):
-#         bucket = self.client.create_bucket(self.bucket_name)
+        start_offset, end_offset = 0, 9
+        upload2_id = self.client.create_multipart_upload(Bucket = target_bucket_name,
+                                                         Key = key_name)['UploadId']
+        res = self.client.upload_part_copy(Bucket = target_bucket_name,
+                                           Key = key_name,
+                                           PartNumber = 1,
+                                           UploadId = upload2_id,
+                                           CopySource = "%s/%s" % (self.bucket_name, self.key_name),
+                                           CopySourceRange = "bytes=%d-%d" % (start_offset, end_offset))
+        etags = [{'ETag': res['CopyPartResult']['ETag'], 'PartNumber': 1}]
+        self.client.complete_multipart_upload(Bucket = target_bucket_name,
+                                              Key = key_name,
+                                              UploadId = upload2_id,
+                                              MultipartUpload = {'Parts': etags})
 
-#         target_bucket_name = str(uuid.uuid4())
-#         target_key_name = str(uuid.uuid4())
-#         target_bucket = self.client.create_bucket(target_bucket_name)
-#         try:
-#             target_bucket.copy_key(target_key_name, self.bucket_name, 'not_existing')
-#             self.fail()
-#         except S3ResponseError as e:
-#             print(e)
-#             self.assertEqual(e.status, 404)
-#             self.assertEqual(e.reason, 'Not Found')
+        self.assertEqual(self.data[start_offset:(end_offset+1)],
+                         self.client.get_object(Bucket = target_bucket_name,
+                                                Key = key_name)['Body'].read())
+
+    def test_put_copy_from_non_existing_key_404(self):
+        self.createBucket()
+
+        target_bucket_name = str(uuid.uuid4())
+        target_key_name = str(uuid.uuid4())
+        self.client.create_bucket(Bucket = target_bucket_name)
+        try:
+            self.client.copy_object(Bucket = target_bucket_name,
+                                    Key = target_key_name,
+                                    CopySource = '%s/%s' % (self.bucket_name, 'not_existing'))
+            self.fail()
+        except botocore.exceptions.ClientError as e:
+            self.assertEqual(e.response['Error']['Code'], 'NoSuchKey')
 
 
 def one_kb_string():
