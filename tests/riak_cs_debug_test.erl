@@ -20,7 +20,6 @@
 
 -module(riak_cs_debug_test).
 
--compile(export_all).
 -export([confirm/0]).
 -include_lib("eunit/include/eunit.hrl").
 
@@ -54,6 +53,7 @@ confirm() ->
     TarGz1 = exec_cs_debug(),
     List1 = trim_dir_prefix(list_files(TarGz1)),
     ?assertContainsAll(minimum_necessary_files(), List1),
+    ok = file:delete(TarGz1),
 
     _ = rtcs:setup(1),
 
@@ -62,8 +62,8 @@ confirm() ->
     List2 = trim_dir_prefix(list_files(TarGz2)),
     ?assertContainsAll(minimum_necessary_files_after_boot(), List2),
     ?assertMatchAny("^logs/platform_log_dir/access.log.*", List2),
-    ?assertMatchAny("^config/generated.configs/app.*.config", List2),
-    ?assertMatchAny("^config/generated.configs/vm.*.args", List2),
+    ?assertMatchAny("^config/generated.conf/app.*.config", List2),
+    ?assertMatchAny("^config/generated.conf/vm.*.args", List2),
     ?assertNotMatchAny("^config/*.pem$", List2),
     ok = file:delete(TarGz2),
 
@@ -75,26 +75,27 @@ confirm() ->
     ?assertContainsAll(minimum_necessary_files_after_boot()
                        ++ ["config/app.config", "config/vm.args"],
                        List3),
-    ?assertNotMatchAny("^config/generated.configs/app.*.config", List3),
-    ?assertNotMatchAny("^config/generated.configs/vm.*.args", List3),
+    ?assertNotMatchAny("^config/generated.conf/app.*.config", List3),
+    ?assertNotMatchAny("^config/generated.conf/vm.*.args", List3),
 
     rtcs_dev:pass().
 
 restart_cs_node() ->
-    rtcs_exec:stop_cs(1),
-    rt:wait_until_unpingable(rtcs:cs_node(1)),
-    rtcs_exec:start_cs(1),
+    N = rtcs:cs_node(1),
+    rtcs_exec:stop_cs(N),
+    rt:wait_until_unpingable(N),
+    rtcs_exec:start_cs(N),
     ok.
 
 move_generated_configs_as_appconfigs() ->
     DevPath = rtcs_config:devpath(cs, current),
-    GenConfPath =  DevPath ++ "/dev/dev1/data/generated.configs/",
+    GenConfPath =  DevPath ++ "/dev/dev1/riak-cs/generated.conf/",
     AppConfig = filelib:wildcard([GenConfPath ++ "app.*.config"]),
     VmArgs = filelib:wildcard([GenConfPath ++ "vm.*.args"]),
 
-    ConfPath =  DevPath ++ "/dev/dev1/etc/",
-    ok = file:rename(AppConfig, ConfPath ++ "app.config"),
-    ok = file:rename(VmArgs, ConfPath ++ "vm.args"),
+    ConfPath =  DevPath ++ "/dev/dev1/riak-cs/etc/",
+    ok = file:rename(lists:last(AppConfig), ConfPath ++ "app.config"),
+    ok = file:rename(lists:last(VmArgs), ConfPath ++ "vm.args"),
     ok.
 
 exec_cs_debug() ->
