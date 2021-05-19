@@ -105,7 +105,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         if value is None:
             value = self.data
         return self.client.put_object(Bucket = self.bucket_name,
-                                      Key = key,
+                                      Key = self.key_name,
                                       Body = value,
                                       Metadata = metadata)
 
