@@ -23,17 +23,22 @@
 -compile([export_all, nowarn_export_all]).
 -include_lib("eunit/include/eunit.hrl").
 
--define(DEVS(N), lists:concat(["dev", N, "@127.0.0.1"])).
--define(DEV(N), list_to_atom(?DEVS(N))).
 -define(PATH, (rt_config:get(rtdev_path))).
 -define(DEBUG_LOG_FILE(N),
         "dev" ++ integer_to_list(N) ++ "@127.0.0.1-riak-debug.tar.gz").
+
+node_by_id(N, "riak") when is_integer(N) ->
+    list_to_atom(lists:concat(["dev", integer_to_list(N), "@127.0.0.1"]));
+node_by_id(N, "riak-cs") when is_integer(N) ->
+    list_to_atom(lists:concat(["rcs-dev", integer_to_list(N), "@127.0.0.1"])).
+
 
 get_deps() ->
     RelPath = relpath(current),
     lists:flatten(io_lib:format("~s/dev/dev1/~s/lib", [RelPath, which_riak(RelPath)])).
 
-riakcmd(Path, N, Cmd) ->
+riakcmd(Path, Node, Cmd) ->
+    N = node_id(Node),
     WhichRiak = which_riak(Path),
     ExecName = rt_config:get(exec_name, WhichRiak),
     case WhichRiak of
@@ -87,23 +92,24 @@ run_git(Path, Cmd) ->
     {0, Out} = cmd(gitcmd(Path, Cmd)),
     Out.
 
-run_riak(N, Path, Cmd) ->
-    lager:info("Running ~s", [riakcmd(Path, N, Cmd)]),
-    R = os:cmd(riakcmd(Path, N, Cmd)),
+run_riak(Node, Path, Cmd) ->
+    Exec = riakcmd(Path, Node, Cmd),
+    lager:info("Exec ~s", [Exec]),
+    R = os:cmd(Exec),
     case Cmd of
         "start" ->
-            rt_cover:maybe_start_on_node(?DEV(N), node_version(N)),
+            rt_cover:maybe_start_on_node(Node, node_version(Node)),
             %% Intercepts may load code on top of the cover compiled
             %% modules. We'll just get no coverage info then.
-            case rt_intercept:are_intercepts_loaded(?DEV(N)) of
+            case rt_intercept:are_intercepts_loaded(Node) of
                 false ->
-                    ok = rt_intercept:load_intercepts([?DEV(N)]);
+                    ok = rt_intercept:load_intercepts([Node]);
                 true ->
                     ok
             end,
             R;
         "stop" ->
-            rt_cover:maybe_stop_on_node(?DEV(N)),
+            rt_cover:maybe_stop_on_node(Node),
             R;
         _ ->
             R
@@ -461,9 +467,10 @@ deploy_clusters(ClusterConfigs) ->
 deploy_nodes(NodeConfig) ->
     Path = relpath(root),
     lager:info("Riak path: ~p", [Path]),
+    WhichRiak = which_riak(Path),
     NumNodes = length(NodeConfig),
     NodesN = lists:seq(1, NumNodes),
-    Nodes = [?DEV(N) || N <- NodesN],
+    Nodes = [node_by_id(N, WhichRiak) || N <- NodesN],
     NodeMap = orddict:from_list(lists:zip(Nodes, NodesN)),
     {Versions, Configs} = lists:unzip(NodeConfig),
     VersionMap = lists:zip(NodesN, Versions),
@@ -503,7 +510,7 @@ deploy_nodes(NodeConfig) ->
     [ok = rt:wait_until_registered(N, riak_core_ring_manager) || N <- Nodes],
 
     %% Ensure nodes are singleton clusters
-    [ok = rt:check_singleton_node(?DEV(N)) || {N, Version} <- VersionMap,
+    [ok = rt:check_singleton_node(node_by_id(N, WhichRiak)) || {N, Version} <- VersionMap,
                                               Version /= "0.14.2"],
 
     lager:info("Deployed nodes: ~p", [Nodes]),
@@ -581,7 +588,7 @@ stop_all(DevPath) ->
     case filelib:is_dir(DevPath) of
         true ->
             Devs = filelib:wildcard(DevPath ++ "/dev/dev*/" ++ which_riak(DevPath)),
-            Nodes = [?DEV(N) || N <- lists:seq(1, length(Devs))],
+            Nodes = [node_by_id(N, which_riak(DevPath)) || N <- lists:seq(1, length(Devs))],
             MyNode = 'riak_test@127.0.0.1',
             case net_kernel:start([MyNode, longnames]) of
                 {ok, _} ->

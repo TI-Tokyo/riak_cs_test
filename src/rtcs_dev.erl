@@ -150,9 +150,7 @@ get_app_config(Node) ->
     get_conf(Path, N).
 
 get_app_config(DevPath, N) ->
-    WildCard = io_lib:format("~s/dev/dev~b/~s/etc/a*.config", [DevPath, N, rtdev:which_riak(DevPath)]),
-    [Conf] = filelib:wildcard(WildCard),
-    Conf.
+    io_lib:format("~s/dev/dev~b/~s/etc/advanced.config", [DevPath, N, rtdev:which_riak(DevPath)]).
 
 update_app_config(all, Config) ->
     [ update_app_config(DevPath, Config) || DevPath <- devpaths()];
@@ -246,14 +244,13 @@ stop(Node, Vsn) ->
     Pid = rpc:call(Node, os, getpid, []),
     N = node_id(Node),
     lager:debug("Stopping ~s (id ~p, pid ~s, devpath ~p)", [Node, N, Pid, cluster_devpath(Node, Vsn)]),
-    rtdev:run_riak(N, cluster_devpath(Node, Vsn), "stop"),
+    rtdev:run_riak(Node, cluster_devpath(Node, Vsn), "stop"),
     ok = rt:wait_until_unpingable(Node).
 
 start(Node) ->
     start(Node, current).
 start(Node, Vsn) ->
-    N = node_id(Node),
-    rtdev:run_riak(N, cluster_devpath(Node, Vsn), "start"),
+    rtdev:run_riak(Node, cluster_devpath(Node, Vsn), "start"),
     ok.
 
 attach(Node, Expected) ->
