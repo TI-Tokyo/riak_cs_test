@@ -61,13 +61,14 @@ confirm() ->
     TarGz2 = exec_cs_debug(),
     List2 = trim_dir_prefix(list_files(TarGz2)),
     ?assertContainsAll(minimum_necessary_files_after_boot(), List2),
-    ?assertMatchAny("^logs/platform_log_dir/access.log.*", List2),
-    ?assertMatchAny("^config/generated.conf/app.*.config", List2),
-    ?assertMatchAny("^config/generated.conf/vm.*.args", List2),
-    ?assertNotMatchAny("^config/*.pem$", List2),
+    ?assertMatchAny("^logs/platform_log_dir/access.log\..+", List2),
+    ?assertMatchAny("^config/generated.conf/app\..+\.config$", List2),
+    ?assertMatchAny("^config/generated.conf/vm\..+\.args$", List2),
+    ?assertNotMatchAny("^config/.+\.pem$", List2),
     ok = file:delete(TarGz2),
 
     %% Run riak-cs-debug with app.config and vm.args.
+    cleanup_any_prev_generated_configs(),
     move_generated_configs_as_appconfigs(),
     restart_cs_node(),
     TarGz3 = exec_cs_debug(),
@@ -75,8 +76,17 @@ confirm() ->
     ?assertContainsAll(minimum_necessary_files_after_boot()
                        ++ ["config/app.config", "config/vm.args"],
                        List3),
-    ?assertNotMatchAny("^config/generated.conf/app.*.config", List3),
-    ?assertNotMatchAny("^config/generated.conf/vm.*.args", List3),
+    ?assertNotMatchAny("^config/generated.conf/app\..+\.config$", List3),
+    ?assertNotMatchAny("^config/generated.conf/vm\..+\.args$", List3),
+
+    ok = file:delete(TarGz3),
+    %% delete app.config and vm.args that we have renamed generated
+    %% configs to (leaving those behind will prevent generation on the
+    %% next run)
+    DevPath = rtcs_config:devpath(cs, current),
+    ConfPath =  DevPath ++ "/dev/dev1/riak-cs/etc/",
+    ok = file:delete(ConfPath ++ "app.config"),
+    ok = file:delete(ConfPath ++ "vm.args"),
 
     rtcs_dev:pass().
 
@@ -87,15 +97,27 @@ restart_cs_node() ->
     rtcs_exec:start_cs(N),
     ok.
 
+cleanup_any_prev_generated_configs() ->
+    DevPath = rtcs_config:devpath(cs, current),
+    GenConfPath =  DevPath ++ "/dev/dev1/riak-cs/generated.conf/",
+    AppConfigs = filelib:wildcard([GenConfPath ++ "app.*.config"]),
+    VmArgses = filelib:wildcard([GenConfPath ++ "vm.*.args"]),
+    case AppConfigs of
+        [_|_] ->
+            [begin lager:info("deleting old ~s", [F]), ok = file:delete(F) end || F <- lists:droplast(AppConfigs) ++ lists:droplast(VmArgses)];
+        _ ->
+            ok
+    end.
+
 move_generated_configs_as_appconfigs() ->
     DevPath = rtcs_config:devpath(cs, current),
     GenConfPath =  DevPath ++ "/dev/dev1/riak-cs/generated.conf/",
-    AppConfig = filelib:wildcard([GenConfPath ++ "app.*.config"]),
-    VmArgs = filelib:wildcard([GenConfPath ++ "vm.*.args"]),
+    [AppConfig] = filelib:wildcard([GenConfPath ++ "app.*.config"]),
+    [VmArgs] = filelib:wildcard([GenConfPath ++ "vm.*.args"]),
 
     ConfPath =  DevPath ++ "/dev/dev1/riak-cs/etc/",
-    ok = file:rename(lists:last(AppConfig), ConfPath ++ "app.config"),
-    ok = file:rename(lists:last(VmArgs), ConfPath ++ "vm.args"),
+    ok = file:rename(AppConfig, ConfPath ++ "app.config"),
+    ok = file:rename(VmArgs, ConfPath ++ "vm.args"),
     ok.
 
 exec_cs_debug() ->
