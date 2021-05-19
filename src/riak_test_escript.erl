@@ -185,7 +185,7 @@ main(Args) ->
     ENode = rt_config:get(rt_nodename, 'riak_test@127.0.0.1'),
     Cookie = rt_config:get(rt_cookie, riak),
     CoverDir = rt_config:get(cover_output, "coverage"),
-    lager:info("ENode ~w Cookie ~w~n", [ENode, Cookie]),
+    lager:info("ENode ~w Cookie ~w", [ENode, Cookie]),
     [] = os:cmd("epmd -daemon"),
     net_kernel:start([ENode]),
     erlang:set_cookie(node(), Cookie),

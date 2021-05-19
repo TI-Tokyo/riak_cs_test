@@ -64,6 +64,8 @@ create_user_rpc(Node, Key, Secret) ->
 create_admin_user(Node) ->
     User = "admin",
     Email = "admin@me.com",
+    %% must match the values in client_tests/python/boto_test.py
+
     {UserConfig, Id} = create_user(rtcs_config:cs_port(Node), Email, User),
     lager:info("Riak CS Admin account created with ~p", [Email]),
     lager:info("KeyId = ~p",[UserConfig#aws_config.access_key_id]),
