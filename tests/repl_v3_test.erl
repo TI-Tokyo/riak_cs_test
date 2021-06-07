@@ -140,11 +140,9 @@ confirm() ->
     lager:info("write 2 more objects to the primary cluster"),
 
     Object2 = crypto:strong_rand_bytes(4194304),
-
     erlcloud_s3:put_object(?TEST_BUCKET, "object_two", Object2, U1C1Config),
 
     Object3 = crypto:strong_rand_bytes(4194304),
-
     erlcloud_s3:put_object(?TEST_BUCKET, "object_three", Object3, U1C1Config),
 
     lager:info("disable proxy_get"),
