@@ -151,6 +151,7 @@ verify_stats_lost_logging(UserConfig, RiakNodes, CSNodes) ->
     _ = generate_some_accesses(UserConfig, 1),
     %% kill riak
     [ rt:brutal_kill(Node) || Node <- RiakNodes ],
+    timer:sleep(2000),
     %% force archive
     flush_access_stats(),
     %% check logs, at same node with flush_access_stats
