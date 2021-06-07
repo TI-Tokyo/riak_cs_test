@@ -66,7 +66,8 @@ confirm() ->
 
     Object1 = crypto:strong_rand_bytes(4194304),
 
-    erlcloud_s3:put_object(?TEST_BUCKET, "object_one", Object1, U1C1Config),
+    ?assertEqual([{version_id, "null"}],
+                 erlcloud_s3:put_object(?TEST_BUCKET, "object_one", Object1, U1C1Config)),
 
     ObjList2 = erlcloud_s3:list_objects(?TEST_BUCKET, U1C1Config),
     ?assertEqual(["object_one"],
