@@ -27,8 +27,7 @@
 -define(TEST_BUCKET, "riak-test-bucket").
 
 confirm() ->
-    {UserConfig, {RiakNodes, _, _}} = rtcs:setup2x2([]),
-    lager:info("UserConfig = ~p", [UserConfig]),
+    {_UserConfig, {RiakNodes, _, _}} = rtcs:setup2x2([]),
     [A,B,C,D] = RiakNodes,
 
     ANodes = [A,B],
@@ -92,15 +91,14 @@ confirm() ->
     repl_helpers:wait_until_13_leader(AFirst),
     LeaderA = rpc:call(AFirst, riak_core_cluster_mgr, get_leader, []),
     LeaderB = rpc:call(BFirst, riak_core_cluster_mgr, get_leader, []),
+    lager:info("leaders: A: ~s, B: ~s", [LeaderA, LeaderB]),
 
-    ModeResA = rpc:call(LeaderA, riak_repl_console, modes, [["mode_repl13"]]),
-    ModeResB = rpc:call(LeaderB, riak_repl_console, modes, [["mode_repl13"]]),
-    lager:info("Replication Modes = ~p", [ModeResA]),
-    lager:info("Replication Modes = ~p", [ModeResB]),
-
+    rpc:call(LeaderA, riak_repl_console, modes, [["mode_repl13"]]),
+    rpc:call(LeaderB, riak_repl_console, modes, [["mode_repl13"]]),
 
     {ok, {_IP, BPort}} = rpc:call(BFirst, application, get_env,
                                   [riak_core, cluster_mgr]),
+
     repl_helpers:connect_clusters13(LeaderA, ANodes, BPort, "B"),
 
     ?assertEqual(ok, repl_helpers:wait_for_connection13(LeaderA, "B")),
@@ -109,8 +107,7 @@ confirm() ->
     repl_helpers:enable_realtime(LeaderA, "B"),
     repl_helpers:start_realtime(LeaderA, "B"),
 
-    PGEnableResult = rpc:call(LeaderA, riak_repl_console, proxy_get, [["enable","B"]]),
-    lager:info("Enabled pg: ~p", [PGEnableResult]),
+    rpc:call(LeaderA, riak_repl_console, proxy_get, [["enable","B"]]),
     Status = rpc:call(LeaderA, riak_repl_console, status, [quiet]),
 
     case proplists:get_value(proxy_get_enabled, Status) of
@@ -297,15 +294,12 @@ disable_pg(SourceLeader, SinkName, ANodes, BNodes, _BPort) ->
     repl_helpers:disconnect_clusters13(SourceLeader, ANodes, SinkName).
 
 set_proxy_get(SourceLeader, EnableOrDisable, SinkName, ANodes, BNodes) ->
-    PGEnableResult = rpc:call(SourceLeader, riak_repl_console, proxy_get,
-                              [[EnableOrDisable,SinkName]]),
-
-    lager:info("Enabled pg: ~p", [PGEnableResult]),
+    rpc:call(SourceLeader, riak_repl_console, proxy_get,
+             [[EnableOrDisable, SinkName]]),
     Status = rpc:call(SourceLeader, riak_repl_console, status, [quiet]),
-
     case proplists:get_value(proxy_get_enabled, Status) of
         undefined -> ?assert(false);
-        EnabledFor -> lager:info("PG enabled for cluster ~p",[EnabledFor])
+        EnabledFor -> lager:info("PG enabled for cluster ~p", [EnabledFor])
     end,
     rt:wait_until_ring_converged(ANodes),
     rt:wait_until_ring_converged(BNodes),
