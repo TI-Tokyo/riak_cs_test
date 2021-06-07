@@ -278,8 +278,6 @@ connect_clusters13(LeaderA, ANodes, BPort, Name) ->
     rt:wait_until_ring_converged(ANodes),
     repl_util:enable_fullsync(LeaderA, Name),
     rt:wait_until_ring_converged(ANodes),
-    enable_pg13(LeaderA, Name),
-    rt:wait_until_ring_converged(ANodes),
     ?assertEqual(ok, wait_for_connection13(LeaderA, Name)),
     rt:wait_until_ring_converged(ANodes).
 
@@ -289,8 +287,6 @@ disconnect_clusters13(LeaderA, ANodes, Name) ->
     repl_util:disable_realtime(LeaderA, Name),
     rt:wait_until_ring_converged(ANodes),
     repl_util:stop_realtime(LeaderA, Name),
-    rt:wait_until_ring_converged(ANodes),
-    disable_pg13(LeaderA, Name),
     rt:wait_until_ring_converged(ANodes),
     ?assertEqual(ok, wait_until_no_connection13(LeaderA)),
     rt:wait_until_ring_converged(ANodes).
