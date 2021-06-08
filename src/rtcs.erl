@@ -63,7 +63,6 @@ setup2x2(Configs) ->
     {_, [CSNode0|_], _} = Nodes = setup2x2_2(Configs),
 
     AdminConfig = make_admin(Configs, 4, current, CSNode0),
-    timer:sleep(1000),
 
     {AdminConfig, Nodes}.
 
@@ -105,7 +104,8 @@ setup_clusters(Configs, JoinFun, NumNodes, Vsn) ->
     Nodes = {RiakNodes, CSNodes, StanchionNode} =
         configure_clusters(NumNodes, rtcs_config:configs(Configs, Vsn), Vsn),
 
-    rt:pmap(fun(N) -> rtcs_dev:start(N, Vsn), rt:wait_for_service(N, riak_kv) end, RiakNodes),
+    rt:pmap(fun(N) -> rtcs_dev:start(N, Vsn) end, RiakNodes),
+    rt:wait_for_service(RiakNodes, riak_kv),
 
     lager:info("Make clusters"),
     JoinFun(RiakNodes),
@@ -115,14 +115,13 @@ setup_clusters(Configs, JoinFun, NumNodes, Vsn) ->
 
     rtcs_exec:start_stanchion(Vsn),
     rt:wait_until(got_pong(StanchionNode, Vsn)),
-    lists:map(fun(N) -> rtcs_exec:start_cs(N, Vsn), rt:wait_until(got_pong(N, Vsn)) end, CSNodes),
-    lager:info("Clusters clustered"),
-
-    timer:sleep(1000),
+    rt:pmap(fun(N) -> rtcs_exec:start_cs(N, Vsn), rt:wait_until(got_pong(N, Vsn)) end, CSNodes),
+    lager:info("Tussle clustered"),
 
     Nodes.
 
 got_pong(Node, Vsn) ->
+    timer:sleep(300),
     Exec = rtcs_exec:node_executable(Node, Vsn),
     fun() ->
             case os:cmd(Exec ++ " ping") of
