@@ -275,7 +275,7 @@ lager_config() ->
      ]}.
 
 riak_bitcaskroot(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/data/bitcask", [Prefix, N]).
+    io_lib:format("~s/dev/dev~b/~s/data/bitcask", [Prefix, N, rtdev:which_riak(Prefix)]).
 
 riak_binpath(Prefix, N) ->
     io_lib:format("~s/dev/dev~b/bin/riak", [Prefix, N]).
