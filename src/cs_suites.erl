@@ -77,8 +77,8 @@
 
 -record(circle,
         {tag          :: string(),
-          user_config  :: term(),
-          buckets = [] :: [bucket()]}).
+         user_config  :: term(),
+         buckets = [] :: [bucket()]}).
 -type circle() :: #circle{}.
 
 -define(GC_LEEWAY, 1).
@@ -389,7 +389,7 @@ delete_bucket(UserConfig, Bucket) ->
 
 get_storage_stats(AdminConfig, Begin, End,
                   #circle{user_config=UserConfig, buckets=Buckets} = Circle) ->
-    lager:debug("storage stats for user ~s , ~s/~s",
+    lager:debug("storage stats for user ~s, ~s/~s",
                 [UserConfig#aws_config.access_key_id, Begin, End]),
     Expected = lists:sort(
                  [{B, {Count, bucket_bytes(B, Count)}} ||
