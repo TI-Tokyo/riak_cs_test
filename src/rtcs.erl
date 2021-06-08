@@ -102,9 +102,7 @@ setup_clusters(Configs, JoinFun, NumNodes, Vsn) ->
     application:load(sasl),
     application:set_env(sasl, sasl_error_logger, false),
 
-    {RiakNodes, CSNodes, StanchionNode} = Nodes =
-
-    Nodes = {RiakNodes, CSNodes, _StanchionNode} =
+    Nodes = {RiakNodes, CSNodes, StanchionNode} =
         configure_clusters(NumNodes, rtcs_config:configs(Configs, Vsn), Vsn),
 
     rt:pmap(fun(N) -> rtcs_dev:start(N, Vsn), rt:wait_for_service(N, riak_kv) end, RiakNodes),
