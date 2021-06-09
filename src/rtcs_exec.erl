@@ -46,16 +46,15 @@ stop_cs_and_stanchion_nodes(NodeList, Vsn) ->
 
 start_all_nodes(NodeList, Vsn) ->
     lists:map(fun({CSNode, RiakNode, _Stanchion}) ->
-                      N = rtdev:node_id(RiakNode),
-                      rtdev:run_riak(N, rtcs_dev:relpath(
-                                          rtdev:node_version(
-                                            rtdev:node_id(RiakNode))), "start"),
+                      N = rtcs_dev:node_id(RiakNode),
+                      rtdev:run_riak(RiakNode, rtcs_dev:relpath(
+                                          rtdev:node_version(N)), "start"),
                       rt:wait_for_service(RiakNode, riak_kv),
                       start_stanchion(Vsn),
                       start_cs(CSNode, Vsn);
                  ({CSNode, RiakNode}) ->
                       N = rtcs_dev:node_id(RiakNode),
-                      rtdev:run_riak(N, rtcs_dev:relpath(rtcs_dev:node_version(N)), "start"),
+                      rtdev:run_riak(RiakNode, rtcs_dev:relpath(rtcs_dev:node_version(N)), "start"),
                       rt:wait_for_service(RiakNode, riak_kv),
                       start_cs(CSNode, Vsn)
               end, NodeList).
