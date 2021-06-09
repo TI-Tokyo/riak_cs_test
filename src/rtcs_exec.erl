@@ -130,10 +130,10 @@ stanchion_statuscmd(Path) ->
     lists:flatten(io_lib:format("~s-admin status", [stanchion_binpath(Path)])).
 
 riak_bitcaskroot(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/data/bitcask", [Prefix, N]).
+    io_lib:format("~s/dev/dev~b/riak/data/bitcask", [Prefix, N]).
 
 riak_binpath(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/bin/riak", [Prefix, N]).
+    io_lib:format("~s/dev/dev~b/~s/bin/riak", [Prefix, N, rtdev:which_riak(Prefix)]).
 
 riakcs_home(Prefix, N) ->
     io_lib:format("~s/dev/dev~b/riak-cs", [Prefix, N]).
@@ -173,11 +173,12 @@ exec_priv_escript(N, Command, Options) ->
 
 exec_priv_escript(N, Command, Options, ByWhom) ->
     ExecuterPrefix = rtcs_config:devpath(ByWhom, current),
-    EscriptPath = filename:join(["priv", "tools", "internal", Command]),
     Cmd = case ByWhom of
               cs ->
+                  EscriptPath = io_lib:format("priv/tools/internal/~s", [Command]),
                   riakcscmd(ExecuterPrefix, N, "escript " ++ EscriptPath ++ " " ++ Options);
               riak ->
+                  EscriptPath = io_lib:format("../../../../riak_cs/dev/dev~b/riak-cs/priv/tools/internal/~s", [N, Command]),
                   riakcmd(ExecuterPrefix, N, "escript " ++ EscriptPath ++ " " ++ Options)
           end,
     lager:info("Running ~s", [Cmd]),
