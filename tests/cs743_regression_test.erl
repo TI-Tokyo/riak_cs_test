@@ -33,7 +33,17 @@
 confirm() ->
     rtcs:set_conf(cs, [{"stats.storage.archive_period", "1s"}]),
     rtcs:set_advanced_conf(cs, [{riak_cs, [{storage_calc_timeout, 1}]}]),
-    {UserConfig, {_RiakNodes, CSNodes, _Stanchion}} = rtcs:setup(2),
+    {UserConfig, {RiakNodes, [CSNode1|_] = CSNodes, _Stanchion}} = rtcs:setup(2),
+
+    ExtPath = filename:dirname(rpc:call(CSNode1, code, which, [riak_cs_storage])),
+    [begin
+         rpc:call(RN, code, add_pathz, [ExtPath]),
+         rpc:call(RN, code, load_file, [riak_cs_utils]),
+         rpc:call(RN, code, load_file, [riak_cs_manifest_utils]),
+         rpc:call(RN, code, load_file, [riak_cs_manifest_resolution]),
+         rpc:call(RN, code, load_file, [riak_cs_storage]),
+         rpc:call(RN, code, load_file, [riak_cs_storage_mr])
+     end || RN <- RiakNodes],
 
     Begin = rtcs:datetime(),
     run_storage_batch(hd(CSNodes)),
