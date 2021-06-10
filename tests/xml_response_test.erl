@@ -30,7 +30,7 @@
 -define(test_key(Label),    "test-key-" Label).
 
 % use something that shouldn't occur naturally
--define(root_host_alt,      "foo.bar.example.com").
+-define(root_host_alt,      "s3.example.amazonaws.com").
 
 confirm() ->
     verify_multipart_upload_response().
@@ -42,8 +42,7 @@ verify_multipart_upload_response() ->
     NumParts = 3,
     PartSize = (5 * 1024 * 1024),
 
-    rtcs:set_conf({cs, current, 1}, [{root_host, Host}]),
-    {AdminConfig, _} = rtcs:setup(1),
+    {AdminConfig, _} = rtcs:setup(1, [{cs, [{riak_cs, [{cs_root_host, Host}]}]}]),
     % erlcloud requires that 's3_host' matches our 'root_host'
     % TODO: rtcs:setup should read this from the conf file
     Config = AdminConfig#aws_config{s3_host = Host},
