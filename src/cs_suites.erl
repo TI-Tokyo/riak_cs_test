@@ -120,6 +120,7 @@ new({AdminConfig, {RiakNodes, CSNodes, StanchionNode}}, Ops) ->
     rt:setup_log_capture(hd(CSNodes)),
     rtcs_exec:gc(1, "set-interval infinity"),
     Begin = rtcs:datetime(),
+    rtcs:truncate_error_log(1),
     %% FIXME: workaround for riak_cs#766
     timer:sleep(timer:seconds(1)),
     {ok, #state{begin_at = Begin,
