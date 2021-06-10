@@ -21,7 +21,6 @@
 -module(storage_stats_test).
 %% @doc Integration test for storage statistics.
 
--compile(export_all).
 -export([confirm/0]).
 
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
@@ -56,8 +55,16 @@ confirm_1(Use2iForStorageCalc) when is_boolean(Use2iForStorageCalc) ->
     SetupRes = rtcs:setup(1, Conf),
     confirm_2(SetupRes).
 
-confirm_2({UserConfig, {RiakNodes, CSNodes, _Stanchion}}) ->
-    UserConfig2 = rtcs_admin:create_user(hd(RiakNodes), 1),
+confirm_2({UserConfig, {[RiakNode], [CSNode], _Stanchion}}) ->
+    UserConfig2 = rtcs_admin:create_user(RiakNode, 1),
+
+    ExtPath = filename:dirname(rpc:call(CSNode, code, which, [riak_cs_storage])),
+    rpc:call(RiakNode, code, add_pathz, [ExtPath]),
+    rpc:call(RiakNode, code, load_file, [riak_cs_utils]),
+    rpc:call(RiakNode, code, load_file, [riak_cs_manifest_utils]),
+    rpc:call(RiakNode, code, load_file, [riak_cs_manifest_resolution]),
+    rpc:call(RiakNode, code, load_file, [riak_cs_storage]),
+    rpc:call(RiakNode, code, load_file, [riak_cs_storage_mr]),
 
     TestSpecs = [store_object(?BUCKET1, UserConfig),
                  delete_object(?BUCKET2, UserConfig),
@@ -72,12 +79,12 @@ confirm_2({UserConfig, {RiakNodes, CSNodes, _Stanchion}}) ->
                  give_over_bucket(?BUCKET9, UserConfig, UserConfig2)
                 ],
 
-    verify_cs840_regression(UserConfig, RiakNodes),
+    verify_cs840_regression(UserConfig, [RiakNode]),
 
     %% Set up to grep logs to verify messages
-    rt:setup_log_capture(hd(CSNodes)),
+    rt:setup_log_capture(CSNode),
 
-    {Begin, End} = calc_storage_stats(hd(CSNodes)),
+    {Begin, End} = calc_storage_stats(CSNode),
     {JsonStat, XmlStat} = storage_stats_request(UserConfig, Begin, End),
     lists:foreach(fun(Spec) ->
                           assert_storage_json_stats(Spec, JsonStat),
