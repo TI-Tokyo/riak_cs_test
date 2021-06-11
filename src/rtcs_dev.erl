@@ -519,28 +519,28 @@ create_or_restore_config_backups(Nodes, Vsn) ->
       end,
       Nodes).
 
-create_data_dir_backups(Nodes, Vsn) ->
-    lists:foreach(
-      fun(Node) ->
-              NodePath = node_path(Node, Vsn),
-              [begin
-                   Dir = io_lib:format("~s/data/~s", [NodePath, Item]),
-                   case filelib:is_dir(Dir ++ ".backup") of
-                       true ->
-                           lager:warning("not overwriting existing backup of ~s", [Dir]);
-                       false ->
-                           case filelib:is_dir(Dir) of
-                               true ->
-                                   lager:info("backing up ~s", [Dir]),
-                                   os:cmd(io_lib:format("cp -a \"~s\" \"~s.backup\"", [Dir, Dir]));
-                               false ->
-                                   lager:info("creating empty ~s", [Dir]),
-                                   os:cmd(io_lib:format("mkdir \"~s.backup\"", [Dir]))
-                           end
-                   end
-               end || Item <- ["bitcask", "leveldb", "ring"]]
-      end,
-      Nodes).
+%% create_data_dir_backups(Nodes, Vsn) ->
+%%     lists:foreach(
+%%       fun(Node) ->
+%%               NodePath = node_path(Node, Vsn),
+%%               [begin
+%%                    Dir = io_lib:format("~s/data/~s", [NodePath, Item]),
+%%                    case filelib:is_dir(Dir ++ ".backup") of
+%%                        true ->
+%%                            lager:warning("not overwriting existing backup of ~s", [Dir]);
+%%                        false ->
+%%                            case filelib:is_dir(Dir) of
+%%                                true ->
+%%                                    lager:info("backing up ~s", [Dir]),
+%%                                    os:cmd(io_lib:format("cp -a \"~s\" \"~s.backup\"", [Dir, Dir]));
+%%                                false ->
+%%                                    lager:info("creating empty ~s", [Dir]),
+%%                                    os:cmd(io_lib:format("mkdir \"~s.backup\"", [Dir]))
+%%                            end
+%%                    end
+%%                end || Item <- ["bitcask", "leveldb", "ring"]]
+%%       end,
+%%       Nodes).
 
 
 restore_configs(Nodes, Vsn) ->
@@ -563,23 +563,23 @@ restore_configs(Nodes, Vsn) ->
       Nodes).
 
 
-restore_data_dirs(Nodes, Vsn) ->
-    lists:foreach(
-      fun(Node) ->
-              NodePath = node_path(Node, Vsn),
-              [begin
-                   Dir = io_lib:format("~s/data/~s", [NodePath, Item]),
-                   case filelib:is_dir(Dir ++ ".backup") of
-                       false ->
-                           lager:warning("backup of ~s not found", [Dir]);
-                       true ->
-                           lager:info("restoring ~s", [Dir]),
-                           [] = os:cmd(io_lib:format("rm -rf \"~s\"", [Dir])),
-                           [] = os:cmd(io_lib:format("mv \"~s.backup\" \"~s\"", [Dir, Dir]))
-                   end
-               end || Item <- ["bitcask", "leveldb", "ring"]]
-      end,
-      Nodes).
+%% restore_data_dirs(Nodes, Vsn) ->
+%%     lists:foreach(
+%%       fun(Node) ->
+%%               NodePath = node_path(Node, Vsn),
+%%               [begin
+%%                    Dir = io_lib:format("~s/data/~s", [NodePath, Item]),
+%%                    case filelib:is_dir(Dir ++ ".backup") of
+%%                        false ->
+%%                            lager:warning("backup of ~s not found", [Dir]);
+%%                        true ->
+%%                            lager:info("restoring ~s", [Dir]),
+%%                            [] = os:cmd(io_lib:format("rm -rf \"~s\"", [Dir])),
+%%                            [] = os:cmd(io_lib:format("mv \"~s.backup\" \"~s\"", [Dir, Dir]))
+%%                    end
+%%                end || Item <- ["bitcask", "leveldb", "ring"]]
+%%       end,
+%%       Nodes).
 
 preload_cs_modules_for_riak_pipe_fittings(CSNode, RiakNodes) ->
     ExtPath = filename:dirname(rpc:call(CSNode, code, which, [riak_cs_storage])),
