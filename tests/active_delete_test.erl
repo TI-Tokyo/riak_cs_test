@@ -31,13 +31,7 @@ confirm() ->
     rtcs:set_advanced_conf(cs, config()),
     Setup = {_, {[RiakNode|_], [CSNode|_], _}} = rtcs:setup(1),
 
-    ExtPath = filename:dirname(rpc:call(CSNode, code, which, [riak_cs_storage])),
-    rpc:call(RiakNode, code, add_pathz, [ExtPath]),
-    rpc:call(RiakNode, code, load_file, [riak_cs_utils]),
-    rpc:call(RiakNode, code, load_file, [riak_cs_manifest_utils]),
-    rpc:call(RiakNode, code, load_file, [riak_cs_manifest_resolution]),
-    rpc:call(RiakNode, code, load_file, [riak_cs_storage]),
-    rpc:call(RiakNode, code, load_file, [riak_cs_storage_mr]),
+    rtcs_dev:preload_cs_modules_for_riak_pipe_fittings(CSNode, [RiakNode]),
 
     %% Just do verify on typical normal case
     History = [{cs_suites, run, ["run-1"]}],

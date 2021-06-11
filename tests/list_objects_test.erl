@@ -31,18 +31,7 @@ confirm() ->
     rtcs:set_conf(cs, [{"fold_objects_for_list_keys", "off"}]),
     {UserConfig, {[RiakNode|_], [CSNode|_], _Stanchion}} = rtcs:setup(1),
 
-    %% add an extra path for riak_pipe to be able to load custom beams
-    %% for its map and reduce phases, defined as Mod and Fun in the
-    %% specs returned by riak_cs_list_objects_fsm:mapred_query/0.
-    ExtPath = filename:dirname(rpc:call(CSNode, code, which, [riak_cs_utils])),
-    rpc:call(RiakNode, code, add_pathz, [ExtPath]),
-
-    %% and explicitly load some accessory modules (riak_cs_utils
-    %% makes calls into funs in those modules), because riak_pipe only
-    %% loads those mentioned in the specs:
-    rpc:call(RiakNode, code, load_file, [riak_cs_utils]),
-    rpc:call(RiakNode, code, load_file, [riak_cs_manifest_utils]),
-    rpc:call(RiakNode, code, load_file, [riak_cs_manifest_resolution]),
+    rtcs_dev:preload_cs_modules_for_riak_pipe_fittings(CSNode, [RiakNode]),
 
     assert_v1(CSNode),
     list_objects_test_helper:test(UserConfig).

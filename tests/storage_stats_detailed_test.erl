@@ -41,13 +41,7 @@ confirm() ->
     {AdminConfig, {RiakNodes, CSNodes, _Stanchion}} = SetupRes,
     RiakNode = hd(RiakNodes),
 
-    ExtPath = filename:dirname(rpc:call(hd(CSNode), code, which, [riak_cs_storage])),
-    rpc:call(RiakNode, code, add_pathz, [ExtPath]),
-    rpc:call(RiakNode, code, load_file, [riak_cs_utils]),
-    rpc:call(RiakNode, code, load_file, [riak_cs_manifest_utils]),
-    rpc:call(RiakNode, code, load_file, [riak_cs_manifest_resolution]),
-    rpc:call(RiakNode, code, load_file, [riak_cs_storage]),
-    rpc:call(RiakNode, code, load_file, [riak_cs_storage_mr]),
+    rtcs_dev:preload_cs_modules_for_riak_pipe_fittings(CSNode, [RiakNode]),
 
     UserConfig = rtcs_admin:create_user(RiakNode, 1),
 
