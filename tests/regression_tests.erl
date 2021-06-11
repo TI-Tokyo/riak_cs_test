@@ -38,8 +38,7 @@
 
 confirm() ->
     %% Setting short timeouts to accelarate verify_cs756
-    rtcs:set_advanced_conf(cs, [{riak_cs, [{riakc_timeouts, 1000}]}]),
-    SetupInfo = {UserConfig, _Nodes} = rtcs:setup(1),
+    SetupInfo = {UserConfig, _Nodes} = rtcs:setup(1, [{cs, [{riak_cs, [{riakc_timeouts, 1000}]}]}]),
 
     ok = verify_cs296(SetupInfo, "test-bucket-cs296"),
     ok = verify_cs347(SetupInfo, "test-bucket-cs347"),

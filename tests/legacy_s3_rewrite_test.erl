@@ -31,10 +31,8 @@ confirm() ->
     %% ~/.riak_test.config in the 'rtcs_dev' section, 'src_paths'
     %% subsection.
     CsSrcDir = rtcs_dev:srcpath(cs_src_root),
-    lager:debug("cs_src_root = ~p", [CsSrcDir]),
 
-    rtcs:set_advanced_conf(cs, cs_config()),
-    {UserConfig, {RiakNodes, _CSNodes, _Stanchion}} = rtcs:setup(1),
+    {UserConfig, {RiakNodes, _CSNodes, _Stanchion}} = rtcs:setup(1, [{cs, cs_config()}]),
     ok = erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig),
     CsPortStr = integer_to_list(rtcs_config:cs_port(hd(RiakNodes))),
 
