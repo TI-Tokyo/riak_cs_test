@@ -105,7 +105,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         if value is None:
             value = self.data
         return self.client.put_object(Bucket = self.bucket_name,
-                                      Key = self.key_name,
+                                      Key = key,
                                       Body = value,
                                       Metadata = metadata)
 
@@ -196,9 +196,10 @@ class BasicTests(S3ApiVerificationTestBase):
         self.createBucket()
         self.putObject(key = key)
         self.assertIn(key, self.listKeys())
-        self.assertEqual(self.data, self.getObject())
+        self.assertEqual(self.data, self.getObject(key = key))
 
     def test_put_object_with_trailing_slash(self):
+        #boto3.set_stream_logger('')
         self.test_put_object(self.key_name + '/')
 
     def test_delete_object(self):
@@ -494,7 +495,6 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
 
     def create_bucket_and_set_policy(self, policy):
         self.createBucket()
-        #boto3.set_stream_logger('')
         self.client.put_bucket_policy(Bucket = self.bucket_name,
                                       Policy = json.dumps(policy))
 
