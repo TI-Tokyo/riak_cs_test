@@ -99,7 +99,6 @@ confirm() ->
     lager:info("Downgrading to previous successfully done"),
 
     rtcs_dev:restore_configs(RiakNodes ++ CSNodes ++ [Stanchion], previous),
-    rtcs_dev:restore_data_dirs(RiakNodes, previous),
     rtcs_dev:pass().
 
 
