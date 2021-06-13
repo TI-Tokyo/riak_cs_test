@@ -198,7 +198,7 @@ previous_cs_config(UserExtra, OtherApps) ->
              {bucket_list_pool, {bucket_list_pool_size(), 0} }
             ]},
            {block_get_max_retries, 1},
-           {proxy_get, enabled},
+           {proxy_get, disabled},  %% to prevent clustering and running foul of RpbGetClusterId issues
            {admin_key, "admin-key"},
            {anonymous_user_creation, true},
            {riak_pb_port, 10017},
