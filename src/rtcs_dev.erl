@@ -512,10 +512,10 @@ create_or_restore_config_backups(Nodes, Vsn) ->
               [begin
                    case filelib:is_regular(F ++ ".backup") of
                        true ->
-                           lager:warning("found existing backup of ~s; restoring it", [F]),
+                           lager:info("found existing backup of ~s; restoring it", [F]),
                            [] = os:cmd(io_lib:format("cp -a \"~s.backup\" \"~s\"", [F, F]));
                        false ->
-                           lager:info("backing up ~s", [F]),
+                           lager:debug("backing up ~s", [F]),
                            [] = os:cmd(io_lib:format("cp -a \"~s\" \"~s.backup\"", [F, F]))
                    end
                end || F <- [ConfFile, AdvCfgFile]]
@@ -556,9 +556,9 @@ restore_configs(Nodes, Vsn) ->
               [begin
                    case filelib:is_regular(F ++ ".backup") of
                        false ->
-                           lager:warning("backup of ~s not found", [F]);
+                           lager:info("backup of ~s not found", [F]);
                        true ->
-                           lager:info("restoring ~s", [F]),
+                           lager:debug("restoring ~s", [F]),
                            [] = os:cmd(io_lib:format("mv -f \"~s.backup\" \"~s\"", [F, F]))
                    end
                end || F <- [ConfFile, AdvCfgFile]]

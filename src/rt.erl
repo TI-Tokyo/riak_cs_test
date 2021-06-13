@@ -1844,6 +1844,8 @@ set_backend(Backend, Extras) when Backend == riak_kv_multi_backend ->
     Config = make_multi_backend_config(MultiConfig),
     update_app_config(all, [{riak_kv, Config}]),
     get_backends();
+set_backend(undefined, _) ->
+    get_backends();
 set_backend(Other, _) ->
     lager:warning("rt:set_backend doesn't recognize ~p as a legit backend, using the default.", [Other]),
     get_backends().
