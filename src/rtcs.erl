@@ -156,7 +156,6 @@ riak_id_per_cluster(NumNodes) ->
     end.
 
 configure_clusters(NumNodes, InitialConfig, Vsn) ->
-    lager:debug("Initial Config: ~s", [io_lib:format("~p", [InitialConfig])]),
     {RiakNodes, CSNodes, StanchionNode} = Nodes = {riak_nodes(NumNodes),
                                                    cs_nodes(NumNodes),
                                                    stanchion_node()},
@@ -164,13 +163,13 @@ configure_clusters(NumNodes, InitialConfig, Vsn) ->
     NodeMap = orddict:from_list(lists:zip(RiakNodes, lists:seq(1, NumNodes)) ++
                                     lists:zip(CSNodes, lists:seq(1, NumNodes)) ++
                                     [{StanchionNode, 1}]),
-    lager:info("NodeMap: ~p", [NodeMap]),
+    lager:debug("NodeMap: ~p", [NodeMap]),
     rt_config:set(rt_nodes, NodeMap),
 
     {_RiakRoot, RiakVsn} = rtcs_dev:riak_root_and_vsn(Vsn, rt_config:get(build_type, oss)),
 
     VersionMap = lists:zip(lists:seq(1, NumNodes), lists:duplicate(NumNodes, RiakVsn)),
-    lager:info("VersionMap: ~p", [VersionMap]),
+    lager:debug("VersionMap: ~p", [VersionMap]),
     rt_config:set(rt_versions, VersionMap),
 
     rtcs_dev:create_snmp_dirs(RiakNodes),
@@ -287,6 +286,7 @@ assert_error_log_empty(Vsn, N) ->
 truncate_error_log(N) ->
     Cmd = os:find_executable("rm"),
     ErrorLog = rtcs_config:riakcs_logpath(rt_config:get(rtcs_config:cs_current()), N, "error.log"),
+    lager:info("truncating ~s", [ErrorLog]),
     ok = rtcs_exec:cmd(Cmd, [{args, ["-f", ErrorLog]}]).
 
 wait_until(_, _, 0, _) ->

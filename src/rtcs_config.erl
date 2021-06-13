@@ -426,7 +426,7 @@ update_app_config(Path, Config) ->
 enable_zdbbl(Vsn) ->
     Fs = filelib:wildcard(filename:join([devpath(riak, Vsn),
                                          "dev", "dev*", "etc", "vm.args"])),
-    lager:info("rtcs:enable_zdbbl for vm.args : ~p~n", [Fs]),
+    lager:debug("rtcs:enable_zdbbl for vm.args : ~p", [Fs]),
     [os:cmd("sed -i -e 's/##+zdbbl /+zdbbl /g' " ++ F) || F <- Fs],
     ok.
 

@@ -208,7 +208,7 @@ clean_data_dir(Nodes, SubDir) when is_list(Nodes) ->
     lists:foreach(fun rm_dir/1, DataDirs).
 
 rm_dir(Dir) ->
-    lager:info("Removing directory ~s", [Dir]),
+    lager:debug("Removing directory ~s", [Dir]),
     ?assertCmd("rm -rf " ++ Dir),
     ?assertEqual(false, filelib:is_dir(Dir)).
 
@@ -226,16 +226,19 @@ add_default_node_config(Nodes) ->
     end.
 
 clean_data_dir_all(DevPath) ->
-    case filelib:is_dir(DevPath) of
-        true ->
-            Devs = filelib:wildcard(DevPath ++ "/dev/*"),
+    Devs = filelib:wildcard(DevPath ++ "/dev/*"),
+    Clean = fun(C) ->
+                    rm_dir(C ++ "/" ++ rtdev:which_riak(DevPath) ++ "/data")
+            end,
+    [Clean(D) || D <- Devs],
+    ok.
 
-            Clean = fun(C) ->
-                            rm_dir(C ++ "/" ++ rtdev:which_riak(DevPath) ++ "/data")
-                    end,
-            [Clean(D) || D <- Devs];
-        _ -> lager:info("~s is not a directory.", [DevPath])
-    end,
+clean_log_dir_all(DevPath) ->
+    Devs = filelib:wildcard(DevPath ++ "/dev/*"),
+    Clean = fun(C) ->
+                    [] = os:cmd(io_lib:format("rm -rf ~s", [C ++ "/" ++ rtdev:which_riak(DevPath) ++ "/log/*"]))
+            end,
+    [Clean(D) || D <- Devs],
     ok.
 
 stop(Node) ->
@@ -412,7 +415,7 @@ check_node({_N, Version}) ->
     end.
 
 set_backend(Backend) ->
-    lager:info("rtcs_dev:set_backend(~p)", [Backend]),
+    lager:debug("rtcs_dev:set_backend(~p)", [Backend]),
     update_app_config(all, [{riak_kv, [{storage_backend, Backend}]}]),
     get_backends().
 

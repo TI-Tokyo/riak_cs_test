@@ -240,8 +240,8 @@ cmd(Cmd, Opts) ->
     cmd(Cmd, Opts, rt_config:get(rt_max_wait_time)).
 
 cmd(Cmd, Opts, WaitTime) ->
-    lager:info("Command: ~s", [Cmd]),
-    lager:info("Options: ~p", [Opts]),
+    lager:debug("Command: ~s", [Cmd]),
+    lager:debug("Options: ~p", [Opts]),
     Port = open_port({spawn_executable, Cmd},
                      [in, exit_status, binary,
                       stream, stderr_to_stdout,{line, 200} | Opts]),
