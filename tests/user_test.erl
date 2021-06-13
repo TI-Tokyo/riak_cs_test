@@ -20,8 +20,8 @@
 
 -module(user_test).
 
--compile(export_all).
 -export([confirm/0]).
+
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
@@ -31,7 +31,7 @@
 -define(XML, "application/xml").
 
 confirm() ->
-    {AdminUserConfig, {RiakNodes, _CSNodes, _Stanchion}} = rtcs:setup(1),
+    {{AdminUserConfig, _}, {RiakNodes, _CSNodes, _Stanchion}} = rtcs:setup(1),
 
     HeadRiakNode = hd(RiakNodes),
     AdminUser = {"admin@me.com", "admin",

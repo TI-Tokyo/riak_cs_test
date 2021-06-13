@@ -27,7 +27,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 confirm() ->
-    {UserConfig, {RiakNodes, CSNodes, _Stanchion}} = rtcs:setup(2),
+    {{UserConfig, _}, {RiakNodes, CSNodes, _Stanchion}} = rtcs:setup(2),
     assert_v2_is_default(CSNodes),
     pass = list_objects_test_helper:test(UserConfig),
 

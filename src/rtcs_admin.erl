@@ -58,9 +58,9 @@ create_user_rpc(Node, Key, Secret) ->
 
     %% You know this is a kludge, user creation via RPC
     _Res = rpc:call(Node, riak_cs_user, create_user, [User, Email, Key, Secret]),
-    aws_config(Key, Secret, rtcs_config:cs_port(1)).
+    {aws_config(Key, Secret, rtcs_config:cs_port(1)), undefined}.
 
--spec create_admin_user(atom()) -> #aws_config{}.
+-spec create_admin_user(atom()) -> {#aws_config{}, binary()}.
 create_admin_user(Node) ->
     User = "admin",
     Email = "admin@me.com",
@@ -71,7 +71,7 @@ create_admin_user(Node) ->
     lager:info("KeyId = ~p",[UserConfig#aws_config.access_key_id]),
     lager:info("KeySecret = ~p",[UserConfig#aws_config.secret_access_key]),
     lager:info("Id = ~p",[Id]),
-    UserConfig.
+    {UserConfig, Id}.
 
 -spec create_user(atom(), non_neg_integer()) -> #aws_config{}.
 create_user(Node, UserIndex) ->

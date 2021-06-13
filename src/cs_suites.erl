@@ -112,11 +112,11 @@ cleanup_ops() ->
 
 %% Create configuration state for subsequennt runs.
 -spec new(term()) -> {ok, state()}.
-new({AdminConfig, {RiakNodes, CSNodes, StanchionNode}}) ->
-    new({AdminConfig, {RiakNodes, CSNodes, StanchionNode}}, ops()).
+new(Setup) ->
+    new(Setup, ops()).
 
 -spec new(term(), [op()]) -> {ok, state()}.
-new({AdminConfig, {RiakNodes, CSNodes, StanchionNode}}, Ops) ->
+new({{AdminConfig, _}, {RiakNodes, CSNodes, StanchionNode}}, Ops) ->
     rt:setup_log_capture(hd(CSNodes)),
     rtcs_exec:gc(1, "set-interval infinity"),
     Begin = rtcs:datetime(),
@@ -171,8 +171,7 @@ init_circle(Tag, #state{admin_config=AdminConfig, riak_nodes = [RiakNode|_]} = _
     Port = rtcs_config:cs_port(RiakNode),
     Name = concat("user-", Tag),
     Email = concat(Name, "@example.com"),
-    {UserConfig, _Id} =
-        rtcs_admin:create_user(Port, AdminConfig, Email, Name),
+    {UserConfig, _} = rtcs_admin:create_user(Port, AdminConfig, Email, Name),
     #circle{tag = Tag, user_config = UserConfig}.
 
 -spec apply_operations(circle(), state(), [op()]) -> {ok, state()}.

@@ -58,7 +58,7 @@ confirm_1(Use2iForStorageCalc) when is_boolean(Use2iForStorageCalc) ->
     SetupRes = rtcs:setup(1, Conf),
     confirm_2(SetupRes).
 
-confirm_2({UserConfig, {[RiakNode], [CSNode], _Stanchion}}) ->
+confirm_2({{UserConfig, _}, {[RiakNode], [CSNode], _Stanchion}}) ->
     UserConfig2 = rtcs_admin:create_user(RiakNode, 1),
 
     rtcs_dev:preload_cs_modules_for_riak_pipe_fittings(CSNode, [RiakNode]),

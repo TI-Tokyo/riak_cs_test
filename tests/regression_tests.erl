@@ -38,7 +38,7 @@
 
 confirm() ->
     %% Setting short timeouts to accelarate verify_cs756
-    SetupInfo = {UserConfig, _Nodes} = rtcs:setup(1, [{cs, [{riak_cs, [{riakc_timeouts, 1000}]}]}]),
+    SetupInfo = {{UserConfig, _}, _Nodes} = rtcs:setup(1, [{cs, [{riak_cs, [{riakc_timeouts, 1000}]}]}]),
 
     ok = verify_cs296(SetupInfo, "test-bucket-cs296"),
     ok = verify_cs347(SetupInfo, "test-bucket-cs347"),
@@ -56,7 +56,7 @@ confirm() ->
 %% @doc Regression test for `riak_cs' <a href="https://github.com/basho/riak_cs/issues/296">
 %% issue 296</a>. The issue description is: 403 instead of 404 returned when
 %% trying to list nonexistent bucket.
-verify_cs296(_SetupInfo = {UserConfig, {_RiakNodes, _CSNodes, _Stanchion}}, BucketName) ->
+verify_cs296(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}}, BucketName) ->
     lager:info("CS296: User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
 
@@ -77,7 +77,7 @@ verify_cs296(_SetupInfo = {UserConfig, {_RiakNodes, _CSNodes, _Stanchion}}, Buck
 %% @doc Regression test for `riak_cs' <a href="https://github.com/basho/riak_cs/issues/347">
 %% issue 347</a>. The issue description is: No response body in 404 to the
 %% bucket that have never been created once.
-verify_cs347(_SetupInfo = {UserConfig, {_RiakNodes, _CSNodes, _Stanchion}}, BucketName) ->
+verify_cs347(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}}, BucketName) ->
 
     lager:info("CS347: User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
@@ -114,7 +114,7 @@ verify_cs347(_SetupInfo = {UserConfig, {_RiakNodes, _CSNodes, _Stanchion}}, Buck
 %% @doc Regression test for `riak_cs' <a href="https://github.com/basho/riak_cs/issues/436">
 %% issue 436</a>. The issue description is: A 500 is returned instead of a 404 when
 %% trying to put to a nonexistent bucket.
-verify_cs436(_SetupInfo = {UserConfig, {_RiakNodes, _CSNodes, _Stanchion}}, BucketName) ->
+verify_cs436(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}}, BucketName) ->
     lager:info("CS436: User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
 
@@ -151,7 +151,7 @@ verify_cs512(UserConfig, BucketName) ->
     put_and_get(UserConfig, BucketName, <<"OLD">>),
     put_and_get(UserConfig, BucketName, <<"NEW">>),
     erlcloud_s3:delete_object(BucketName, ?KEY, UserConfig),
-    assert_notfound(UserConfig,BucketName),
+    assert_notfound(UserConfig, BucketName),
     ok.
 
 put_and_get(UserConfig, BucketName, Data) ->
@@ -159,16 +159,16 @@ put_and_get(UserConfig, BucketName, Data) ->
     Props = erlcloud_s3:get_object(BucketName, ?KEY, UserConfig),
     ?assertEqual(proplists:get_value(content, Props), Data).
 
-verify_cs770({UserConfig, {RiakNodes, _, _}}, BucketName) ->
+verify_cs770({{UserConfig, _}, {RiakNodes, _, _}}, BucketName) ->
     %% put object and cancel it;
     ?assertEqual(ok, erlcloud_s3:create_bucket(BucketName, UserConfig)),
     Key = "foobar",
-    lager:debug("starting cs770 verification: ~s ~s", [BucketName, Key]),    
+    lager:debug("starting cs770 verification: ~s ~s", [BucketName, Key]),
 
     {ok, Socket} = rtcs_object:upload(UserConfig,
                                       {normal_partial, 3*1024*1024, 1024*1024},
                                       BucketName, Key),
-    
+
     [[{UUID, M}]] = get_manifests(RiakNodes, BucketName, Key),
 
     %% Even if CS is smart enough to remove canceled upload, at this
@@ -232,7 +232,7 @@ get_manifests(RiakNodes, BucketName, Key) ->
     [binary_to_term(V) || {_, V} <- riakc_obj:get_contents(Obj),
                           V =/= <<>>].
 
-verify_cs756({UserConfig, {RiakNodes, _, _}}, BucketName) ->
+verify_cs756({{UserConfig, _}, {RiakNodes, _, _}}, BucketName) ->
     %% Making sure API call to CS failed Riak KV underneath, all fails in 500
     %% This could be done with eqc
     lager:info("CS756 regression"),
@@ -249,7 +249,7 @@ verify_cs756({UserConfig, {RiakNodes, _, _}}, BucketName) ->
 
     ?assert500(erlcloud_s3:put_object(BucketName, "mine", <<"deadbeef">>, UserConfig)),
     ?assert500(erlcloud_s3:get_object(BucketName, "mine", UserConfig)),
-    ?assert500(erlcloud_s3:delete_object(BucketName, "mine", UserConfig)), 
+    ?assert500(erlcloud_s3:delete_object(BucketName, "mine", UserConfig)),
 
     %% try copy
     ?assert500(erlcloud_s3:copy_object(BucketName, "destination",

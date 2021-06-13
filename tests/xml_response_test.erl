@@ -42,7 +42,7 @@ verify_multipart_upload_response() ->
     NumParts = 3,
     PartSize = (5 * 1024 * 1024),
 
-    {AdminConfig, _} = rtcs:setup(1, [{cs, [{riak_cs, [{cs_root_host, Host}]}]}]),
+    {{AdminConfig, _}, _} = rtcs:setup(1, [{cs, [{riak_cs, [{cs_root_host, Host}]}]}]),
     % erlcloud requires that 's3_host' matches our 'root_host'
     % TODO: rtcs:setup should read this from the conf file
     Config = AdminConfig#aws_config{s3_host = Host},

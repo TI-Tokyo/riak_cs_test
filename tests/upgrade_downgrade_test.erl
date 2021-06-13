@@ -32,7 +32,7 @@ confirm() ->
     prepare_current(NumNodes),
 
     PrevConfig = rtcs_config:previous_configs(),
-    {UserConfig, {RiakNodes, CSNodes, Stanchion}} =
+    {{UserConfig, _}, {RiakNodes, CSNodes, Stanchion}} =
         rtcs:setup(NumNodes, PrevConfig, previous),
 
     {ok, Data} = prepare_all_data(UserConfig),

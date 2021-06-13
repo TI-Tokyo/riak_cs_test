@@ -188,7 +188,7 @@ setup_admin_user(NumNodes, Vsn)
 
     lager:info("Setting up admin user", []),
     %% Create admin user and set in cs and stanchion configs
-    AdminCreds = rtcs_admin:create_admin_user(1),
+    {AdminCreds, AdminUId} = rtcs_admin:create_admin_user(1),
     #aws_config{access_key_id=KeyID,
                 secret_access_key=KeySecret} = AdminCreds,
 
@@ -212,7 +212,7 @@ setup_admin_user(NumNodes, Vsn)
                   [{CSNode, riak_cs} || CSNode <- cs_nodes(NumNodes) ]],
     lists:foreach(UpdateFun, ZippedNodes),
 
-    AdminCreds.
+    {AdminCreds, AdminUId}.
 
 -spec set_conf(atom() | {atom(), atom()} | string(), [{string(), string()}]) -> ok.
 set_conf(all, NameValuePairs) ->

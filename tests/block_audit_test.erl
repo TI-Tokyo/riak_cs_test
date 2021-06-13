@@ -45,7 +45,7 @@ confirm() ->
     end.
 
 confirm1() ->
-    {UserConfig, {RiakNodes, CSNodes, Stanchion}} = rtcs:setup(1),
+    {{UserConfig, _}, {RiakNodes, CSNodes, Stanchion}} = rtcs:setup(1),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET1, UserConfig)),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET2, UserConfig)),
     FalseOrphans1 =

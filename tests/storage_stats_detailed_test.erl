@@ -38,8 +38,7 @@
 confirm() ->
     ExtraConf = [{cs, [{riak_cs, [{detailed_storage_calc, true}]}]}],
     SetupRes = rtcs:setup(1, ExtraConf),
-    {AdminConfig, {RiakNodes, CSNodes, _Stanchion}} = SetupRes,
-    RiakNode = hd(RiakNodes),
+    {{AdminConfig, _}, {[RiakNode|_], [CSNode|_], _Stanchion}} = SetupRes,
 
     rtcs_dev:preload_cs_modules_for_riak_pipe_fittings(CSNode, [RiakNode]),
 
@@ -47,11 +46,11 @@ confirm() ->
 
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET, UserConfig)),
     lager:info("Investigating stats for this empty bucket..."),
-    assert_results_for_empty_bucket(AdminConfig, UserConfig, hd(CSNodes), ?BUCKET),
+    assert_results_for_empty_bucket(AdminConfig, UserConfig, CSNode, ?BUCKET),
 
     setup_objects(UserConfig, ?BUCKET),
     lager:info("Investigating stats for non empty bucket..."),
-    assert_results_for_non_empty_bucket(AdminConfig, UserConfig, hd(CSNodes), ?BUCKET),
+    assert_results_for_non_empty_bucket(AdminConfig, UserConfig, CSNode, ?BUCKET),
 
     storage_stats_test:confirm_2(SetupRes),
 

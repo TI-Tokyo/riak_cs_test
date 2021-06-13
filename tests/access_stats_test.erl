@@ -35,7 +35,7 @@
 -define(DURATION_SECS, 11).
 
 confirm() ->
-    {UserConfig, {RiakNodes, CSNodes, _Stanchion}} = rtcs:setup(2),
+    {{UserConfig, _}, {RiakNodes, CSNodes, _Stanchion}} = rtcs:setup(2),
     rt:setup_log_capture(hd(CSNodes)),
 
     Results = generate_some_accesses(UserConfig),

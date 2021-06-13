@@ -29,7 +29,8 @@
 
 confirm() ->
     rtcs:set_conf(cs, [{"fold_objects_for_list_keys", "off"}]),
-    {UserConfig, {[RiakNode|_], [CSNode|_], _Stanchion}} = rtcs:setup(1),
+    {{UserConfig, _}, {[RiakNode|_], [CSNode|_], _Stanchion}} =
+        rtcs:setup(1),
 
     rtcs_dev:preload_cs_modules_for_riak_pipe_fittings(CSNode, [RiakNode]),
 

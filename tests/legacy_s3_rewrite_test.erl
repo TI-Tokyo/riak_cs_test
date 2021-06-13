@@ -32,7 +32,8 @@ confirm() ->
     %% subsection.
     CsSrcDir = rtcs_dev:srcpath(cs_src_root),
 
-    {UserConfig, {RiakNodes, _CSNodes, _Stanchion}} = rtcs:setup(1, [{cs, cs_config()}]),
+    {{UserConfig, _}, {RiakNodes, _CSNodes, _Stanchion}} =
+        rtcs:setup(1, [{cs, cs_config()}]),
     ok = erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig),
     CsPortStr = integer_to_list(rtcs_config:cs_port(hd(RiakNodes))),
 

@@ -30,7 +30,7 @@
 -define(BACKUP_PORT, 9096).
 
 confirm() ->
-    {UserConfig, {RiakNodes, _CSNodes, Stanchion}} = rtcs:setup(1),
+    {{UserConfig, _}, {RiakNodes, _CSNodes, Stanchion}} = rtcs:setup(1),
 
     lists:foreach(fun(RiakNode) ->
                           N = rtcs_dev:node_id(RiakNode),
