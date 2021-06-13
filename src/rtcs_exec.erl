@@ -156,30 +156,19 @@ stanchion_binpath(Prefix) ->
 stanchion_etcpath(Prefix) ->
     io_lib:format("~s/dev/stanchion/etc", [Prefix]).
 
-repair_gc_bucket(N, Options) -> repair_gc_bucket(N, Options, current).
+exec_priv_escript(N, Command, ScriptOptions) ->
+    exec_priv_escript(N, Command, ScriptOptions, #{by => riak}).
 
-repair_gc_bucket(N, Options, Vsn) ->
-    Prefix = rtcs_config:devpath(cs, Vsn),
-    RepairScriptWild = string:join([riakcs_libpath(Prefix, N), "riak_cs*",
-                                    "priv/tools/repair_gc_bucket.erl"] , "/"),
-    [RepairScript] = filelib:wildcard(RepairScriptWild),
-    Cmd = riakcscmd(Prefix, N, "escript " ++ RepairScript ++
-                        " " ++ Options),
-    lager:info("Running ~s", [Cmd]),
-    os:cmd(Cmd).
-
-exec_priv_escript(N, Command, Options) ->
-    exec_priv_escript(N, Command, Options, cs).
-
-exec_priv_escript(N, Command, Options, ByWhom) ->
+exec_priv_escript(N, Command, ScriptOptions, #{by := ByWhom}) ->
     ExecuterPrefix = rtcs_config:devpath(ByWhom, current),
     Cmd = case ByWhom of
               cs ->
-                  EscriptPath = io_lib:format("priv/tools/internal/~s", [Command]),
-                  riakcscmd(ExecuterPrefix, N, "escript " ++ EscriptPath ++ " " ++ Options);
+                  EscriptPath = io_lib:format("priv/tools/~s", [Command]),
+                  riakcscmd(ExecuterPrefix, N, "escript " ++ EscriptPath ++ " " ++ ScriptOptions);
               riak ->
-                  EscriptPath = io_lib:format("../../../../riak_cs/dev/dev~b/riak-cs/priv/tools/internal/~s", [N, Command]),
-                  riakcmd(ExecuterPrefix, N, "escript " ++ EscriptPath ++ " " ++ Options)
+                  EscriptPath = io_lib:format("../../../../riak_cs/dev/dev~b/riak-cs/priv/tools/~s",
+                                              [N, Command]),
+                  riakcmd(ExecuterPrefix, N, "escript " ++ EscriptPath ++ " " ++ ScriptOptions)
           end,
     lager:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
