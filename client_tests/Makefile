@@ -1,6 +1,7 @@
 .PHONY: test-client test-clojure test-boto test-ceph test-erlang test-ruby test-php test-go
 
-test-client: test-clojure test-boto test-ceph test-erlang test-ruby test-php test-go
+#test-client: test-clojure test-boto test-ceph test-erlang test-ruby test-php test-go
+test-client: test-boto
 
 test-python:
 	@cd python && ${MAKE} CS_HTTP_PORT=$(CS_HTTP_PORT) AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
