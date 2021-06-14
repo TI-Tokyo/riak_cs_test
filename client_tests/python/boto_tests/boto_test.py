@@ -19,7 +19,7 @@
 ## under the License.
 ##
 ## ---------------------------------------------------------------------
-import os, httplib2, json, unittest, uuid, hashlib, base64
+import os, httplib2, json, unittest, uuid, hashlib, base64, time
 from file_generator import FileGenerator
 
 import boto3
@@ -29,7 +29,6 @@ import botocore
 # suppress harmless ResourceWarning
 import warnings
 warnings.simplefilter("ignore", ResourceWarning)
-
 
 class S3ApiVerificationTestBase(unittest.TestCase):
     host = None
@@ -94,34 +93,46 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         True # del self.client # doesn't help to prevent ResourceWarning exception (there's a filter trick for that)
 
 
-    def createBucket(self):
-        return self.client.create_bucket(Bucket = self.bucket_name)
+    def createBucket(self, bucket = None):
+        if bucket is None:
+            bucket = self.bucket_name
+        return self.client.create_bucket(Bucket = bucket)
 
-    def deleteBucket(self):
+    def deleteBucket(self, bucket = None):
+        if bucket is None:
+            bucket = self.bucket_name
         return self.client.delete_bucket(Bucket = self.bucket_name)
 
     def listBuckets(self):
         return [b['Name'] for b in self.client.list_buckets()['Buckets']]
 
-    def listKeys(self):
-        return [k['Key'] for k in self.client.list_objects_v2(Bucket = self.bucket_name).get('Contents', [])]
+    def listKeys(self, bucket = None):
+        if bucket is None:
+            bucket = self.bucket_name
+        return [k['Key'] for k in self.client.list_objects_v2(Bucket = bucket).get('Contents', [])]
 
-    def putObject(self, key = None, value = None, metadata = {}):
+    def putObject(self, bucket = None, key = None, value = None, metadata = {}):
+        if bucket is None:
+            bucket = self.bucket_name
         if key is None:
             key = self.key_name
         if value is None:
             value = self.data
-        return self.client.put_object(Bucket = self.bucket_name,
+        return self.client.put_object(Bucket = bucket,
                                       Key = key,
                                       Body = value,
                                       Metadata = metadata)
 
-    def getObject(self, key = None):
+    def getObject(self, bucket = None, key = None):
+        if bucket is None:
+            bucket = self.bucket_name
         if key is None:
             key = self.key_name
         return self.client.get_object(Bucket = self.bucket_name,
                                       Key = key)['Body'].read()
-    def deleteObject(self, key = None):
+    def deleteObject(self, bucket = None, key = None):
+        if bucket is None:
+            bucket = self.bucket_name
         if key is None:
             key = self.key_name
         return self.client.delete_object(Bucket = self.bucket_name,
@@ -159,7 +170,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         self.createBucket()
         upload_id, result = self.upload_multipart(key_name, parts)
 
-        actual_md5 = hashlib.md5(bytes(self.getObject(key_name))).hexdigest()
+        actual_md5 = hashlib.md5(bytes(self.getObject(key = key_name))).hexdigest()
         self.assertEqual(expected_md5, actual_md5)
         self.assertEqual(key_name, result['Key'])
         return upload_id, result
@@ -248,36 +259,41 @@ class BasicTests(S3ApiVerificationTestBase):
         self.assertNotIn(self.bucket_name, self.listBuckets())
 
     def test_get_bucket_acl(self):
-        self.createBucket()
-        res = self.client.get_bucket_acl(Bucket = self.bucket_name)
+        time.sleep(.5)
+        bucket_name = str(uuid.uuid4())
+        self.createBucket(bucket = bucket_name)
+        res = self.client.get_bucket_acl(Bucket = bucket_name)
         self.assertEqual(res['Owner'], {'DisplayName': 'admin', 'ID': self.user1['id']})
         self.verifyDictListsIdentical(res['Grants'],
                                       [userAcl(self.user1, 'FULL_CONTROL')])
 
     def test_set_bucket_acl(self):
-        self.createBucket()
-        self.client.put_bucket_acl(Bucket = self.bucket_name,
+        bucket_name = str(uuid.uuid4())
+        self.createBucket(bucket = bucket_name)
+        self.client.put_bucket_acl(Bucket = bucket_name,
                                    ACL = 'public-read')
-        res = self.client.get_bucket_acl(Bucket = self.bucket_name)
+        res = self.client.get_bucket_acl(Bucket = bucket_name)
         self.assertEqual(res['Owner']['DisplayName'], self.user1['name'])
         self.assertEqual(res['Owner']['ID'], self.user1['id'])
         self.verifyDictListsIdentical(res['Grants'],
                                       [publicAcl('READ'), userAcl(self.user1, 'FULL_CONTROL')])
 
     def test_get_object_acl(self):
-        self.createBucket()
-        self.putObject()
-        res = self.client.get_object_acl(Bucket = self.bucket_name,
+        bucket_name = str(uuid.uuid4())
+        self.createBucket(bucket = bucket_name)
+        self.putObject(bucket = bucket_name)
+        res = self.client.get_object_acl(Bucket = bucket_name,
                                          Key = self.key_name)
         self.assertEqual(res['Grants'], [userAcl(self.user1, 'FULL_CONTROL')])
 
     def test_set_object_acl(self):
-        self.createBucket()
-        self.putObject()
-        self.client.put_object_acl(Bucket = self.bucket_name,
+        bucket_name = str(uuid.uuid4())
+        self.createBucket(bucket = bucket_name)
+        self.putObject(bucket = bucket_name)
+        self.client.put_object_acl(Bucket = bucket_name,
                                    Key = self.key_name,
                                    ACL = 'public-read')
-        res = self.client.get_object_acl(Bucket = self.bucket_name,
+        res = self.client.get_object_acl(Bucket = bucket_name,
                                          Key = self.key_name)
         self.verifyDictListsIdentical(res['Grants'],
                                       [publicAcl('READ'), userAcl(self.user1, 'FULL_CONTROL')])
@@ -316,7 +332,7 @@ class MultiPartUploadTests(S3ApiVerificationTestBase):
         self.createBucket()
         self.upload_multipart(key_name, parts,
                               acl = 'public-read')
-        actual_md5 = hashlib.md5(bytes(self.getObject(key_name))).hexdigest()
+        actual_md5 = hashlib.md5(bytes(self.getObject(key = key_name))).hexdigest()
         self.assertEqual(expected_md5, actual_md5)
         res = self.client.get_object_acl(Bucket = self.bucket_name,
                                          Key = key_name)
@@ -387,7 +403,7 @@ class LargerFileUploadTest(S3ApiVerificationTestBase):
         bucket = self.createBucket()
         md5_expected = md5_from_file(kb_file_gen(num_kilobytes))
         file_obj = kb_file_gen(num_kilobytes)
-        self.putObject(key_name, file_obj)
+        self.putObject(key = key_name, value = file_obj)
         got_object = self.client.get_object(Bucket = self.bucket_name,
                                             Key = key_name)
         actual_md5 = hashlib.md5(bytes(got_object['Body'].read())).hexdigest()
@@ -446,7 +462,7 @@ class LargerMultipartFileUploadTest(S3ApiVerificationTestBase):
                                               Bucket = self.bucket_name,
                                               Key = key_name,
                                               MultipartUpload = {'Parts': etags})
-        actual_md5 = hashlib.md5(bytes(self.getObject(key_name))).hexdigest()
+        actual_md5 = hashlib.md5(bytes(self.getObject(key = key_name))).hexdigest()
         self.assertEqual(expected_md5, actual_md5)
 
     def from_mb_list(self, mb_list):
@@ -728,7 +744,7 @@ class MultipartUploadTestsUnderPolicy(S3ApiVerificationTestBase):
         self.client.put_bucket_policy(Bucket = self.bucket_name,
                                       Policy = json.dumps(policy))
         upload_id, result = self.upload_multipart(key_name, parts)
-        actual_md5 = hashlib.md5(bytes(self.getObject(key_name))).hexdigest()
+        actual_md5 = hashlib.md5(bytes(self.getObject(key = key_name))).hexdigest()
         self.assertEqual(expected_md5, actual_md5)
 
         ## anyone without https may not do any operation
