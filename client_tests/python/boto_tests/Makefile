@@ -16,5 +16,8 @@ $(DEPS) $(BIN): requirements.txt env
 test: $(DEPS)
 	env env/bin/python boto_test.py
 
+test-auth-v2: $(DEPS)
+	env CS_AUTH=auth-v2 env/bin/python boto_test.py
+
 clean:
 	@rm -rf env

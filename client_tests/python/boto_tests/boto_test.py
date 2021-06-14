@@ -46,10 +46,17 @@ class S3ApiVerificationTestBase(unittest.TestCase):
     def make_client(self, user):
         # setting proxies via config parameter is broken, so:
         os.environ['http_proxy'] = 'http://127.0.0.1:{}'.format(os.environ.get('CS_HTTP_PORT'))
+
+        if os.environ.get('CS_AUTH', 'auth-v4') == 'auth-v4':
+            sig_vsn = 'v4'
+        else:
+            sig_vsn = 'v2'
+        config = Config(signature_version = sig_vsn)
         client = boto3.client('s3',
                               use_ssl = False,
                               aws_access_key_id = user['key_id'],
-                              aws_secret_access_key = user['key_secret'])
+                              aws_secret_access_key = user['key_secret'],
+                              config = config)
         client.meta.events.register_first('before-sign.s3.PutBucketPolicy', add_json_header)
         return client
 
