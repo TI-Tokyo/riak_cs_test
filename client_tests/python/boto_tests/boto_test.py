@@ -48,9 +48,9 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         os.environ['http_proxy'] = 'http://127.0.0.1:{}'.format(os.environ.get('CS_HTTP_PORT'))
 
         if os.environ.get('CS_AUTH', 'auth-v4') == 'auth-v4':
-            sig_vsn = 'v4'
+            sig_vsn = 's3v4'
         else:
-            sig_vsn = 'v2'
+            sig_vsn = 's3'
         config = Config(signature_version = sig_vsn)
         client = boto3.client('s3',
                               use_ssl = False,
