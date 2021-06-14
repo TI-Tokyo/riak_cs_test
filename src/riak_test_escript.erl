@@ -27,7 +27,7 @@
 -define(HARNESS, (rt_config:get(rt_harness))).
 
 add_deps(Path) ->
-    io:format("Adding path ~s~n", [Path]),
+    lager:debug("Adding path ~s~n", [Path]),
     {ok, Deps} = file:list_dir(Path),
     [code:add_path(lists:append([Path, "/", Dep, "/ebin"])) || Dep <- Deps],
     ok.
@@ -176,7 +176,7 @@ main(Args) ->
                     TestB ++ TestA
             end,
 
-    io:format("Tests to run: ~p~n", [Tests]),
+    lager:info("Tests to run: ~p", [[[T || {T, _} <- Tests]]]),
     %% Two hard-coded deps...
     add_deps(?HARNESS:get_deps()),
     add_deps("_build/test/lib/riak_test/tests"),
@@ -260,8 +260,12 @@ extract_test_names(Test, {CodePaths, TestNames}) ->
 which_tests_to_run(undefined, CommandLineTests) ->
     {Tests, NonTests} =
         lists:partition(fun is_runnable_test/1, CommandLineTests),
-    lager:info("These modules are not runnable tests: ~p",
-               [[NTMod || {NTMod, _} <- NonTests]]),
+    case [NTMod || {NTMod, _} <- NonTests] of
+        [] ->
+            ok;
+        NRTests ->
+            lager:info("These modules are not runnable tests: ~p", [NRTests])
+    end,
     Tests;
 which_tests_to_run(Platform, []) -> giddyup:get_suite(Platform);
 which_tests_to_run(Platform, CommandLineTests) ->
@@ -270,8 +274,12 @@ which_tests_to_run(Platform, CommandLineTests) ->
         lists:partition(fun is_runnable_test/1,
                         lists:foldr(fun filter_merge_tests/2, [], Suite)),
 
-    lager:info("These modules are not runnable tests: ~p",
-               [[NTMod || {NTMod, _} <- NonTests]]),
+    case [NTMod || {NTMod, _} <- NonTests] of
+        [] ->
+            ok;
+        NRTests ->
+            lager:info("These modules are not runnable tests: ~p", [NRTests])
+    end,
     Tests.
 
 filter_zip_suite(Platform, CommandLineTests) ->
@@ -307,7 +315,7 @@ is_runnable_test({TestModule, _}) ->
     code:ensure_loaded(Mod),
     erlang:function_exported(Mod, Fun, 0).
 
-run_test(Test, Outdir, TestMetaData, Report, HarnessArgs, NumTests, Teardown) ->
+run_test(Test, Outdir, TestMetaData, Report, HarnessArgs, _NumTests, Teardown) ->
     rt_cover:maybe_start(Test),
     SingleTestResult = riak_test_runner:confirm(Test, Outdir, TestMetaData,
                                                 HarnessArgs),
@@ -342,12 +350,12 @@ run_test(Test, Outdir, TestMetaData, Report, HarnessArgs, NumTests, Teardown) ->
     end,
 
     rt_cover:stop(),
-    _ = case {NumTests, Teardown} of
-            {1, true} ->
-                rt:teardown();
-            _ ->
-                keep_clusters
-        end,
+    case Teardown of
+        true ->
+            rt:teardown();
+        false ->
+            keep_clusters
+    end,
 
     [{coverdata, CoverageFile} | SingleTestResult].
 
