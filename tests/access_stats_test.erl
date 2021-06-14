@@ -38,6 +38,13 @@ confirm() ->
     {{UserConfig, _}, {RiakNodes, CSNodes, _Stanchion}} = rtcs:setup(2),
     rt:setup_log_capture(hd(CSNodes)),
 
+    rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
+      hd(CSNodes), RiakNodes, [riak_cs_utils,
+                               riak_cs_manifest_utils,
+                               riak_cs_manifest_resolution,
+                               riak_cs_storage,
+                               riak_cs_storage_mr]),
+
     Results = generate_some_accesses(UserConfig),
     lager:debug("Client results: ~p", [Results]),
     flush_access_stats(),

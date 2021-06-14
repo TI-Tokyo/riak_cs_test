@@ -61,7 +61,12 @@ confirm_1(Use2iForStorageCalc) when is_boolean(Use2iForStorageCalc) ->
 confirm_2({{UserConfig, _}, {[RiakNode], [CSNode], _Stanchion}}) ->
     UserConfig2 = rtcs_admin:create_user(RiakNode, 1),
 
-    rtcs_dev:preload_cs_modules_for_riak_pipe_fittings(CSNode, [RiakNode]),
+    rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
+      CSNode, [RiakNode], [riak_cs_utils,
+                           riak_cs_manifest_utils,
+                           riak_cs_manifest_resolution,
+                           riak_cs_storage,
+                           riak_cs_storage_mr]),
 
     TestSpecs = [store_object(?BUCKET1, UserConfig),
                  delete_object(?BUCKET2, UserConfig),

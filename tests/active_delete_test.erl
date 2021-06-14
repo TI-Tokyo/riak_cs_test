@@ -31,7 +31,12 @@ confirm() ->
     %% rtcs:set_advanced_conf(cs, config()),
     Setup = {_, {[RiakNode|_], [CSNode|_], _}} = rtcs:setup(1, [{cs, config()}]),
 
-    rtcs_dev:preload_cs_modules_for_riak_pipe_fittings(CSNode, [RiakNode]),
+    rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
+      CSNode, [RiakNode], [riak_cs_utils,
+                          riak_cs_manifest_utils,
+                          riak_cs_manifest_resolution,
+                          riak_cs_storage,
+                          riak_cs_storage_mr]),
 
     %% Just do verify on typical normal case
     History = [{cs_suites, run, ["run-1"]}],

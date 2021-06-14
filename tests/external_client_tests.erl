@@ -5,7 +5,7 @@
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
 
 confirm() ->
-    {{UserConfig, AdminUserId}, {RiakNodes, [CSNode|_], _Stanchion}} =
+    {{UserConfig, AdminUserId}, {RiakNodes, _CSNodes, _Stanchion}} =
         rtcs:setup(1, [{cs, cs_config()}]),
 
     CsPortStr = integer_to_list(rtcs_config:cs_port(hd(RiakNodes))),

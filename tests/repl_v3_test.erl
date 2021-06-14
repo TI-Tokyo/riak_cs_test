@@ -27,7 +27,14 @@
 -define(TEST_BUCKET, "riak-test-bucket").
 
 confirm() ->
-    {_UserConfig, {RiakNodes, _, _}} = rtcs:setup2x2([]),
+    {_UserConfig, {RiakNodes, [CSNode|_], _}} = rtcs:setup2x2([]),
+    rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
+      CSNode, RiakNodes, [riak_cs_utils,
+                          riak_cs_manifest_utils,
+                          riak_cs_manifest_resolution,
+                          riak_cs_storage,
+                          riak_cs_storage_mr]),
+
     [A,B,C,D] = RiakNodes,
 
     ANodes = [A,B],
