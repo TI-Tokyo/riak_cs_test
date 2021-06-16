@@ -21,58 +21,19 @@
 -compile(export_all).
 -compile(nowarn_export_all).
 
-start_cs_and_stanchion_nodes(NodeList, Vsn) ->
-    lists:map(fun({_CSNode, RiakNode, _Stanchion}) ->
-                      N = rtdev:node_id(RiakNode),
-                      start_stanchion(Vsn),
-                      start_cs(N, Vsn);
-                 ({_CSNode, RiakNode}) ->
-                      N = rtcs_dev:node_id(RiakNode),
-                      start_cs(N, Vsn)
-              end, NodeList).
+start_all_nodes({RiakNodes, CSNodes, Stanchion}, Vsn) ->
+    rt:pmap(fun(N) -> rtcs_dev:start(N, Vsn), rt:wait_for_service(N, riak_kv) end, RiakNodes),
+    ok = rt:wait_until_nodes_ready(RiakNodes),
+    ok = rt:wait_until_no_pending_changes(RiakNodes),
+    ok = rt:wait_until_ring_converged(RiakNodes),
+    start_stanchion(Vsn),
+    rt:wait_until_pingable(Stanchion),
+    rt:pmap(fun(N) -> rtcs_exec:start_cs(N, Vsn), rt:wait_until(rtcs:got_pong(N, Vsn)) end, CSNodes).
 
-stop_cs_and_stanchion_nodes(NodeList, Vsn) ->
-    lists:map(fun({CSNode, RiakNode, Stanchion}) ->
-                      N = rtcs_dev:node_id(RiakNode),
-                      stop_cs(N, Vsn),
-                      stop_stanchion(Vsn),
-                      rt:wait_until_unpingable(CSNode),
-                      rt:wait_until_unpingable(Stanchion);
-                 ({CSNode, RiakNode}) ->
-                      N = rtcs_dev:node_id(RiakNode),
-                      stop_cs(N, Vsn),
-                      rt:wait_until_unpingable(CSNode)
-              end, NodeList).
-
-start_all_nodes(NodeList, Vsn) ->
-    lists:map(fun({CSNode, RiakNode, _Stanchion}) ->
-                      N = rtcs_dev:node_id(RiakNode),
-                      rtdev:run_riak(RiakNode, rtcs_dev:relpath(
-                                          rtdev:node_version(N)), "start"),
-                      rt:wait_for_service(RiakNode, riak_kv),
-                      start_stanchion(Vsn),
-                      start_cs(CSNode, Vsn);
-                 ({CSNode, RiakNode}) ->
-                      N = rtcs_dev:node_id(RiakNode),
-                      rtdev:run_riak(RiakNode, rtcs_dev:relpath(rtcs_dev:node_version(N)), "start"),
-                      rt:wait_for_service(RiakNode, riak_kv),
-                      start_cs(CSNode, Vsn)
-              end, NodeList).
-
-stop_all_nodes(NodeList, Vsn) ->
-    lists:map(fun({CSNode, RiakNode, Stanchion}) ->
-                      stop_cs(CSNode, Vsn),
-                      stop_stanchion(Vsn),
-                      rtcs_dev:stop(RiakNode),
-                      rt:wait_until_unpingable(CSNode),
-                      rt:wait_until_unpingable(Stanchion),
-                      rt:wait_until_unpingable(RiakNode);
-                 ({CSNode, RiakNode}) ->
-                      stop_cs(CSNode, Vsn),
-                      rtcs_dev:stop(RiakNode),
-                      rt:wait_until_unpingable(CSNode),
-                      rt:wait_until_unpingable(RiakNode)
-              end, NodeList).
+stop_all_nodes({RiakNodes, CSNodes, _Stanchion}, Vsn) ->
+    rt:pmap(fun(N) -> rtcs_exec:stop_cs(N, Vsn) end, CSNodes),
+    rtcs_exec:stop_stanchion(Vsn),
+    rt:pmap(fun(N) -> rtcs_dev:stop(N, Vsn) end, RiakNodes).
 
 start_cs(N) -> start_cs(N, current).
 

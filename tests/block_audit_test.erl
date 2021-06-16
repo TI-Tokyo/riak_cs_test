@@ -75,7 +75,7 @@ confirm1() ->
 
     BlockKeysFileList = [filename:join([Home, "riak-cs", "actual-orphaned-blocks", B]) ||
                         B <- [?BUCKET1, ?BUCKET2]],
-    tools_helper:offline_delete({RiakNodes, CSNodes, Stanchion}, BlockKeysFileList),
+    tools_helper:offline_delete(Tussle, BlockKeysFileList),
     rtcs_dev:pass().
 
 setup_objects(RiakNodes, UserConfig, Bucket, Type,

@@ -32,7 +32,7 @@ confirm() ->
     prepare_current(NumNodes),
 
     PrevConfig = rtcs_config:previous_configs(),
-    {{UserConfig, _}, {RiakNodes, CSNodes, Stanchion}} =
+    {{UserConfig, _}, {RiakNodes, CSNodes, Stanchion} = Tussle} =
         rtcs:setup(NumNodes, PrevConfig, previous),
 
     {ok, Data} = prepare_all_data(UserConfig),
@@ -44,9 +44,7 @@ confirm() ->
         rtcs_dev:riak_root_and_vsn(current, rt_config:get(build_type, oss)),
 
     lager:info("Upgrading previous to current", []),
-    rt:pmap(fun(N) -> rtcs_exec:stop_cs(N, previous) end, CSNodes),
-    rtcs_exec:stop_stanchion(previous),
-    rt:pmap(fun(N) -> rtcs_dev:stop(N, previous) end, RiakNodes),
+    rtcs_exec:stop_all_nodes(Tussle, previous),
 
     [begin
          N = rtcs_dev:node_id(RiakNode),
@@ -58,13 +56,7 @@ confirm() ->
      end || RiakNode <- RiakNodes],
     rtcs_config:migrate_stanchion(previous, current, AdminCreds),
 
-    rt:pmap(fun(N) -> rtcs_dev:start(N), rt:wait_for_service(N, riak_kv) end, RiakNodes),
-    ok = rt:wait_until_nodes_ready(RiakNodes),
-    ok = rt:wait_until_no_pending_changes(RiakNodes),
-    ok = rt:wait_until_ring_converged(RiakNodes),
-    rtcs_exec:start_stanchion(current),
-    rt:wait_until_pingable(Stanchion),
-    rt:pmap(fun(N) -> rtcs_exec:start_cs(N, current), rt:wait_until(rtcs:got_pong(N, current)) end, CSNodes),
+    rtcs_exec:start_all_nodes(Tussle, current),
 
     ok = verify_all_data(UserConfig, Data),
     ok = cleanup_all_data(UserConfig),
@@ -77,9 +69,7 @@ confirm() ->
 
 
     lager:info("Downgrading current to previous", []),
-    rt:pmap(fun(N) -> rtcs_exec:stop_cs(N, current) end, CSNodes),
-    rtcs_exec:stop_stanchion(current),
-    rt:pmap(fun(N) -> rtcs_dev:stop(N, current) end, RiakNodes),
+    rtcs_exec:stop_all_nodes(Tussle, current),
 
     rtcs_config:migrate_stanchion(current, previous, AdminCreds),
     [begin
@@ -89,11 +79,7 @@ confirm() ->
      end
      || RiakNode <- RiakNodes],
 
-    rt:pmap(fun(N) -> rtcs_dev:start(N), rt:wait_for_service(N, riak_kv) end, RiakNodes),
-    rt:wait_until_ring_converged(RiakNodes),
-    rtcs_exec:start_stanchion(previous),
-    rt:wait_until_pingable(Stanchion),
-    rt:pmap(fun(N) -> rtcs_exec:start_cs(N, previous), rt:wait_until_pingable(N) end, CSNodes),
+    rtcs_exec:start_all_nodes(Tussle, previous),
 
     ok = verify_all_data(UserConfig, Data2),
     lager:info("Downgrading to previous successfully done"),

@@ -29,16 +29,13 @@
 %% - Execute `offline_delete.erl`
 %% - Start all nodes
 %% - Assert no blocks in `BlockKeysFileList` exist after execution
-offline_delete({RiakNodes, CSNodes, Stanchion}, BlockKeysFileList) ->
+offline_delete({RiakNodes, _CSNodes, _Stanchion} = Tussle, BlockKeysFileList) ->
     lager:info("Assert all blocks exist before deletion"),
     [assert_all_blocks_exists(RiakNodes, BlockKeysFile) ||
         BlockKeysFile <- BlockKeysFileList],
 
     lager:info("Stop nodes and execute offline_delete script..."),
-    NL0 = lists:zip(CSNodes, RiakNodes),
-    {CS1, R1} = hd(NL0),
-    NodeList = [{CS1, R1, Stanchion} | tl(NL0)],
-    rtcs_exec:stop_all_nodes(NodeList, current),
+    rtcs_exec:stop_all_nodes(Tussle, current),
 
     [begin
          Res = rtcs_exec:exec_priv_escript(
@@ -46,12 +43,12 @@ offline_delete({RiakNodes, CSNodes, Stanchion}, BlockKeysFileList) ->
                  "-r 8 --yes " ++
                      rtcs_config:riak_bitcaskroot(rtcs_config:devpath(riak, current), 1) ++
                      " " ++ BlockKeysFile),
-         lager:debug("offline_delete.erl log:\n~s", [Res]),
-         lager:debug("offline_delete.erl log:============= END")
+         lager:info("offline_delete.erl log:\n~s", [Res]),
+         lager:info("offline_delete.erl log:============= END")
      end || BlockKeysFile <- BlockKeysFileList],
 
     lager:info("Assert all blocks are non-existent now"),
-    rtcs_exec:start_all_nodes(NodeList, current),
+    rtcs_exec:start_all_nodes(Tussle, current),
     [assert_any_blocks_not_exists(RiakNodes, BlockKeysFile) ||
         BlockKeysFile <- BlockKeysFileList],
     lager:info("All cleaned up!"),
