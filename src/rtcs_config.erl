@@ -265,12 +265,8 @@ lager_config() ->
      [
       {handlers,
        [
-        {lager_file_backend,
-         [
-          {"./log/error.log", error, 10485760, "$D0",5},
-          {"./log/console.log", rt_config:get(console_log_level, debug),
-           10485760, "$D0", 5}
-         ]}
+        {lager_file_backend, [{file, "./log/console.log"}, {level, rt_config:get(console_log_level, debug)}, {size, 10485760}, {date, "$D0"}, {count, 5}]},
+        {lager_file_backend, [{file, "./log/error.log"}, {level, error}, {size, 10485760}, {date, "$D0"}, {count, 5}]}
        ]}
      ]}.
 
