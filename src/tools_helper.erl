@@ -63,7 +63,7 @@ assert_all_blocks_exists(RiakNodes, BlocksListFile) ->
 
 assert_any_blocks_not_exists(RiakNodes, BlocksListFile) ->
     BlockKeys = block_keys(BlocksListFile),
-    lager:info("Assert all blocks still exist."),
+    lager:info("Assert all blocks are gone."),
     [assert_block_not_exists(RiakNodes, BlockKey) ||
         BlockKey <- BlockKeys],
     ok.

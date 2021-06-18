@@ -38,14 +38,14 @@
 confirm() ->
     case rt_config:get(flavor, basic) of
         {multibag, _} ->
-            lager:info("Block audit script does not supprt multibag env."),
+            lager:info("Block audit script does not support multibag env."),
             lager:info("Skip the test."),
             rtcs_dev:pass();
         _ -> confirm1()
     end.
 
 confirm1() ->
-    {{UserConfig, _}, {RiakNodes, CSNodes, Stanchion}} = rtcs:setup(1),
+    {{UserConfig, _}, {RiakNodes, _CSNodes, _Stanchion} = Tussle} = rtcs:setup(1),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET1, UserConfig)),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET2, UserConfig)),
     FalseOrphans1 =
@@ -93,7 +93,7 @@ setup_objects(RiakNodes, UserConfig, Bucket, Type,
     end,
     ok = rc_helper:delete_riakc_obj(RiakNodes, objects, Bucket, KeyOrphaned),
     lager:info("To fake deficit replicas for ~p, delete objects and restore it "
-               "between block_audit.er and block_audit2.erl runs",
+               "between block_audit and ensure_orphan_blocks runs",
                [{Bucket, KeyFalseOrphaned}]),
     {ok, FalseOrphanedRObj} = rc_helper:get_riakc_obj(RiakNodes, objects,
                                                       Bucket, KeyFalseOrphaned),
