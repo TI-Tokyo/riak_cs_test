@@ -103,7 +103,7 @@ riak_config(Vsn, CsVsn, ee, Backend) ->
 
 riak_oss_config(Vsn, CsVsn, Backend) ->
     CSPath = rt_config:get(CsVsn),
-    AddPaths = filelib:wildcard(CSPath ++ "/dev/dev1/lib/riak_cs*/ebin"),
+    AddPaths = filelib:wildcard(CSPath ++ "/dev/dev1/riak-cs/lib/riak_cs*/ebin"),
     [
      lager_config(),
      riak_core_config(Vsn),
@@ -129,9 +129,9 @@ riak_core_config(previous) ->
 
 backend_config(_CsVsn, memory) ->
     [{storage_backend, riak_kv_memory_backend}];
-backend_config(_CsVsn, {multi_backend, BlocksBackend}) ->
+backend_config(_CSVsn, {multi_backend, BlocksBackend}) ->
     [
-     {storage_backend, riak_kv_multi_backend},
+     {storage_backend, riak_cs_kv_multi_backend},
      {multi_backend_prefix_list, [{<<"0b:">>, be_blocks}]},
      {multi_backend_default, be_default},
      {multi_backend,
