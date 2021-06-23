@@ -21,16 +21,12 @@
 -compile(export_all).
 -compile(nowarn_export_all).
 
--include_lib("eunit/include/eunit.hrl").
-
 -define(RIAK_CURRENT, <<"build_paths.current">>).
 -define(RIAK_PREVIOUS, <<"build_paths.previous">>).
 -define(CS_CURRENT, <<"build_paths.cs_current">>).
 -define(CS_PREVIOUS, <<"build_paths.cs_previous">>).
 -define(STANCHION_CURRENT, <<"build_paths.stanchion_current">>).
 -define(STANCHION_PREVIOUS, <<"build_paths.stanchion_previous">>).
-
--define(S3_PORT, 80).
 
 -define(REQUEST_POOL_SIZE, 8).
 -define(BUCKET_LIST_POOL_SIZE, 2).

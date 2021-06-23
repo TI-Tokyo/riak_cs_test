@@ -28,7 +28,6 @@
 -define(SRC_PATHS, (rt_config:get(src_paths))).
 
 -define(RIAK_ROOT, <<"build_paths.root">>).
--define(STANCHION_ROOT, <<"build_paths.stanchion_root">>).
 
 get_deps() ->
     lists:flatten(io_lib:format("~s/dev/dev1/riak-cs/lib", [relpath(cs_current)])).
@@ -343,8 +342,7 @@ node_version(N) ->
 spawn_cmd(Cmd) ->
     spawn_cmd(Cmd, []).
 spawn_cmd(Cmd, Opts) ->
-    Port = open_port({spawn, Cmd}, [stream, in, exit_status, stderr_to_stdout] ++ Opts),
-    Port.
+    open_port({spawn, Cmd}, [stream, in, exit_status, stderr_to_stdout] ++ Opts).
 
 wait_for_cmd(Port) ->
     rt:wait_until(node(),
