@@ -104,8 +104,6 @@ $ git commit -m "Add 1.4 series Riak EE"
      {test_paths, ["/home/kuenishi/cs-2.0/riak_cs/riak_test/ebin"]},
      {src_paths, [{cs_src_root, "/home/kuenishi/cs-2.0/riak_cs"}]},
      {lager_level, debug},
-     %%{build_type, oss},
-     {build_type, ee},
      {flavor, basic},
      %% {sibling_benchmark,
      %%  [{write_concurrency, 8},

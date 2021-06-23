@@ -28,16 +28,12 @@
 -define(SRC_PATHS, (rt_config:get(src_paths))).
 
 -define(RIAK_ROOT, <<"build_paths.root">>).
--define(EE_ROOT, <<"build_paths.ee_root">>).
--define(CS_ROOT, <<"build_paths.cs_root">>).
 -define(STANCHION_ROOT, <<"build_paths.stanchion_root">>).
 
 get_deps() ->
     lists:flatten(io_lib:format("~s/dev/dev1/riak-cs/lib", [relpath(cs_current)])).
 
 setup_harness(_Test, _Args) ->
-
-    confirm_build_type(rt_config:get(build_type, oss)),
 
     lists:map(fun(X) -> clean_data_dir_all(X) end,
               devpaths()),
@@ -57,26 +53,6 @@ setup_harness(_Test, _Args) ->
                     file:del_dir(PipeDir)
             end, devpaths()),
     ok.
-
-confirm_build_type(BuildType) ->
-    [ok = confirm_build_type(BuildType, Vsn) || Vsn <- [cs_current, cs_previous]].
-
-confirm_build_type(BuildType, cs_current) ->
-    confirm_build_type(BuildType, cs_current, "/riak-cs");
-confirm_build_type(BuildType, cs_previous) ->
-    confirm_build_type(BuildType, cs_previous, "").
-
-confirm_build_type(BuildType, Vsn, ExtraPath) ->
-    ReplPB = filename:join([relpath(Vsn), "dev/dev1" ++ ExtraPath ++ "/lib/riak_repl_pb_api*"]),
-    case {BuildType, filelib:wildcard(ReplPB)} of
-        {oss, []} -> ok;
-        {ee,  [_|_]} -> ok;
-        _ ->
-            lager:error("Build type of ~p is not ~p",
-                        [Vsn, BuildType]),
-            {error, {build_type_mismatch, Vsn}}
-    end.
-
 
 pass() ->
     {Nodes, _} = lists:unzip(rt_config:get(rt_nodes)),
@@ -128,11 +104,9 @@ upgrade(Node, NewVersion, _CB) ->
     rt_config:set(rt_versions, VersionMap),
     ok.
 
--spec riak_root_and_vsn(atom(), atom()) -> {binary(), atom()}.
-riak_root_and_vsn(current, oss) -> {?RIAK_ROOT, current};
-riak_root_and_vsn(current, ee) ->  {?EE_ROOT, ee_current};
-riak_root_and_vsn(previous, oss) -> {?RIAK_ROOT, previous};
-riak_root_and_vsn(previous, ee) -> {?EE_ROOT, ee_previous}.
+-spec riak_root_and_vsn(atom()) -> {binary(), atom()}.
+riak_root_and_vsn(current) -> {?RIAK_ROOT, current};
+riak_root_and_vsn(previous) -> {?RIAK_ROOT, previous}.
 
 get_conf(Node) ->
     N = node_id(Node),

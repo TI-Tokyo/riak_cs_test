@@ -25,8 +25,6 @@
 
 -define(RIAK_CURRENT, <<"build_paths.current">>).
 -define(RIAK_PREVIOUS, <<"build_paths.previous">>).
--define(EE_CURRENT, <<"build_paths.ee_current">>).
--define(EE_PREVIOUS, <<"build_paths.ee_previous">>).
 -define(CS_CURRENT, <<"build_paths.cs_current">>).
 -define(CS_PREVIOUS, <<"build_paths.cs_previous">>).
 -define(STANCHION_CURRENT, <<"build_paths.stanchion_current">>).
@@ -93,15 +91,9 @@ riak_config() ->
     riak_config(
       current,
       ?CS_CURRENT,
-      rt_config:get(build_type, oss),
       rt_config:get(backend, {multi_backend, bitcask})).
 
-riak_config(Vsn, CsVsn, oss, Backend) ->
-    riak_oss_config(Vsn, CsVsn, Backend);
-riak_config(Vsn, CsVsn, ee, Backend) ->
-    riak_ee_config(Vsn, CsVsn, Backend).
-
-riak_oss_config(Vsn, CsVsn, Backend) ->
+riak_config(Vsn, CsVsn, Backend) ->
     CSPath = rt_config:get(CsVsn),
     AddPaths = filelib:wildcard(CSPath ++ "/dev/dev1/riak-cs/lib/riak_cs*/ebin"),
     [
@@ -158,7 +150,7 @@ blocks_backend_config(_) ->
     {be_blocks, riak_kv_bitcask_backend, [{data_root, "./data/bitcask"}]}.
 
 riak_ee_config(Vsn, CsVsn, Backend) ->
-    [repl_config() | riak_oss_config(Vsn, CsVsn, Backend)].
+    [repl_config() | riak_config(Vsn, CsVsn, Backend)].
 
 repl_config() ->
     {riak_repl,
@@ -172,7 +164,6 @@ previous_riak_config() ->
     riak_config(
       previous,
       ?CS_PREVIOUS,
-      rt_config:get(build_type, oss),
       rt_config:get(backend, {multi_backend, bitcask})).
 
 previous_riak_config(CustomConfig) ->
@@ -331,15 +322,9 @@ stanchion_current() ->
     ?STANCHION_CURRENT.
 
 devpath(riak, current) ->
-    case rt_config:get(build_type, oss) of
-        oss -> rt_config:get(?RIAK_CURRENT);
-        ee  -> rt_config:get(?EE_CURRENT)
-    end;
+    rt_config:get(?RIAK_CURRENT);
 devpath(riak, previous) ->
-    case rt_config:get(build_type, oss) of
-        oss -> rt_config:get(?RIAK_PREVIOUS);
-        ee  -> rt_config:get(?EE_PREVIOUS)
-    end;
+    rt_config:get(?RIAK_PREVIOUS);
 devpath(cs, current) -> rt_config:get(?CS_CURRENT);
 devpath(cs, previous) -> rt_config:get(?CS_PREVIOUS);
 devpath(stanchion, current) -> rt_config:get(?STANCHION_CURRENT);

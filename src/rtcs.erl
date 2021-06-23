@@ -166,7 +166,7 @@ configure_clusters(NumNodes, InitialConfig, Vsn) ->
     lager:debug("NodeMap: ~p", [NodeMap]),
     rt_config:set(rt_nodes, NodeMap),
 
-    {_RiakRoot, RiakVsn} = rtcs_dev:riak_root_and_vsn(Vsn, rt_config:get(build_type, oss)),
+    {_RiakRoot, RiakVsn} = rtcs_dev:riak_root_and_vsn(Vsn),
 
     VersionMap = lists:zip(lists:seq(1, NumNodes), lists:duplicate(NumNodes, RiakVsn)),
     lager:debug("VersionMap: ~p", [VersionMap]),

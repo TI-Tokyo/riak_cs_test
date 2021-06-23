@@ -41,7 +41,7 @@ confirm() ->
     AdminCreds = {UserConfig#aws_config.access_key_id,
                   UserConfig#aws_config.secret_access_key},
     {_, RiakCurrentVsn} =
-        rtcs_dev:riak_root_and_vsn(current, rt_config:get(build_type, oss)),
+        rtcs_dev:riak_root_and_vsn(current),
 
     lager:info("Upgrading previous to current", []),
     rtcs_exec:stop_all_nodes(Tussle, previous),
@@ -65,7 +65,7 @@ confirm() ->
     {ok, Data2} = prepare_all_data(UserConfig),
 
     {_, RiakPrevVsn} =
-        rtcs_dev:riak_root_and_vsn(previous, rt_config:get(build_type, oss)),
+        rtcs_dev:riak_root_and_vsn(previous),
 
 
     lager:info("Downgrading current to previous", []),
