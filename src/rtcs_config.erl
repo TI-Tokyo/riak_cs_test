@@ -87,7 +87,7 @@ riak_config() ->
     riak_config(
       current,
       ?CS_CURRENT,
-      rt_config:get(backend, {multi_backend, bitcask})).
+      rt_config:get(backend, {multi_backend, bitcask, eleveldb})).
 
 riak_config(Vsn, CsVsn, Backend) ->
     CSPath = rt_config:get(CsVsn),
@@ -117,17 +117,17 @@ riak_core_config(previous) ->
 
 backend_config(_CsVsn, memory) ->
     [{storage_backend, riak_kv_memory_backend}];
-backend_config(_CSVsn, {multi_backend, BlocksBackend}) ->
+backend_config(_CsVsn, eleveldb) ->
+    [{storage_backend, riak_kv_eleveldb_backend}];
+backend_config(_CsVsn, leveled) ->
+    [{storage_backend, riak_kv_leveled_backend}];
+backend_config(_CSVsn, {multi_backend, BlocksBackend, DefaultBackend}) ->
     [
      {storage_backend, riak_cs_kv_multi_backend},
      {multi_backend_prefix_list, [{<<"0b:">>, be_blocks}]},
      {multi_backend_default, be_default},
      {multi_backend,
-      [{be_default, riak_kv_eleveldb_backend,
-        [
-         {max_open_files, 20},
-         {data_root, "./data/leveldb"}
-        ]},
+      [default_backend_config(DefaultBackend),
        blocks_backend_config(BlocksBackend)
       ]}
     ];
@@ -138,6 +138,18 @@ backend_config(?CS_CURRENT, prefix_multi) ->
     ];
 backend_config(OlderCsVsn, prefix_multi) ->
     backend_config(OlderCsVsn, {multi_backend, bitcask}).
+
+default_backend_config(eleveldb) ->
+    {be_default, riak_kv_eleveldb_backend,
+     [
+      {max_open_files, 20},
+      {data_root, "./data/leveldb"}
+     ]};
+default_backend_config(leveled) ->  %% doesn't work
+    {be_default, riak_kv_leveled_backend,
+     [
+      {data_root, "./data/leveled"}
+     ]}.
 
 blocks_backend_config(fs) ->
     {be_blocks, riak_kv_fs2_backend, [{data_root, "./data/fs2"},
