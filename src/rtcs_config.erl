@@ -95,6 +95,7 @@ riak_config(Vsn, CsVsn, Backend) ->
     [
      lager_config(),
      riak_core_config(Vsn),
+     repl_config(),
      {riak_api,
       [{pb_backlog, 256}]},
      {riak_kv,
@@ -157,8 +158,6 @@ blocks_backend_config(fs) ->
 blocks_backend_config(_) ->
     {be_blocks, riak_kv_bitcask_backend, [{data_root, "./data/bitcask"}]}.
 
-riak_ee_config(Vsn, CsVsn, Backend) ->
-    [repl_config() | riak_config(Vsn, CsVsn, Backend)].
 
 repl_config() ->
     {riak_repl,
