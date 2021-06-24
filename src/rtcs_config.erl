@@ -21,8 +21,8 @@
 -compile(export_all).
 -compile(nowarn_export_all).
 
--define(RIAK_CURRENT, <<"build_paths.current">>).
--define(RIAK_PREVIOUS, <<"build_paths.previous">>).
+-define(RIAK_CURRENT, <<"build_paths.riak_current">>).
+-define(RIAK_PREVIOUS, <<"build_paths.riak_previous">>).
 -define(CS_CURRENT, <<"build_paths.cs_current">>).
 -define(CS_PREVIOUS, <<"build_paths.cs_previous">>).
 -define(STANCHION_CURRENT, <<"build_paths.stanchion_current">>).
@@ -329,10 +329,8 @@ cs_current() ->
 stanchion_current() ->
     ?STANCHION_CURRENT.
 
-devpath(riak, current) ->
-    rt_config:get(?RIAK_CURRENT);
-devpath(riak, previous) ->
-    rt_config:get(?RIAK_PREVIOUS);
+devpath(riak, current) -> rt_config:get(?RIAK_CURRENT);
+devpath(riak, previous) -> rt_config:get(?RIAK_PREVIOUS);
 devpath(cs, current) -> rt_config:get(?CS_CURRENT);
 devpath(cs, previous) -> rt_config:get(?CS_PREVIOUS);
 devpath(stanchion, current) -> rt_config:get(?STANCHION_CURRENT);
