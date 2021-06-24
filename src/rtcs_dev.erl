@@ -89,9 +89,11 @@ upgrade(Node, NewVersion, _CB) ->
 
     Commands = [
         io_lib:format("rm -rf \"~s/dev/dev~b/~s/data/leveldb\"", [NewPath, N, WhichRiak]),
+        io_lib:format("rm -rf \"~s/dev/dev~b/~s/data/leveled\"", [NewPath, N, WhichRiak]),
         io_lib:format("rm -rf \"~s/dev/dev~b/~s/data/bitcask\"", [NewPath, N, WhichRiak]),
         io_lib:format("rm -rf \"~s/dev/dev~b/~s/data/ring\"", [NewPath, N, WhichRiak]),
         io_lib:format("cp -p -P -R \"~s/dev/dev~b/~s/data/leveldb\" \"~s/dev/dev~b/~s/data\"", [OldPath, N, WhichRiak, NewPath, N, WhichRiak]),
+        io_lib:format("cp -p -P -R \"~s/dev/dev~b/~s/data/leveled\" \"~s/dev/dev~b/~s/data\"", [OldPath, N, WhichRiak, NewPath, N, WhichRiak]),
         io_lib:format("cp -p -P -R \"~s/dev/dev~b/~s/data/bitcask\" \"~s/dev/dev~b/~s/data\"", [OldPath, N, WhichRiak, NewPath, N, WhichRiak]),
         io_lib:format("cp -p -P -R \"~s/dev/dev~b/~s/data/ring\" \"~s/dev/dev~b/~s/data\"", [OldPath, N, WhichRiak, NewPath, N, WhichRiak])
     ],
