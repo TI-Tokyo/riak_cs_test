@@ -2,7 +2,7 @@
 
 CS_HTTP_PORT ?= 8080
 HTTP_PROXY   ?= 127.0.0.1:$(CS_HTTP_PORT)
-CS_BUCKET    ?= test
+CS_BUCKET    ?= go-test-bucket
 CS_KEY       ?= $(shell date '+%s')
 
 TMPDIR       := $(PWD)/tmp
