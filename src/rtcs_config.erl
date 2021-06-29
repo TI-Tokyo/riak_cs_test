@@ -135,7 +135,7 @@ backend_config(_CSVsn, {multi_backend, BlocksBackend, DefaultBackend}) ->
 backend_config(?CS_CURRENT, prefix_multi) ->
     [
      {storage_backend, riak_kv_multi_prefix_backend},
-     {riak_cs_version, 20000}
+     {riak_cs_version, 030000}
     ];
 backend_config(OlderCsVsn, prefix_multi) ->
     backend_config(OlderCsVsn, {multi_backend, bitcask}).
