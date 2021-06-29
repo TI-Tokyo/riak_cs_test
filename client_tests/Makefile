@@ -1,7 +1,7 @@
 .PHONY: test-client test-clojure test-boto test-ceph test-erlang test-ruby test-php test-go
 
 #test-client: test-clojure test-boto test-ceph test-erlang test-ruby test-php test-go
-test-client: test-boto test-go
+test-client: test-boto test-go test-ruby
 
 test-python:
 	@cd python && ${MAKE} CS_HTTP_PORT=$(CS_HTTP_PORT) AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
@@ -13,7 +13,8 @@ test-ceph:
 	@cd python && ${MAKE} ceph_tests CS_HTTP_PORT=$(CS_HTTP_PORT) AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
 
 test-ruby:
-	@bundle --gemfile client_tests/ruby/Gemfile --path vendor
+	@bundle config set --local path 'vendor'
+	@bundle --gemfile ruby/Gemfile
 	@cd ruby && bundle exec rake spec
 
 test-clojure:
