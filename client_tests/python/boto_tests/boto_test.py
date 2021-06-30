@@ -44,7 +44,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
 
     def make_client(self, user):
         # setting proxies via config parameter is broken, so:
-        os.environ['http_proxy'] = 'http://127.0.0.1:{}'.format(os.environ.get('CS_HTTP_PORT'))
+        os.environ['http_proxy'] = 'http://127.0.0.1:%d' % (int(os.environ.get('CS_HTTP_PORT')))
 
         if os.environ.get('CS_AUTH', 'auth-v4') == 'auth-v4':
             sig_vsn = 's3v4'
