@@ -46,7 +46,6 @@ setup(NumNodes, Configs, Vsn) ->
     {_, [CSNode0|_], _} = Nodes = flavored_setup(NumNodes, Flavor, Configs, Vsn),
 
     AdminConfig = make_admin(Configs, NumNodes, Vsn, CSNode0),
-    timer:sleep(1000),
 
     {AdminConfig, Nodes}.
 
