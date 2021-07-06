@@ -22,7 +22,7 @@
 -compile(nowarn_export_all).
 
 start_all_nodes({RiakNodes, CSNodes, Stanchion}, Vsn) ->
-    rt:pmap(fun(N) -> rtcs_dev:start(N, Vsn), rt:wait_for_service(N, riak_kv) end, RiakNodes),
+    rt:pmap(fun(N) -> rtcs_dev:start(N, Vsn), rt:wait_for_service(N, [riak_kv, riak_pipe]) end, RiakNodes),
     ok = rt:wait_until_nodes_ready(RiakNodes),
     ok = rt:wait_until_no_pending_changes(RiakNodes),
     ok = rt:wait_until_ring_converged(RiakNodes),
