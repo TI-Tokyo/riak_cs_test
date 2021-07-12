@@ -21,7 +21,6 @@
 -module(storage_stats_test_2).
 %% @doc Integration test for storage statistics.
 
--compile(export_all).
 -export([confirm/0]).
 
 confirm() ->
