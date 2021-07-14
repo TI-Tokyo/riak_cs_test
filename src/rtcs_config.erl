@@ -281,7 +281,7 @@ riakcs_home(Prefix, N) ->
     io_lib:format("~s/dev/dev~b/", [Prefix, N]).
 
 riakcs_binpath(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/bin/riak-cs", [Prefix, N]).
+    io_lib:format("~s/dev/dev~b/riak-cs/bin/riak-cs", [Prefix, N]).
 
 riakcs_etcpath(Prefix, N) ->
     io_lib:format("~s/dev/dev~b/riak-cs/etc", [Prefix, N]).

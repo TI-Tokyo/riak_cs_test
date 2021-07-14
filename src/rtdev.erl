@@ -115,9 +115,9 @@ run_riak(Node, Path, Cmd) ->
             R
     end.
 
-run_riak_repl(N, Path, Cmd) ->
-    lager:info("Running: ~s", [riakcmd(Path, N, Cmd)]),
-    os:cmd(riakreplcmd(Path, N, Cmd)).
+run_riak_repl(Node, Path, Cmd) ->
+    lager:info("Running: ~s", [riakcmd(Path, Node, Cmd)]),
+    os:cmd(riakreplcmd(Path, node_id(Node), Cmd)).
     %% don't mess with intercepts and/or coverage,
     %% they should already be setup at this point
 

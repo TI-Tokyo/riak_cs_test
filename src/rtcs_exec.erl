@@ -188,8 +188,8 @@ calculate_storage(N, Vsn) ->
     lager:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
 
-enable_proxy_get(SrcN, Vsn, SinkCluster) ->
-    rtdev:run_riak_repl(SrcN, rtcs_config:devpath(riak, Vsn),
+enable_proxy_get(SrcNode, Vsn, SinkCluster) ->
+    rtdev:run_riak_repl(SrcNode, rtcs_config:devpath(riak, Vsn),
                         "proxy_get enable " ++ SinkCluster).
 
 disable_proxy_get(SrcN, Vsn, SinkCluster) ->
