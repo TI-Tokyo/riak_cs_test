@@ -6,7 +6,7 @@
          conf/2,
          conf/3,
          configs/1,
-         flavored_setup/4,
+         flavored_setup/1,
          bags/1,
          bags/2,
          assert_manifest_in_single_bag/4,
@@ -48,17 +48,26 @@ configs(MultiBags) ->
 
 %% BagFlavor is `disjoint' only for now
 %% TODO: Other nodes than CS node 1 have wrong riak_pb_port configuration.
-flavored_setup(NumNodes, {multibag, BagFlavor}, CustomConfigs, current = Vsn) ->
+flavored_setup(#{num_nodes := NumNodes,
+                 flavor := {multibag, BagFlavor},
+                 configs := CustomConfigs,
+                 vsn := current = Vsn,
+                 preconfigured := Preconfigured}) ->
     set_conf(NumNodes, BagFlavor),
     Singltons = 4,
-    SetupResult = rtcs:setupNxMsingles(NumNodes, Singltons, CustomConfigs, Vsn),
+    SetupResult = rtcs:setupNxMsingles(NumNodes, Singltons, CustomConfigs, Vsn, Preconfigured),
     set_weights(weights(BagFlavor)),
     SetupResult;
-flavored_setup(NumNodes, {multibag, BagFlavor}, CustomConfigs, Vsn) ->
+flavored_setup(#{num_nodes := NumNodes,
+                 flavor := {multibag, BagFlavor},
+                 configs := CustomConfigs,
+                 vsn := Vsn,
+                 preconfigured := Preconfigured}) ->
     MultiBags = bags(NumNodes, BagFlavor),
     BagConfigs = configs(MultiBags),
     Singltons = 4,
-    SetupResult = rtcs:setupNxMsingles(NumNodes, Singltons, rtcs_config:merge(CustomConfigs, BagConfigs), Vsn),
+    SetupResult = rtcs:setupNxMsingles(NumNodes, Singltons, rtcs_config:merge(CustomConfigs, BagConfigs), Vsn,
+                                       Preconfigured),
     set_weights(weights(BagFlavor)),
     SetupResult.
 

@@ -90,7 +90,10 @@ confirm() ->
 
 prepare_current(NumNodes) ->
     lager:info("Preparing current cluster", []),
-    {RiakNodes, CSNodes, _StanchionNode} = rtcs:flavored_setup(NumNodes, rt_config:get(flavor, basic), rtcs_config:configs([]), current),
+    {RiakNodes, CSNodes, _StanchionNode} = rtcs:flavored_setup(#{num_nodes => NumNodes,
+                                                                 flavor => rt_config:get(flavor, basic),
+                                                                 config_spec => rtcs_config:configs([]),
+                                                                 vsn => current}),
     rt:pmap(fun(N) -> rtcs_exec:stop_cs(N, current) end, CSNodes),
     rtcs_exec:stop_stanchion(current),
     rt:pmap(fun(N) -> rtcs_dev:stop(N, current) end, RiakNodes),

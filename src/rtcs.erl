@@ -40,16 +40,22 @@ setup(NumNodes, Configs) ->
 
 setup(NumNodes, Configs, Vsn) ->
     Flavor = rt_config:get(flavor, basic),
-    lager:info("Flavor : ~p", [Flavor]),
+    lager:info("Flavor: ~p", [Flavor]),
     application:ensure_all_started(erlcloud),
 
-    {_, [CSNode0|_], _} = Nodes = flavored_setup(NumNodes, Flavor, Configs, Vsn),
+    {_, [CSNode0|_], _} = Nodes =
+        flavored_setup(#{num_nodes => NumNodes,
+                         flavor => Flavor,
+                         config_spec => Configs,
+                         vsn => Vsn}),
 
     AdminConfig = make_admin(Configs, NumNodes, Vsn, CSNode0),
 
     {AdminConfig, Nodes}.
 
 
+make_admin(ConfigFun, NumNodes, Vsn, CSNode0) when is_function(ConfigFun) ->
+    make_admin([], NumNodes, Vsn, CSNode0);
 make_admin(Configs, NumNodes, Vsn, CSNode0) ->
     case ssl_options(Configs) of
         [] ->
@@ -60,9 +66,7 @@ make_admin(Configs, NumNodes, Vsn, CSNode0) ->
 
 setup2x2(Configs) ->
     {_, [CSNode0|_], _} = Nodes = setup2x2_2(Configs),
-
     AdminConfig = make_admin(Configs, 4, current, CSNode0),
-
     {AdminConfig, Nodes}.
 
 setup2x2_2(Configs) ->
@@ -71,7 +75,10 @@ setup2x2_2(Configs) ->
                       rt:join(B,A),
                       rt:join(D,C)
               end,
-    setup_clusters(Configs, JoinFun, 4, current).
+    setup_clusters(#{config_spec => Configs,
+                     join_fun => JoinFun,
+                     num_nodes => 4,
+                     vsn => current}).
 
 %% 1 cluster with N nodes + M cluster with 1 node
 setupNxMsingles(N, M) ->
@@ -83,25 +90,45 @@ setupNxMsingles(N, M, Configs, Vsn)
                       [Target | Joiners] = lists:sublist(Nodes, N),
                       [rt:join(J, Target) || J <- Joiners]
               end,
-    setup_clusters(Configs, JoinFun, N + M, Vsn).
+    setup_clusters(#{config_spec => Configs,
+                     join_fun => JoinFun,
+                     num_nodes => N + M,
+                     vsn => Vsn}).
 
-flavored_setup(NumNodes, basic, Configs, Vsn) ->
+flavored_setup(#{num_nodes := NumNodes,
+                 flavor := basic,
+                 config_spec := Configs,
+                 vsn := Vsn}) ->
     JoinFun = fun(Nodes) ->
                       [First|Rest] = Nodes,
                       [rt:join(Node, First) || Node <- Rest]
               end,
-    setup_clusters(Configs, JoinFun, NumNodes, Vsn);
-flavored_setup(NumNodes, {multibag, _} = Flavor, Configs, Vsn)
+    setup_clusters(#{config_spec => Configs,
+                     join_fun => JoinFun,
+                     num_nodes => NumNodes,
+                     vsn => Vsn});
+flavored_setup(#{num_nodes := NumNodes,
+                 flavor := {multibag, _} = Flavor,
+                 config_spec := Configs,
+                 vsn := Vsn})
   when Vsn =:= current orelse Vsn =:= previous ->
-    rtcs_bag:flavored_setup(NumNodes, Flavor, Configs, Vsn).
+    rtcs_bag:flavored_setup(#{num_nodes => NumNodes,
+                              flavor => Flavor,
+                              config_spec => Configs,
+                              vsn => Vsn}).
 
-setup_clusters(Configs, JoinFun, NumNodes, Vsn) ->
+setup_clusters(#{config_spec := Configs,
+                 join_fun := JoinFun,
+                 num_nodes := NumNodes,
+                 vsn := Vsn}) ->
     %% STFU sasl
     application:load(sasl),
     application:set_env(sasl, sasl_error_logger, false),
 
     Nodes = {RiakNodes, CSNodes, StanchionNode} =
-        configure_clusters(NumNodes, rtcs_config:configs(Configs, Vsn), Vsn),
+        configure_clusters(#{num_nodes => NumNodes,
+                             initial_config => Configs,
+                             vsn => Vsn}),
 
     rt:pmap(fun(N) -> rtcs_dev:start(N, Vsn) end, RiakNodes),
     rt:wait_for_service(RiakNodes, riak_kv),
@@ -132,7 +159,6 @@ got_pong(Node, Vsn) ->
             end
     end.
 
-
 ssl_options(Config) ->
     case proplists:get_value(cs, Config) of
         undefined -> [];
@@ -154,7 +180,9 @@ riak_id_per_cluster(NumNodes) ->
         {multibag, _} = Flavor -> rtcs_bag:riak_id_per_cluster(NumNodes, Flavor)
     end.
 
-configure_clusters(NumNodes, InitialConfig, Vsn) ->
+configure_clusters(#{num_nodes := NumNodes,
+                     initial_config := ConfigSpec,
+                     vsn := Vsn}) ->
     {RiakNodes, CSNodes, StanchionNode} = Nodes = {riak_nodes(NumNodes),
                                                    cs_nodes(NumNodes),
                                                    stanchion_node()},
@@ -175,10 +203,16 @@ configure_clusters(NumNodes, InitialConfig, Vsn) ->
 
     rtcs_dev:create_or_restore_config_backups(RiakNodes ++ CSNodes ++ [StanchionNode], Vsn),
 
-    %% Set initial config
-    rtcs_config:set_configs(NumNodes,
-                            InitialConfig,
-                            Vsn),
+    if is_function(ConfigSpec) ->
+            rtcs_config:set_configs(NumNodes,
+                                    rtcs_config:configs([], Vsn),
+                                    Vsn),
+            ConfigSpec(Nodes);
+       el/=se ->
+            rtcs_config:set_configs(NumNodes,
+                                    rtcs_config:configs(ConfigSpec, Vsn),
+                                    Vsn)
+    end,
     Nodes.
 
 
