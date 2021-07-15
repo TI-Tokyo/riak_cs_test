@@ -1,4 +1,5 @@
 %% Copyright (c) 2015 Basho Technologies, Inc.  All Rights Reserved.
+%%               2021 TI Tokyo.  All Rights Reserved.
 
 -module(mb_pg_test).
 
@@ -120,17 +121,22 @@ setup_clusters() ->
                       rt:join(WA2, WA1),
                       rt:join(EA2, EA1)
               end,
-    WBagConf = rtcs_bag:conf(2, 1, shared),
-    EBagConf = rtcs_bag:conf(2, 5, shared),
-    rtcs:set_conf(stanchion, WBagConf),
-    rt:pmap(fun(N) ->
-                    rtcs:set_conf({cs, current, N}, WBagConf)
-            end, lists:seq(1, 4)),
-    rt:pmap(fun(N) ->
-                    rtcs:set_conf({cs, current, N}, EBagConf)
-            end, lists:seq(5, 8)),
+    ConfigFun = fun(_Nodes) ->
+                        WBagConf = rtcs_bag:conf(2, 1, shared),
+                        EBagConf = rtcs_bag:conf(2, 5, shared),
+                        rtcs:set_conf(stanchion, WBagConf),
+                        rt:pmap(fun(N) ->
+                                        rtcs:set_conf({cs, current, N}, WBagConf)
+                                end, lists:seq(1, 4)),
+                        rt:pmap(fun(N) ->
+                                        rtcs:set_conf({cs, current, N}, EBagConf)
+                                end, lists:seq(5, 8))
+                end,
     {RiakNodes, _CSs, _Stanchion} =
-        rtcs:setup_clusters(rtcs_config:configs([]), JoinFun, 8, current),
+        rtcs:setup_clusters(#{config_spec => ConfigFun,
+                              join_fun => JoinFun,
+                              num_nodes => 8,
+                              vsn => current}),
 
     [WestA1, WestA2, WestB, WestC, EastA1, EastA2, EastB, EastC] = RiakNodes,
     %% Name and connect v3 repl
