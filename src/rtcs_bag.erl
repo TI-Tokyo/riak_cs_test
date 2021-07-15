@@ -178,9 +178,7 @@ bag_weight(N, Kind, BagId, Weight) ->
     Cmd = multibagcmd(rt_config:get(rtcs_config:cs_current()), N,
                              io_lib:format("~s ~s ~B", [SubCmd, BagId, Weight])),
     lager:info("Running ~s", [Cmd]),
-    Res = rt:cmd(Cmd),
-    lager:info("Res: ~p", [Res]),
-    Res.
+    rt:cmd(Cmd).
 
 bag_refresh(N) ->
     Cmd = multibagcmd(rt_config:get(rtcs_config:cs_current()), N, "refresh"),
