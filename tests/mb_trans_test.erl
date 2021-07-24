@@ -25,6 +25,7 @@ confirm() ->
     {RiakNodes, CSNodes, StanchionNode} =
         rtcs:setupNxMsingles(NodesInMaster, 4),
     UserConfig = rtcs_admin:create_user(hd(CSNodes), 1),
+    rtcs:truncate_error_log(1),
     OldInOldContent = setup_old_bucket_and_key(UserConfig, ?OLD_BUCKET, ?OLD_KEY_IN_OLD),
     rtcs:assert_error_log_empty(1),
 
