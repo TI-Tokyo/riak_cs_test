@@ -111,6 +111,12 @@ class S3ApiVerificationTestBase(unittest.TestCase):
             bucket = self.bucket_name
         return [k['Key'] for k in self.client.list_objects_v2(Bucket = bucket).get('Contents', [])]
 
+    def listObjectVersions(self, bucket = None):
+        if bucket is None:
+            bucket = self.bucket_name
+        vv = self.client.list_object_versions(Bucket = bucket)
+        return [(k['Key'], k['VersionId']) for k in vv.get('Versions', [])]
+
     def putObject(self, bucket = None, key = None, value = None, metadata = {}):
         if bucket is None:
             bucket = self.bucket_name
@@ -137,6 +143,23 @@ class S3ApiVerificationTestBase(unittest.TestCase):
             key = self.key_name
         return self.client.delete_object(Bucket = self.bucket_name,
                                          Key = key)
+
+    def getBucketVersioning(self, bucket = None):
+        #boto3.set_stream_logger('')
+        if bucket is None:
+            bucket = self.bucket_name
+        return self.client.get_bucket_versioning(Bucket = bucket)['Status']
+
+    def putBucketVersioning(self, status, bucket = None, mfaDelete = None):
+        if bucket is None:
+            bucket = self.bucket_name
+        if mfaDelete is None:
+            vsnconf = {'Status': status}
+        else:
+            vsnconf = {'MFADelete': mfaDelete,
+                       'Status': status}
+        return self.client.put_bucket_versioning(Bucket = bucket,
+                                                 VersioningConfiguration = vsnconf)
 
     def verifyDictListsIdentical(self, cc1, cc2):
         [self.assertIn(c, cc1) for c in cc2]
@@ -217,7 +240,6 @@ class BasicTests(S3ApiVerificationTestBase):
         self.assertEqual(self.data, self.getObject(key = key))
 
     def test_put_object_with_trailing_slash(self):
-        #boto3.set_stream_logger('')
         self.test_put_object(self.key_name + '/')
 
     def test_delete_object(self):
@@ -287,16 +309,31 @@ class BasicTests(S3ApiVerificationTestBase):
         self.assertEqual(res['Grants'], [userAcl(self.user1, 'FULL_CONTROL')])
 
     def test_set_object_acl(self):
-        bucket_name = str(uuid.uuid4())
-        self.createBucket(bucket = bucket_name)
-        self.putObject(bucket = bucket_name)
-        self.client.put_object_acl(Bucket = bucket_name,
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
+        self.putObject(bucket = bucket)
+        self.client.put_object_acl(Bucket = bucket,
                                    Key = self.key_name,
                                    ACL = 'public-read')
-        res = self.client.get_object_acl(Bucket = bucket_name,
+        res = self.client.get_object_acl(Bucket = bucket,
                                          Key = self.key_name)
         self.verifyDictListsIdentical(res['Grants'],
                                       [publicAcl('READ'), userAcl(self.user1, 'FULL_CONTROL')])
+
+
+class VersioningTests(S3ApiVerificationTestBase):
+    def test_list_object_versions(self):
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
+        self.assertEqual(self.getBucketVersioning(bucket = bucket), 'Disabled')
+        self.putBucketVersioning(bucket = bucket,
+                                 status = 'Enabled')
+        res = self.getBucketVersioning(bucket = bucket)
+        self.assertEqual(self.getBucketVersioning(bucket = bucket), 'Enabled')
+        self.putObject(bucket = bucket)
+        keysWithVersions = self.listObjectVersions(bucket = bucket)
+        self.assertIn(self.key_name, [k for (k, v) in keysWithVersions])
+
 
 def userAcl(user, permission):
     return {'Grantee': {'DisplayName': user['name'],
