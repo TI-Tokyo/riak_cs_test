@@ -56,7 +56,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
                               aws_access_key_id = user['key_id'],
                               aws_secret_access_key = user['key_secret'],
                               config = config)
-        client.meta.events.register_first('before-sign.s3.PutBucketPolicy', add_json_header)
+        client.meta.events.register_first('before-sign.s3.PutBucketPolicy', add_json_ctype_header)
         return client
 
 
@@ -145,12 +145,16 @@ class S3ApiVerificationTestBase(unittest.TestCase):
                                          Key = key)
 
     def getBucketVersioning(self, bucket = None):
-        #boto3.set_stream_logger('')
+        ####boto3.set_stream_logger('')
         if bucket is None:
             bucket = self.bucket_name
         return self.client.get_bucket_versioning(Bucket = bucket)['Status']
 
-    def putBucketVersioning(self, status, bucket = None, mfaDelete = None):
+    def putBucketVersioning(self, status,
+                            bucket = None, mfaDelete = None,
+                            useSubVersioning = None,
+                            canUpdateVersions = None,
+                            replSiblings = None):
         if bucket is None:
             bucket = self.bucket_name
         if mfaDelete is None:
@@ -158,8 +162,17 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         else:
             vsnconf = {'MFADelete': mfaDelete,
                        'Status': status}
-        return self.client.put_bucket_versioning(Bucket = bucket,
-                                                 VersioningConfiguration = vsnconf)
+
+        self.client.meta.events.register_first(
+            'before-sign.s3.PutBucketVersioning',
+            lambda request, **kwargs: add_versioning_headers(request,
+                                                             useSubVersioning,
+                                                             canUpdateVersions,
+                                                             replSiblings,
+                                                             **kwargs))
+        res = self.client.put_bucket_versioning(Bucket = bucket,
+                                                VersioningConfiguration = vsnconf)
+        return res
 
     def verifyDictListsIdentical(self, cc1, cc2):
         [self.assertIn(c, cc1) for c in cc2]
@@ -200,9 +213,16 @@ class S3ApiVerificationTestBase(unittest.TestCase):
 
 
 # this is to inject the right headers for put_bucket_policy call
-def add_json_header(request, **kwargs):
+def add_json_ctype_header(request, **kwargs):
     request.headers.add_header('content-type', 'application/json')
 
+def add_versioning_headers(request, useSubVersioning, canUpdateVersions, replSiblings, **kwargs):
+    if useSubVersioning is not None:
+        request.headers.add_header('x-rcs-versioning-use_subversioning', str(useSubVersioning))
+    if canUpdateVersions is not None:
+        request.headers.add_header('x-rcs-versioning-can_update_versions', str(canUpdateVersions))
+    if replSiblings is not None:
+        request.headers.add_header('x-rcs-versioning-repl_siblings', str(replSiblings))
 
 
 def create_user(host, port, name, email):
@@ -325,11 +345,22 @@ class VersioningTests(S3ApiVerificationTestBase):
     def test_list_object_versions(self):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
-        self.assertEqual(self.getBucketVersioning(bucket = bucket), 'Disabled')
+        self.assertEqual(self.getBucketVersioning(bucket = bucket), 'Suspended')
+
         self.putBucketVersioning(bucket = bucket,
                                  status = 'Enabled')
         res = self.getBucketVersioning(bucket = bucket)
         self.assertEqual(self.getBucketVersioning(bucket = bucket), 'Enabled')
+
+        boto3.set_stream_logger('')
+        self.putBucketVersioning(bucket = bucket,
+                                 status = 'Suspended',
+                                 canUpdateVersions = True,
+                                 replSiblings = False)
+        res = self.getBucketVersioning(bucket = bucket)
+        self.assertEqual(self.getBucketVersioning(bucket = bucket), 'Suspended')
+        # boto3 does not extract Riak CS specific fields, but they could be seen in the response body
+
         self.putObject(bucket = bucket)
         keysWithVersions = self.listObjectVersions(bucket = bucket)
         self.assertIn(self.key_name, [k for (k, v) in keysWithVersions])
@@ -344,7 +375,6 @@ def publicAcl(permission):
     return {'Grantee': {'Type': 'Group',
                         'URI': 'http://acs.amazonaws.com/groups/global/AllUsers'},
             'Permission': permission}
-
 
 
 class MultiPartUploadTests(S3ApiVerificationTestBase):
