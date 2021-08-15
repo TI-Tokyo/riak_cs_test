@@ -17,14 +17,14 @@ all: deps compile
 	@cp ./_build/test/lib/riak_test/tests/*.beam ./ebin
 
 deps:
-	$(if $(HEAD_REVISION),$(warning "Warning: you have checked out a tag ($(HEAD_REVISION)) and should use the locked-deps target"))
-	$(REBAR) get-deps
+	@$(if $(HEAD_REVISION),$(warning "Warning: you have checked out a tag ($(HEAD_REVISION)) and should use the locked-deps target"))
+	@$(REBAR) get-deps
 
 docsclean:
 	@rm -rf doc/*.png doc/*.html doc/*.css edoc-info
 
 compile: deps
-	$(REBAR) compile
+	@$(REBAR) compile
 
 clean:
 	@$(REBAR) clean
@@ -33,5 +33,5 @@ distclean: clean
 	@rm -rf riak_test _build
 
 quickbuild:
-	$(REBAR) compile
-	$(REBAR) escriptize
+	@$(REBAR) compile
+	@$(REBAR) escriptize
