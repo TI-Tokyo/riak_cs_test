@@ -7,7 +7,8 @@
                   kernel,
                   stdlib,
                   erlcloud,
-                  lager
+                  lager,
+                  rcs_common
                  ]},
   {env, [
     {platform, undefined},

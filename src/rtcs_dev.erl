@@ -559,11 +559,12 @@ restore_configs(Nodes, Vsn) ->
 %%       Nodes).
 
 load_cs_modules_for_riak_pipe_fittings(CSNode, RiakNodes, Mods) ->
-    ExtPath = filename:dirname(rpc:call(CSNode, code, which, [riak_cs_storage])),
     lists:foreach(
       fun(N) ->
-              rpc:call(N, code, add_pathz, [ExtPath]),
               lists:foreach(
-                fun(M) -> {module, _} = rpc:call(N, code, load_file, [M]) end,
+                fun(M) ->
+                        ExtPath = filename:dirname(rpc:call(CSNode, code, which, [M])),
+                        rpc:call(N, code, add_pathz, [ExtPath]),
+                        {module, _} = rpc:call(N, code, load_file, [M]) end,
                 Mods)
       end, RiakNodes).

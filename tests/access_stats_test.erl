@@ -40,8 +40,8 @@ confirm() ->
 
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
       hd(CSNodes), RiakNodes, [riak_cs_utils,
-                               riak_cs_manifest_utils,
-                               riak_cs_manifest_resolution,
+                               rcs_common_manifest_utils,
+                               rcs_common_manifest_resolution,
                                riak_cs_storage,
                                riak_cs_storage_mr]),
 
