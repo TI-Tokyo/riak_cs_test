@@ -200,8 +200,8 @@ verify_gc_run(Node, GCKey) ->
     true = rt:expect_in_log(Node,
                             "Invalid state manifest in GC bucket at <<\""
                             ++ binary_to_list(GCKey) ++ "\">>, "
-                            ++ "bucket=<<\"" ++ ?TEST_BUCKET ++ "\">> "
-                            ++ "key=<<\"" ++ ?TEST_KEY_BAD_STATE ++ "\">>: "),
+                            ++ "b/k:v \"" ++ ?TEST_BUCKET ++ "/" ++ ?TEST_KEY_BAD_STATE
+                            ++ ":null\""),
     true = rt:expect_in_log(Node,
                             "Finished garbage collection: \\d+ seconds, "
                             "\\d batch_count, 0 batch_skips, "
@@ -240,8 +240,8 @@ verify_partial_gc_run(CSNode, RiakNodes,
     Interval = erlang:max(1, (End0 - Start0) div ?TIMESLICES),
     Starts = [ {Start0 + N * Interval, Start0 + (N+1) * Interval}
                || N <- lists:seq(0, ?TIMESLICES-1) ] ++
-        [{Start0 + ?TIMESLICES * Interval, End0}], 
-    
+        [{Start0 + ?TIMESLICES * Interval, End0}],
+
     [begin
          %% We have to clear log as the message 'Finished garbage
          %% col...' has been output many times before, during this
