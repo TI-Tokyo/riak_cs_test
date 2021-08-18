@@ -115,7 +115,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         if bucket is None:
             bucket = self.bucket_name
         vv = self.client.list_object_versions(Bucket = bucket)
-        return [(k['Key'], k['VersionId']) for k in vv.get('Versions', [])]
+        return vv.get('Versions', [])
 
     def putObject(self, bucket = None, key = None, value = None, metadata = {}):
         if bucket is None:
@@ -129,13 +129,16 @@ class S3ApiVerificationTestBase(unittest.TestCase):
                                       Body = value,
                                       Metadata = metadata)
 
-    def getObject(self, bucket = None, key = None):
+    def getObject(self, bucket = None, key = None, vsn = None):
         if bucket is None:
             bucket = self.bucket_name
         if key is None:
             key = self.key_name
-        return self.client.get_object(Bucket = self.bucket_name,
-                                      Key = key)['Body'].read()
+        if vsn is None:
+            vsn = 'null'
+        return self.client.get_object(Bucket = bucket,
+                                      Key = key,
+                                      VersionId = vsn)['Body'].read()
     def deleteObject(self, bucket = None, key = None):
         if bucket is None:
             bucket = self.bucket_name
@@ -274,29 +277,31 @@ class BasicTests(S3ApiVerificationTestBase):
 
 
     def test_delete_objects(self):
-        bucket = self.createBucket()
+        bucket_name = str(uuid.uuid4())
+        bucket = self.createBucket(bucket = bucket_name)
         keys = ['0', '1', u'Unicodeあいうえお', '2', 'multiple   spaces']
         values = [mineCoins() for _ in range(1, 4)]
         kvs = zip(keys, values)
         for k,v in kvs:
-            self.putObject(key = k, value = v)
+            self.putObject(bucket = bucket_name, key = k, value = v)
 
-        got_keys = self.listKeys()
+        got_keys = self.listKeys(bucket = bucket_name)
         self.assertEqual(keys.sort(), got_keys.sort())
 
-        result = self.client.delete_objects(Bucket = self.bucket_name,
+        result = self.client.delete_objects(Bucket = bucket_name,
                                             Delete = {'Objects': [{'Key': k} for k in keys]})
 
         self.assertEqual(keys, [k['Key'] for k in result['Deleted']])
         self.assertEqual([], result.get('Errors', []))
 
         self.assertRaises(self.client.exceptions.NoSuchKey,
-                          lambda: self.client.get_object(Bucket = self.bucket_name,
+                          lambda: self.client.get_object(Bucket = bucket_name,
                                                          Key = keys[0]).get('Body').read())
 
     def test_delete_bucket(self):
         self.createBucket()
         self.assertIn(self.bucket_name, self.listBuckets())
+        #boto3.set_stream_logger('')
         self.deleteBucket()
         self.assertNotIn(self.bucket_name, self.listBuckets())
 
@@ -352,7 +357,6 @@ class VersioningTests(S3ApiVerificationTestBase):
         res = self.getBucketVersioning(bucket = bucket)
         self.assertEqual(self.getBucketVersioning(bucket = bucket), 'Enabled')
 
-        boto3.set_stream_logger('')
         self.putBucketVersioning(bucket = bucket,
                                  status = 'Suspended',
                                  canUpdateVersions = True,
@@ -361,9 +365,16 @@ class VersioningTests(S3ApiVerificationTestBase):
         self.assertEqual(self.getBucketVersioning(bucket = bucket), 'Suspended')
         # boto3 does not extract Riak CS specific fields, but they could be seen in the response body
 
-        self.putObject(bucket = bucket)
-        keysWithVersions = self.listObjectVersions(bucket = bucket)
-        self.assertIn(self.key_name, [k for (k, v) in keysWithVersions])
+        self.putBucketVersioning(bucket = bucket,
+                                 status = 'Enabled')
+        #boto3.set_stream_logger('')
+        self.putObject(bucket = bucket, value = b'versione uno')
+        self.putObject(bucket = bucket, value = b'versione duo')
+        kkvv = self.listObjectVersions(bucket = bucket)
+        v0, v1 = kkvv[0]["VersionId"], kkvv[1]["VersionId"]
+        self.assertEqual(self.key_name, kkvv[0]["Key"])
+        self.assertEqual(self.getObject(bucket = bucket, vsn = v0), b'versione uno')
+        self.assertEqual(self.getObject(bucket = bucket, vsn = v1), b'versione duo')
 
 
 def userAcl(user, permission):
@@ -1067,7 +1078,7 @@ class SimpleCopyTest(S3ApiVerificationTestBase):
 
         target_bucket_name = str(uuid.uuid4())
         target_key_name = str(uuid.uuid4())
-        self.client.create_bucket(Bucket = target_bucket_name)
+        self.createBucket(bucket = target_bucket_name)
         try:
             self.client.copy_object(Bucket = target_bucket_name,
                                     Key = target_key_name,
