@@ -124,10 +124,11 @@ class S3ApiVerificationTestBase(unittest.TestCase):
             key = self.key_name
         if value is None:
             value = self.data
-        return self.client.put_object(Bucket = bucket,
-                                      Key = key,
-                                      Body = value,
-                                      Metadata = metadata)
+        res = self.client.put_object(Bucket = bucket,
+                                     Key = key,
+                                     Body = value,
+                                     Metadata = metadata)
+        return res['ResponseMetadata']['HTTPHeaders']['x-amz-version-id']
 
     def getObject(self, bucket = None, key = None, vsn = None):
         if bucket is None:
@@ -139,13 +140,16 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         return self.client.get_object(Bucket = bucket,
                                       Key = key,
                                       VersionId = vsn)['Body'].read()
-    def deleteObject(self, bucket = None, key = None):
+    def deleteObject(self, bucket = None, key = None, vsn = None):
         if bucket is None:
             bucket = self.bucket_name
         if key is None:
             key = self.key_name
-        return self.client.delete_object(Bucket = self.bucket_name,
-                                         Key = key)
+        if vsn is None:
+            vsn = 'null'
+        return self.client.delete_object(Bucket = bucket,
+                                         Key = key,
+                                         VersionId = vsn)
 
     def getBucketVersioning(self, bucket = None):
         ####boto3.set_stream_logger('')
@@ -189,6 +193,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         if acl:
             pp['ACL'] = acl
         upload_id = self.client.create_multipart_upload(**pp)['UploadId']
+        #boto3.set_stream_logger('')
         etags = []
         for index, val in list(enumerate(parts_list)):
             res = self.client.upload_part(UploadId = upload_id,
@@ -266,6 +271,7 @@ class BasicTests(S3ApiVerificationTestBase):
         self.test_put_object(self.key_name + '/')
 
     def test_delete_object(self):
+        #boto3.set_stream_logger('')
         self.createBucket()
         self.putObject()
         self.assertIn(self.key_name, self.listKeys())
@@ -347,7 +353,8 @@ class BasicTests(S3ApiVerificationTestBase):
 
 
 class VersioningTests(S3ApiVerificationTestBase):
-    def test_list_object_versions(self):
+
+    def test_set_bucket_versioning(self):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
         self.assertEqual(self.getBucketVersioning(bucket = bucket), 'Suspended')
@@ -365,17 +372,82 @@ class VersioningTests(S3ApiVerificationTestBase):
         self.assertEqual(self.getBucketVersioning(bucket = bucket), 'Suspended')
         # boto3 does not extract Riak CS specific fields, but they could be seen in the response body
 
+    def test_basic_crud(self):
+        bucket = str(uuid.uuid4())
+        key = "one"
+        val1 = bytes('ფაფა', encoding='utf-8')
+        val2 = bytes('ქექე', encoding='utf-8')
+        self.createBucket(bucket = bucket)
         self.putBucketVersioning(bucket = bucket,
                                  status = 'Enabled')
         #boto3.set_stream_logger('')
-        self.putObject(bucket = bucket, value = b'versione uno')
-        self.putObject(bucket = bucket, value = b'versione duo')
-        kkvv = self.listObjectVersions(bucket = bucket)
-        v0, v1 = kkvv[0]["VersionId"], kkvv[1]["VersionId"]
-        self.assertEqual(self.key_name, kkvv[0]["Key"])
-        self.assertEqual(self.getObject(bucket = bucket, vsn = v0), b'versione uno')
-        self.assertEqual(self.getObject(bucket = bucket, vsn = v1), b'versione duo')
+        v1 = self.putObject(bucket = bucket, key = key, value = val1)
+        v2 = self.putObject(bucket = bucket, key = key, value = val2)
 
+        vv = [i['VersionId'] for i in self.listObjectVersions(bucket = bucket)]
+        self.assertEqual(len(vv), 2)
+        self.assertIn(v1, vv)
+        self.assertIn(v2, vv)
+
+        self.assertEqual(self.getObject(bucket = bucket, key = key, vsn = v1), val1)
+        self.assertEqual(self.getObject(bucket = bucket, key = key, vsn = v2), val2)
+
+        self.deleteObject(bucket = bucket, key = key, vsn = v1)
+        vv = self.listObjectVersions(bucket = bucket)
+        self.assertEqual(len(vv), 1)
+        self.assertEqual(key, vv[0]["Key"])
+        self.assertEqual(v2, vv[0]["VersionId"])
+        self.assertEqual(self.getObject(bucket = bucket, key = key, vsn = v2), val2)
+
+    def test_crud_with_suspend(self):
+        bucket = str(uuid.uuid4())
+        key0, val0, vsn0 = "one", b"ONE", 'null'
+        key1, val1 = "zero", b"Zero"
+        self.createBucket(bucket = bucket)
+
+        vsn0 = self.putObject(bucket = bucket, key = key0, value = val0)
+        self.assertEqual(vsn0, 'null')
+
+        self.putBucketVersioning(bucket = bucket,
+                                 status = 'Enabled')
+        self.assertEqual(self.getObject(bucket = bucket, key = key0), val0)
+        self.assertEqual(self.getObject(bucket = bucket, key = key0, vsn = vsn0), val0)
+
+        #boto3.set_stream_logger('')
+        val4 = b"a new value, at autogenerated vsn"
+        vsn4 = self.putObject(bucket = bucket, key = key0, value = val4)
+        self.assertEqual(self.getObject(bucket = bucket, key = key0, vsn = vsn4), val4)
+
+        # an earlier versioned value continues to exist and be accessible
+        self.assertEqual(self.getObject(bucket = bucket, key = key0, vsn = vsn0), val0)
+
+        # now there are two versions: "null" and an autogenerated one
+        vv = [i['VersionId'] for i in self.listObjectVersions(bucket = bucket)]
+        self.assertEqual(len(vv), 2)
+        self.assertIn(vsn0, vv)
+        self.assertIn(vsn4, vv)
+
+        self.putBucketVersioning(bucket = bucket,
+                                 status = 'Suspended')
+
+        # versioned value continues to exist and be accessible, even if versioning is suspended
+        self.assertEqual(self.getObject(bucket = bucket, key = key0, vsn = vsn4), val4)
+        # null value, likewise
+        self.assertEqual(self.getObject(bucket = bucket, key = key0), val0)
+
+        vv = [i['VersionId'] for i in self.listObjectVersions(bucket = bucket)]
+        self.assertIn(vsn0, vv)
+        self.assertIn(vsn4, vv)
+
+        val4 = b"overwriting at vsn null"
+        vsn4 = self.putObject(bucket = bucket, key = key0, value = val4)
+        self.assertEqual(vsn4, "null")
+        self.assertEqual(self.getObject(bucket = bucket, key = key0), val4)
+
+        self.deleteObject(bucket = bucket, key = key0)
+        vv = self.listObjectVersions(bucket = bucket)
+        self.assertEqual(len(vv), 1)
+        self.assertNotIn("null", vv)
 
 def userAcl(user, permission):
     return {'Grantee': {'DisplayName': user['name'],
