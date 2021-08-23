@@ -454,6 +454,16 @@ class VersioningTests(S3ApiVerificationTestBase):
         self.assertEqual(len(vv), 1)
         self.assertNotIn("null", vv)
 
+    def test_multipart_crud(self):
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
+        self.putBucketVersioning(bucket = bucket,
+                                 status = 'Enabled')
+        parts = [b'this is part one', b'part two is just a rewording',
+                 b'surprise that part three is pretty much the same',
+                 b'and the last part is number four']
+        self.multipart_md5_helper(bucket, parts)
+
 def userAcl(user, permission):
     return {'Grantee': {'DisplayName': user['name'],
                         'ID': user['id'],
