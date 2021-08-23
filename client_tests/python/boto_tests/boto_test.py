@@ -101,7 +101,12 @@ class S3ApiVerificationTestBase(unittest.TestCase):
     def deleteBucket(self, bucket = None):
         if bucket is None:
             bucket = self.bucket_name
-        return self.client.delete_bucket(Bucket = self.bucket_name)
+        try:
+            self.client.delete_bucket(Bucket = bucket)
+        except:
+            for o in self.listKeys(bucket = bucket):
+                self.deleteObject(bucket = bucket, key = o)
+            self.client.delete_bucket(Bucket = bucket)
 
     def listBuckets(self):
         return [b['Name'] for b in self.client.list_buckets()['Buckets']]
@@ -137,9 +142,10 @@ class S3ApiVerificationTestBase(unittest.TestCase):
             key = self.key_name
         if vsn is None:
             vsn = 'null'
-        return self.client.get_object(Bucket = bucket,
-                                      Key = key,
-                                      VersionId = vsn)['Body'].read()
+        return bytes(self.client.get_object(Bucket = bucket,
+                                            Key = key,
+                                            VersionId = vsn)['Body'].read())
+
     def deleteObject(self, bucket = None, key = None, vsn = None):
         if bucket is None:
             bucket = self.bucket_name
@@ -185,38 +191,37 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         [self.assertIn(c, cc1) for c in cc2]
         [self.assertIn(c, cc2) for c in cc1]
 
-    def upload_multipart(self, key, parts_list,
+    def upload_multipart(self, bucket, key, parts_list,
                          metadata = {}, acl = None):
-        pp = {'Bucket': self.bucket_name,
+        pp = {'Bucket': bucket,
               'Key': key,
               'Metadata': metadata}
         if acl:
             pp['ACL'] = acl
         upload_id = self.client.create_multipart_upload(**pp)['UploadId']
-        #boto3.set_stream_logger('')
         etags = []
         for index, val in list(enumerate(parts_list)):
             res = self.client.upload_part(UploadId = upload_id,
-                                          Bucket = self.bucket_name,
+                                          Bucket = bucket,
                                           Key = key,
                                           Body = val,
                                           PartNumber = index + 1)
             etags += [{'ETag': res['ETag'], 'PartNumber': index + 1}]
         result = self.client.complete_multipart_upload(UploadId = upload_id,
-                                                       Bucket = self.bucket_name,
+                                                       Bucket = bucket,
                                                        Key = key,
                                                        MultipartUpload = {'Parts': etags})
         return upload_id, result
 
-    def multipart_md5_helper(self, parts, key_suffix=u''):
-        key_name = str(uuid.uuid4()) + key_suffix
+    def multipart_md5_helper(self, bucket, parts, key_suffix = u''):
+        key = str(uuid.uuid4()) + key_suffix
         expected_md5 = hashlib.md5(bytes(b''.join(parts))).hexdigest()
-        self.createBucket()
-        upload_id, result = self.upload_multipart(key_name, parts)
+        upload_id, result = self.upload_multipart(bucket, key, parts)
 
-        actual_md5 = hashlib.md5(bytes(self.getObject(key = key_name))).hexdigest()
+        actual_md5 = hashlib.md5(bytes(self.getObject(bucket = bucket,
+                                                      key = key))).hexdigest()
         self.assertEqual(expected_md5, actual_md5)
-        self.assertEqual(key_name, result['Key'])
+        self.assertEqual(key, result['Key'])
         return upload_id, result
 
 
@@ -462,60 +467,77 @@ def publicAcl(permission):
 
 class MultiPartUploadTests(S3ApiVerificationTestBase):
     def test_small_strings_upload_1(self):
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
         parts = [b'this is part one', b'part two is just a rewording',
                  b'surprise that part three is pretty much the same',
                  b'and the last part is number four']
-        self.multipart_md5_helper(parts)
+        self.multipart_md5_helper(bucket, parts)
+        self.deleteBucket(bucket = bucket)
 
     def test_small_strings_upload_2(self):
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
         parts = [b'just one lonely part']
-        self.multipart_md5_helper(parts)
+        self.multipart_md5_helper(bucket, parts)
+        self.deleteBucket(bucket = bucket)
 
     def test_small_strings_upload_3(self):
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
         parts = [uuid.uuid4().bytes for _ in range(100)]
-        self.multipart_md5_helper(parts)
+        self.multipart_md5_helper(bucket, parts)
+        self.deleteBucket(bucket = bucket)
 
     def test_acl_is_set(self):
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
         parts = [uuid.uuid4().bytes for _ in range(5)]
-        key_name = str(uuid.uuid4())
+        key = str(uuid.uuid4())
         expected_md5 = hashlib.md5(bytes(b''.join(parts))).hexdigest()
-        self.createBucket()
-        self.upload_multipart(key_name, parts,
+        self.upload_multipart(bucket, key, parts,
                               acl = 'public-read')
-        actual_md5 = hashlib.md5(bytes(self.getObject(key = key_name))).hexdigest()
+        actual_md5 = hashlib.md5(bytes(self.getObject(bucket = bucket,
+                                                      key = key))).hexdigest()
         self.assertEqual(expected_md5, actual_md5)
-        res = self.client.get_object_acl(Bucket = self.bucket_name,
-                                         Key = key_name)
+        res = self.client.get_object_acl(Bucket = bucket,
+                                         Key = key)
         self.assertEqual(res['Owner']['DisplayName'], self.user1['name'])
         self.assertEqual(res['Owner']['ID'], self.user1['id'])
         self.verifyDictListsIdentical(res['Grants'],
                                       [publicAcl('READ'), userAcl(self.user1, 'FULL_CONTROL')])
+        self.deleteBucket(bucket = bucket)
 
     def test_standard_storage_class(self):
-        self.createBucket()
-        key_name = 'test_standard_storage_class'
-        self.client.create_multipart_upload(Bucket = self.bucket_name,
-                                            Key = self.key_name)
-        uploads = self.client.list_multipart_uploads(Bucket = self.bucket_name)['Uploads']
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
+        key = 'test_standard_storage_class'
+        self.client.create_multipart_upload(Bucket = bucket,
+                                            Key = key)
+        uploads = self.client.list_multipart_uploads(Bucket = bucket)['Uploads']
         for u in uploads:
             self.assertEqual(u['StorageClass'], 'STANDARD')
-        self.assertTrue(True)
+        self.deleteBucket(bucket = bucket)
 
     def test_upload_japanese_key(self):
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
         parts = [b'this is part one', b'part two is just a rewording',
                  b'surprise that part three is pretty much the same',
                  b'and the last part is number four']
-        self.multipart_md5_helper(parts, key_suffix=u'日本語サフィックス')
+        self.multipart_md5_helper(bucket, parts, key_suffix=u'日本語サフィックス')
+        self.deleteBucket(bucket = bucket)
 
     def test_list_japanese_key(self):
-        self.createBucket()
-        key_name = u'test_日本語キーのリスト'
-        self.client.create_multipart_upload(Bucket = self.bucket_name,
-                                            Key = key_name)
-        uploads = self.client.list_multipart_uploads(Bucket = self.bucket_name)['Uploads']
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
+        key = u'test_日本語キーのリスト'
+        self.client.create_multipart_upload(Bucket = bucket,
+                                            Key = key)
+        uploads = self.client.list_multipart_uploads(Bucket = bucket)['Uploads']
         for u in uploads:
-            self.assertEqual(u['Key'], key_name)
-        self.assertTrue(True)
+            self.assertEqual(u['Key'], key)
+        self.deleteBucket(bucket = bucket)
 
 
 
@@ -549,16 +571,17 @@ class LargerFileUploadTest(S3ApiVerificationTestBase):
     "Larger, regular key uploads"
 
     def upload_helper(self, num_kilobytes):
-        key_name = str(uuid.uuid4())
-        bucket = self.createBucket()
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
         md5_expected = md5_from_file(kb_file_gen(num_kilobytes))
         file_obj = kb_file_gen(num_kilobytes)
-        self.putObject(key = key_name, value = file_obj)
-        got_object = self.client.get_object(Bucket = self.bucket_name,
-                                            Key = key_name)
+        self.putObject(bucket = bucket,
+                       value = file_obj)
+        got_object = self.client.get_object(Bucket = bucket, Key = self.key_name)
         actual_md5 = hashlib.md5(bytes(got_object['Body'].read())).hexdigest()
         self.assertEqual(md5_expected, actual_md5)
         self.assertEqual(md5_expected, remove_double_quotes(got_object['ETag']))
+        self.deleteBucket(bucket = bucket)
 
     def test_1kb(self):
         return self.upload_helper(1)
@@ -595,25 +618,26 @@ class LargerMultipartFileUploadTest(S3ApiVerificationTestBase):
     """
 
     def upload_parts_helper(self, zipped_parts_and_md5s, expected_md5):
-        self.createBucket()
-        key_name = str(uuid.uuid4())
-        upload_id = self.client.create_multipart_upload(Bucket = self.bucket_name,
-                                                        Key = key_name)['UploadId']
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
+        upload_id = self.client.create_multipart_upload(Bucket = bucket,
+                                                        Key = self.key_name)['UploadId']
         etags = []
         for idx, (part, md5_of_part) in enumerate(zipped_parts_and_md5s):
             res = self.client.upload_part(UploadId = upload_id,
-                                          Bucket = self.bucket_name,
-                                          Key = key_name,
+                                          Bucket = bucket,
+                                          Key = self.key_name,
                                           Body = part,
                                           PartNumber = idx + 1)
             self.assertEqual(res['ETag'], '"' + md5_of_part + '"')
             etags += [{'ETag': res['ETag'], 'PartNumber': idx + 1}]
         self.client.complete_multipart_upload(UploadId = upload_id,
-                                              Bucket = self.bucket_name,
-                                              Key = key_name,
+                                              Bucket = bucket,
+                                              Key = self.key_name,
                                               MultipartUpload = {'Parts': etags})
-        actual_md5 = hashlib.md5(bytes(self.getObject(key = key_name))).hexdigest()
+        actual_md5 = hashlib.md5(bytes(self.getObject(bucket = bucket))).hexdigest()
         self.assertEqual(expected_md5, actual_md5)
+        self.deleteBucket(bucket = bucket)
 
     def from_mb_list(self, mb_list):
         md5_list = [md5_from_file(mb_file_gen(m)) for m in mb_list]
@@ -639,39 +663,46 @@ class UnicodeNamedObjectTest(S3ApiVerificationTestBase):
     #                     ^^^^^^^^^ filename in Japanese
 
     def test_unicode_object(self):
-        self.createBucket()
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
         key = UnicodeNamedObjectTest.utf8_key_name
-        self.putObject(key = key)
-        self.assertEqual(self.getObject(key = key), self.data)
-        self.assertIn(key, self.listKeys())
+        self.putObject(bucket = bucket)
+        self.assertEqual(self.getObject(bucket = bucket), self.data)
+        self.assertIn(self.key_name, self.listKeys(bucket = bucket))
+        self.deleteBucket(bucket = bucket)
 
     def test_delete_object(self):
-        self.createBucket()
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
         key = UnicodeNamedObjectTest.utf8_key_name
-        self.putObject(key = key)
-        self.deleteObject(key = key)
-        self.assertNotIn(key, self.listKeys())
+        self.putObject(bucket = bucket)
+        self.deleteObject(bucket = bucket)
+        self.assertNotIn(key, self.listKeys(bucket = bucket))
+        self.deleteBucket(bucket = bucket)
 
 
 class BucketPolicyTest(S3ApiVerificationTestBase):
     "test bucket policy"
 
     def test_no_policy(self):
-        self.createBucket()
-        self.client.delete_bucket_policy(Bucket = self.bucket_name)
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
+        self.client.delete_bucket_policy(Bucket = bucket)
         try:
-            self.client.get_bucket_policy(Bucket = self.bucket_name)
+            self.client.get_bucket_policy(Bucket = bucket)
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'NoSuchBucketPolicy')
         else:
             self.fail()
+        self.deleteBucket(bucket = bucket)
 
-    def create_bucket_and_set_policy(self, policy):
-        self.createBucket()
-        self.client.put_bucket_policy(Bucket = self.bucket_name,
+    def create_bucket_and_set_policy(self, bucket, policy):
+        self.createBucket(bucket = bucket)
+        self.client.put_bucket_policy(Bucket = bucket,
                                       Policy = json.dumps(policy))
 
     def test_put_policy_invalid_ip(self):
+        bucket = str(uuid.uuid4())
         policy = {
             "Version":"2020-10-17",
             "Statement":[
@@ -680,17 +711,19 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
                     "Effect":"Allow",
                     "Principal":"*",
                     "Action":["s3:GetObjectAcl","s3:GetObject"],
-                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Resource":"arn:aws:s3:::%s/*" % bucket,
                     "Condition":{"IpAddress":{"aws:SourceIp":"0"}}
                  }
             ]
         }
         try:
-            self.create_bucket_and_set_policy(policy)
+            self.create_bucket_and_set_policy(bucket, policy)
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'MalformedPolicy')
+        self.deleteBucket(bucket = bucket)
 
     def test_put_policy(self):
+        bucket = str(uuid.uuid4())
         policy = {
             "Version":"2008-10-17",
             "Statement":[
@@ -699,16 +732,18 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
                     "Effect":"Allow",
                     "Principal":"*",
                     "Action":["s3:GetObjectAcl","s3:GetObject"],
-                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Resource":"arn:aws:s3:::%s/*" % bucket,
                     "Condition":{"IpAddress":{"aws:SourceIp":"127.0.0.1/32"}}
                  }
             ]
         }
-        self.create_bucket_and_set_policy(policy)
-        got_policy = self.client.get_bucket_policy(Bucket = self.bucket_name)['Policy']
+        self.create_bucket_and_set_policy(bucket, policy)
+        got_policy = self.client.get_bucket_policy(Bucket = bucket)['Policy']
         self.assertEqual(policy, json.loads(got_policy))
+        self.deleteBucket(bucket = bucket)
 
     def test_put_policy_2(self):
+        bucket = str(uuid.uuid4())
         policy = {
             "Version":"2012-10-17",
             "Statement":[
@@ -717,16 +752,18 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
                     "Effect":"Allow",
                     "Principal":"*",
                     "Action":["s3:GetObjectAcl","s3:GetObject"],
-                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Resource":"arn:aws:s3:::%s/*" % bucket,
                     "Condition":{"IpAddress":{"aws:SourceIp":"127.0.0.1/32"}}
                 }
             ]
         }
-        self.create_bucket_and_set_policy(policy)
-        got_policy = self.client.get_bucket_policy(Bucket = self.bucket_name)['Policy']
+        self.create_bucket_and_set_policy(bucket, policy)
+        got_policy = self.client.get_bucket_policy(Bucket = bucket)['Policy']
         self.assertEqual(policy, json.loads(got_policy))
+        self.deleteBucket(bucket = bucket)
 
     def test_put_policy_3(self):
+        bucket = str(uuid.uuid4())
         policy = {
             "Version":"somebadversion",
             "Statement":[
@@ -735,17 +772,19 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
                     "Effect":"Allow",
                     "Principal":"*",
                     "Action":["s3:GetObjectAcl","s3:GetObject"],
-                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Resource":"arn:aws:s3:::%s/*" % bucket,
                     "Condition":{"IpAddress":{"aws:SourceIp":"127.0.0.1/32"}}
                 }
             ]
         }
         try:
-            self.create_bucket_and_set_policy(policy)
+            self.create_bucket_and_set_policy(bucket, policy)
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'MalformedPolicy')
+        self.deleteBucket(bucket = bucket)
 
     def test_ip_addr_policy(self):
+        bucket = str(uuid.uuid4())
         policy = {
             "Version":"2008-10-17",
             "Statement":[
@@ -754,17 +793,16 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
                     "Effect":"Deny",
                     "Principal":"*",
                     "Action":["s3:GetObject"],
-                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Resource":"arn:aws:s3:::%s/*" % bucket,
                     "Condition":{"IpAddress":{"aws:SourceIp":"%s" % self.host}}
                 }
             ]
         }
-        self.create_bucket_and_set_policy(policy)
+        self.create_bucket_and_set_policy(bucket, policy)
 
-        key_name = str(uuid.uuid4())
-        self.putObject(key = key_name)
+        self.putObject(bucket = bucket)
         try:
-            self.getObject(key = key_name)
+            self.getObject(bucket = bucket)
             self.fail()
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], '404')
@@ -777,20 +815,20 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
                     "Effect":"Allow",
                     "Principal":"*",
                     "Action":["s3:GetObject"],
-                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Resource":"arn:aws:s3:::%s/*" % bucket,
                     "Condition":{"IpAddress":{"aws:SourceIp":"%s" % self.host}}
                 }
             ]
         }
-        self.client.put_bucket_policy(Bucket = self.bucket_name,
+        self.client.put_bucket_policy(Bucket = bucket,
                                       Policy = json.dumps(policy))
-        self.getObject(key = key_name) ## throws nothing
+        self.getObject(bucket = bucket) ## throws nothing
+        self.deleteBucket(bucket = bucket)
 
 
     def test_invalid_transport_addr_policy(self):
-        self.createBucket()
-        key_name = str(uuid.uuid4())
-        self.putObject(key = key_name)
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
 
         policy = {
             "Version":"2008-10-17",
@@ -800,21 +838,22 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
                     "Effect":"Allow",
                     "Principal":"*",
                     "Action":["s3:GetObject"],
-                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Resource":"arn:aws:s3:::%s/*" % bucket,
                     "Condition":{"Bool":{"aws:SecureTransport":"wat"}}
                 }
             ]
         }
         try:
-            self.client.put_bucket_policy(Bucket = self.bucket_name,
+            self.client.put_bucket_policy(Bucket = bucket,
                                           Policy = json.dumps(policy))
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'MalformedPolicy')
+        self.deleteBucket(bucket = bucket)
 
     def test_transport_addr_policy(self):
-        self.createBucket()
-        key_name = str(uuid.uuid4())
-        self.putObject(key = key_name)
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
+        self.putObject(bucket = bucket)
 
         policy = {
             "Version":"2008-10-17",
@@ -824,23 +863,23 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
                     "Effect":"Allow",
                     "Principal":"*",
                     "Action":["s3:GetObject"],
-                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Resource":"arn:aws:s3:::%s/*" % bucket,
                     "Condition":{"Bool":{"aws:SecureTransport":False}}
                 }
             ]
         }
-        self.client.put_bucket_policy(Bucket = self.bucket_name,
+        self.client.put_bucket_policy(Bucket = bucket,
                                       Policy = json.dumps(policy))
-        self.assertEqual(self.getObject(key = key_name), self.data)
+        self.assertEqual(self.getObject(bucket = bucket), self.data)
 
         ## policy accepts anyone who comes with http
         os.environ['http_proxy'] = ''
         conn = httplib2.Http()
-        resp, content = conn.request('http://%s:%d/%s' % (self.host, self.port, key_name), "GET",
-                                     headers = {"Host": "%s.s3.amazonaws.com" % self.bucket_name})
+        resp, content = conn.request('http://%s:%d/%s' % (self.host, self.port, self.key_name), "GET",
+                                     headers = {"Host": "%s.s3.amazonaws.com" % bucket})
         conn.close()
         self.assertEqual(resp['status'], '200')
-        self.assertEqual(content, self.getObject(key = key_name))
+        self.assertEqual(content, self.getObject(bucket = bucket))
 
         ## anyone without https may not do any operation
         policy = {
@@ -851,32 +890,35 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
                     "Effect":"Deny",
                     "Principal":"*",
                     "Action":"*",
-                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Resource":"arn:aws:s3:::%s/*" % bucket,
                     "Condition":{"Bool":{"aws:SecureTransport":False}}
                  }
             ]
         }
-        self.client.put_bucket_policy(Bucket = self.bucket_name,
+        self.client.put_bucket_policy(Bucket = bucket,
                                       Policy = json.dumps(policy))
 
         os.environ['http_proxy'] = ''
         conn = httplib2.Http()
-        resp, content = conn.request('http://%s:%d/%s' % (self.host, self.port, key_name), "GET",
-                                     headers = {"Host": "%s.s3.amazonaws.com" % self.bucket_name})
+        resp, content = conn.request('http://%s:%d/%s' % (self.host, self.port, self.key_name), "GET",
+                                     headers = {"Host": "%s.s3.amazonaws.com" % bucket})
         conn.close()
         self.assertEqual(resp['status'], '403')
+        # abandon this bucket as we the policy we have set gets us an AccessDenied
+        # self.deleteBucket(bucket = bucket)
 
 
 class MultipartUploadTestsUnderPolicy(S3ApiVerificationTestBase):
 
     def test_small_strings_upload_1(self):
-        self.createBucket()
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
         parts = [b'this is part one', b'part two is just a rewording',
                  b'surprise that part three is pretty much the same',
                  b'and the last part is number four']
         expected_md5 = hashlib.md5(b''.join(parts)).hexdigest()
 
-        key_name = str(uuid.uuid4())
+        key = str(uuid.uuid4())
 
         ## anyone may PUT this object
         policy = {
@@ -887,14 +929,15 @@ class MultipartUploadTestsUnderPolicy(S3ApiVerificationTestBase):
                     "Effect":"Allow",
                     "Principal":"*",
                     "Action":["s3:PutObject"],
-                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Resource":"arn:aws:s3:::%s/*" % bucket,
                     "Condition":{"Bool":{"aws:SecureTransport":False}}
                  }
             ]}
-        self.client.put_bucket_policy(Bucket = self.bucket_name,
+        self.client.put_bucket_policy(Bucket = bucket,
                                       Policy = json.dumps(policy))
-        upload_id, result = self.upload_multipart(key_name, parts)
-        actual_md5 = hashlib.md5(bytes(self.getObject(key = key_name))).hexdigest()
+        upload_id, result = self.upload_multipart(bucket, key, parts)
+        actual_md5 = hashlib.md5(bytes(self.getObject(bucket = bucket,
+                                                      key = key))).hexdigest()
         self.assertEqual(expected_md5, actual_md5)
 
         ## anyone without https may not do any operation
@@ -906,18 +949,19 @@ class MultipartUploadTestsUnderPolicy(S3ApiVerificationTestBase):
                     "Effect":"Deny",
                     "Principal":"*",
                     "Action":["s3:PutObject"],
-                    "Resource":"arn:aws:s3:::%s/*" % self.bucket_name,
+                    "Resource":"arn:aws:s3:::%s/*" % bucket,
                     "Condition":{"Bool":{"aws:SecureTransport":False}}
                 }
             ]
         }
-        self.client.put_bucket_policy(Bucket = self.bucket_name,
+        self.client.put_bucket_policy(Bucket = bucket,
                                       Policy = json.dumps(policy))
         try:
-            self.upload_multipart(key_name, parts)
+            self.upload_multipart(bucket, key, parts)
             self.fail()
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'AccessDenied')
+        self.deleteBucket(bucket = bucket)
 
 class ObjectMetadataTest(S3ApiVerificationTestBase):
     "Test object metadata, e.g. Content-Encoding, x-amz-meta-*, for PUT/GET"
@@ -943,28 +987,30 @@ class ObjectMetadataTest(S3ApiVerificationTestBase):
     }
 
     def test_normal_object_metadata(self):
-        key_name = str(uuid.uuid4())
-        self.createBucket()
-        self.client.put_object(Bucket = self.bucket_name,
-                               Key = key_name,
-                               Body = "test_normal_object_metadata",
-                               Metadata = self.metadata)
-        self.assert_metadata(key_name)
-        self.change_metadata(key_name)
-        self.assert_updated_metadata(key_name)
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
+        self.putObject(bucket = bucket,
+                       value = "test_normal_object_metadata",
+                       metadata = self.metadata)
+        self.assert_metadata(bucket, self.key_name)
+        self.change_metadata(bucket, self.key_name)
+        self.assert_updated_metadata(bucket, self.key_name)
+        self.deleteBucket(bucket = bucket)
 
     def test_mp_object_metadata(self):
-        key_name = str(uuid.uuid4())
-        bucket = self.createBucket()
-        upload = self.upload_multipart(key_name, [b"part1"],
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
+        key = str(uuid.uuid4())
+        upload = self.upload_multipart(bucket, key, [b"part1"],
                                        metadata = self.metadata)
-        self.assert_metadata(key_name)
-        self.change_metadata(key_name)
-        self.assert_updated_metadata(key_name)
+        self.assert_metadata(bucket, key)
+        self.change_metadata(bucket, key)
+        self.assert_updated_metadata(bucket, key)
+        self.deleteBucket(bucket = bucket)
 
-    def assert_metadata(self, key_name):
-        res = self.client.get_object(Bucket = self.bucket_name,
-                                     Key = key_name)
+    def assert_metadata(self, bucket, key):
+        res = self.client.get_object(Bucket = bucket,
+                                     Key = key)
 
         hh = res['ResponseMetadata']['HTTPHeaders']
         md = res['Metadata']
@@ -984,16 +1030,16 @@ class ObjectMetadataTest(S3ApiVerificationTestBase):
         self.assertEqual(md.get("With-Hypen"), None)
         self.assertEqual(md.get("Space-In-Value"), None)
 
-    def change_metadata(self, key_name):
-        self.client.copy_object(Bucket = self.bucket_name,
-                                Key = key_name,
-                                CopySource = "%s/%s" % (self.bucket_name, key_name),
+    def change_metadata(self, bucket, key):
+        self.client.copy_object(Bucket = bucket,
+                                Key = key,
+                                CopySource = "%s/%s" % (bucket, key),
                                 MetadataDirective = 'REPLACE',
                                 Metadata = self.updated_metadata)
 
-    def assert_updated_metadata(self, key_name):
-        res = self.client.get_object(Bucket = self.bucket_name,
-                                     Key = key_name)
+    def assert_updated_metadata(self, bucket, key):
+        res = self.client.get_object(Bucket = bucket,
+                                     Key = key)
 
         hh = res['ResponseMetadata']['HTTPHeaders']
         md = res['Metadata']
@@ -1015,149 +1061,154 @@ class ObjectMetadataTest(S3ApiVerificationTestBase):
 
 class ContentMd5Test(S3ApiVerificationTestBase):
     def test_catches_bad_md5(self):
-        key_name = str(uuid.uuid4())
-        bucket = self.createBucket()
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
         s = b'not the real content'
         bad_md5 = hashlib.md5(s).hexdigest()
         try:
-            self.client.put_object(Bucket = self.bucket_name,
-                                   Key = key_name,
+            self.client.put_object(Bucket = bucket,
+                                   Key = self.key_name,
                                    Body = 'this is different from the md5 we calculated',
                                    ContentMD5 = bad_md5)
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'InvalidDigest')
+        self.deleteBucket(bucket = bucket)
 
 
     def test_bad_md5_leaves_old_object_alone(self):
         # Github #705 Regression test:
         # Make sure that overwriting an object using a bad md5
         # simply leaves the old version in place.
-        key_name = str(uuid.uuid4())
-        self.createBucket()
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
         value = b'good value'
-        self.client.put_object(Bucket = self.bucket_name,
-                               Key = key_name,
-                               Body = value)
+        self.putObject(bucket = bucket, value = value)
         bad_value = b'not the real content'
         bad_md5 = hashlib.md5(bad_value).hexdigest()
         try:
-            self.client.put_object(Bucket = self.bucket_name,
-                                   Key = key_name,
+            self.client.put_object(Bucket = bucket,
+                                   Key = self.key_name,
                                    Body = 'this is different from the md5 we calculated',
                                    ContentMD5 = bad_md5)
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'InvalidDigest')
-
-        self.assertEqual(self.getObject(key = key_name), value)
+        self.assertEqual(self.getObject(bucket = bucket), value)
+        self.deleteBucket(bucket = bucket)
 
 class SimpleCopyTest(S3ApiVerificationTestBase):
 
     def test_put_copy_object(self):
-        self.createBucket()
-        self.putObject()
+        src_bucket = str(uuid.uuid4())
+        self.createBucket(bucket = src_bucket)
+        self.putObject(bucket = src_bucket)
 
-        target_bucket_name = str(uuid.uuid4())
-        target_key_name = str(uuid.uuid4())
-        self.client.create_bucket(Bucket = target_bucket_name)
+        target_bucket = str(uuid.uuid4())
+        self.createBucket(bucket = target_bucket)
 
-        self.client.copy_object(Bucket = target_bucket_name,
-                                CopySource = '%s/%s' % (self.bucket_name, self.key_name),
-                                Key = target_key_name)
+        self.client.copy_object(Bucket = target_bucket,
+                                CopySource = '%s/%s' % (src_bucket, self.key_name),
+                                Key = self.key_name)
 
-        self.assertEqual(self.client.get_object(Bucket = self.bucket_name, Key = self.key_name)['Body'].read(),
-                         self.data)
-        self.assertEqual(self.client.get_object(Bucket = self.bucket_name, Key = self.key_name)['Body'].read(),
-                         self.client.get_object(Bucket = target_bucket_name, Key = target_key_name)['Body'].read())
-        self.assertIn(target_key_name,
-                      [k['Key'] for k in self.client.list_objects_v2(Bucket = target_bucket_name).get('Contents', [])])
+        self.assertEqual(self.getObject(bucket = src_bucket), self.data)
+        self.assertEqual(self.getObject(bucket = target_bucket), self.data)
+        self.assertIn(self.key_name, self.listKeys(bucket = target_bucket))
+
+        self.deleteBucket(bucket = src_bucket)
+        self.deleteBucket(bucket = target_bucket)
 
     def test_put_copy_object_from_mp(self):
-        self.createBucket()
-        upload_id, result = self.upload_multipart(self.key_name, [self.data])
+        src_bucket = str(uuid.uuid4())
+        self.createBucket(bucket = src_bucket)
+        upload_id, result = self.upload_multipart(src_bucket, self.key_name, [self.data])
 
-        target_bucket_name = str(uuid.uuid4())
-        target_key_name = str(uuid.uuid4())
-        target_bucket = self.client.create_bucket(Bucket = target_bucket_name)
+        target_bucket = str(uuid.uuid4())
+        self.createBucket(bucket = target_bucket)
 
-        self.client.copy_object(Bucket = target_bucket_name,
-                                CopySource = '%s/%s' % (self.bucket_name, self.key_name),
-                                Key = target_key_name)
+        self.client.copy_object(Bucket = target_bucket,
+                                CopySource = '%s/%s' % (src_bucket, self.key_name),
+                                Key = self.key_name)
 
-        self.assertEqual(self.client.get_object(Bucket = self.bucket_name, Key = self.key_name)['Body'].read(),
-                         self.data)
-        self.assertEqual(self.client.get_object(Bucket = self.bucket_name, Key = self.key_name)['Body'].read(),
-                         self.client.get_object(Bucket = target_bucket_name, Key = target_key_name)['Body'].read())
-        self.assertIn(target_key_name,
-                      [k['Key'] for k in self.client.list_objects_v2(Bucket = target_bucket_name).get('Contents', [])])
+        self.assertEqual(self.getObject(bucket = src_bucket), self.data)
+        self.assertEqual(self.getObject(bucket = target_bucket), self.data)
+        self.assertIn(self.key_name, self.listKeys(bucket = target_bucket))
+
+        self.deleteBucket(bucket = src_bucket)
+        self.deleteBucket(bucket = target_bucket)
 
     def test_upload_part_from_non_mp(self):
-        self.createBucket()
-        self.putObject()
+        src_bucket = str(uuid.uuid4())
+        self.createBucket(bucket = src_bucket)
+        self.putObject(bucket = src_bucket)
 
-        target_bucket_name = str(uuid.uuid4())
-        target_key_name = str(uuid.uuid4())
-        self.client.create_bucket(Bucket = target_bucket_name)
+        target_bucket = str(uuid.uuid4())
+        self.createBucket(bucket = target_bucket)
 
         start_offset, end_offset = 0, 9
-        upload_id = self.client.create_multipart_upload(Bucket = target_bucket_name,
-                                                        Key = target_key_name)['UploadId']
-        res = self.client.upload_part_copy(Bucket = target_bucket_name,
-                                           Key = target_key_name,
+        upload_id = self.client.create_multipart_upload(Bucket = target_bucket,
+                                                        Key = self.key_name)['UploadId']
+        res = self.client.upload_part_copy(Bucket = target_bucket,
+                                           Key = self.key_name,
                                            PartNumber = 1,
                                            UploadId = upload_id,
-                                           CopySource = "%s/%s" % (self.bucket_name, self.key_name),
+                                           CopySource = "%s/%s" % (src_bucket, self.key_name),
                                            CopySourceRange = "bytes=%d-%d" % (start_offset, end_offset))
         etags = [{'ETag': res['CopyPartResult']['ETag'], 'PartNumber': 1}]
 
-        self.client.complete_multipart_upload(Bucket = target_bucket_name,
-                                              Key = target_key_name,
+        self.client.complete_multipart_upload(Bucket = target_bucket,
+                                              Key = self.key_name,
                                               UploadId = upload_id,
                                               MultipartUpload = {'Parts': etags})
 
         self.assertEqual(self.data[start_offset:(end_offset+1)],
-                         self.client.get_object(Bucket = target_bucket_name,
-                                                Key = target_key_name)['Body'].read())
+                         self.getObject(bucket = target_bucket))
+        self.deleteBucket(bucket = src_bucket)
+        self.deleteBucket(bucket = target_bucket)
 
     def test_upload_part_from_mp(self):
-        self.createBucket()
-        key_name = str(uuid.uuid4())
-        upload1_id, result = self.upload_multipart(key_name, [self.data])
+        src_bucket = str(uuid.uuid4())
+        self.createBucket(bucket = src_bucket)
+        upload1_id, result = self.upload_multipart(src_bucket, self.key_name, [self.data])
 
-        target_bucket_name = str(uuid.uuid4())
-        target_bucket = self.client.create_bucket(Bucket = target_bucket_name)
+        target_bucket = str(uuid.uuid4())
+        self.createBucket(bucket = target_bucket)
 
         start_offset, end_offset = 0, 9
-        upload2_id = self.client.create_multipart_upload(Bucket = target_bucket_name,
-                                                         Key = key_name)['UploadId']
-        res = self.client.upload_part_copy(Bucket = target_bucket_name,
-                                           Key = key_name,
+        upload2_id = self.client.create_multipart_upload(Bucket = target_bucket,
+                                                         Key = self.key_name)['UploadId']
+        res = self.client.upload_part_copy(Bucket = target_bucket,
+                                           Key = self.key_name,
                                            PartNumber = 1,
                                            UploadId = upload2_id,
-                                           CopySource = "%s/%s" % (self.bucket_name, self.key_name),
+                                           CopySource = "%s/%s" % (src_bucket, self.key_name),
                                            CopySourceRange = "bytes=%d-%d" % (start_offset, end_offset))
         etags = [{'ETag': res['CopyPartResult']['ETag'], 'PartNumber': 1}]
-        self.client.complete_multipart_upload(Bucket = target_bucket_name,
-                                              Key = key_name,
+        self.client.complete_multipart_upload(Bucket = target_bucket,
+                                              Key = self.key_name,
                                               UploadId = upload2_id,
                                               MultipartUpload = {'Parts': etags})
 
         self.assertEqual(self.data[start_offset:(end_offset+1)],
-                         self.client.get_object(Bucket = target_bucket_name,
-                                                Key = key_name)['Body'].read())
+                         self.getObject(bucket = target_bucket))
+
+        self.deleteBucket(bucket = src_bucket)
+        self.deleteBucket(bucket = target_bucket)
 
     def test_put_copy_from_non_existing_key_404(self):
-        self.createBucket()
+        src_bucket = str(uuid.uuid4())
+        self.createBucket(bucket = src_bucket)
 
-        target_bucket_name = str(uuid.uuid4())
-        target_key_name = str(uuid.uuid4())
-        self.createBucket(bucket = target_bucket_name)
+        target_bucket = str(uuid.uuid4())
+        self.createBucket(bucket = target_bucket)
         try:
-            self.client.copy_object(Bucket = target_bucket_name,
-                                    Key = target_key_name,
-                                    CopySource = '%s/%s' % (self.bucket_name, 'not_existing'))
+            self.client.copy_object(Bucket = target_bucket,
+                                    Key = self.key_name,
+                                    CopySource = '%s/%s' % (src_bucket, 'not_existing'))
             self.fail()
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'NoSuchKey')
+
+        self.deleteBucket(bucket = src_bucket)
+        self.deleteBucket(bucket = target_bucket)
 
 
 def one_kb_string():
