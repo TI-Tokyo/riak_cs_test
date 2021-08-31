@@ -134,7 +134,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         vv = client.list_object_versions(Bucket = bucket)
         return vv.get('Versions', [])
 
-    def putObject(self, bucket = None, key = None, value = None, metadata = {}, client = None):
+    def putObject(self, bucket = None, key = None, vsn = None, value = None, metadata = {}, client = None):
         if client is None:
             client = self.client
         if bucket is None:
@@ -143,6 +143,12 @@ class S3ApiVerificationTestBase(unittest.TestCase):
             key = self.default_key
         if value is None:
             value = self.data
+        if vsn is not None:
+            client.meta.events.register_first(
+                'before-sign.s3.PutObject',
+                lambda request, **kwargs: add_versionid_header(request,
+                                                               vsn,
+                                                               **kwargs))
         res = client.put_object(Bucket = bucket,
                                 Key = key,
                                 Body = value,
@@ -259,6 +265,8 @@ def add_versioning_headers(request, useSubVersioning, canUpdateVersions, replSib
     if replSiblings is not None:
         request.headers.add_header('x-rcs-versioning-repl_siblings', str(replSiblings))
 
+def add_versionid_header(request, vsn, **kwargs):
+    request.headers.add_header('x-rcs-versionid', str(vsn))
 
 def create_user(host, port, name, email):
     os.environ['http_proxy'] = ''

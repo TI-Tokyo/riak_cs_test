@@ -73,6 +73,19 @@ class VersioningTests(S3ApiVerificationTestBase):
         self.assertEqual(self.getObject(bucket = bucket, key = key, vsn = v2), val2)
         self.deleteBucket(bucket = bucket)
 
+    def test_versioned_put(self):
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
+        self.putBucketVersioning(bucket = bucket,
+                                 status = 'Enabled')
+        v1 = self.putObject(bucket = bucket)
+        self.assertEqual(self.getObject(bucket = bucket, vsn = v1), self.data)
+
+        self.assertEqual(self.putObject(bucket = bucket, vsn = v1, value = b'overwritten'), v1)
+        self.assertEqual(self.getObject(bucket = bucket, vsn = v1), b'overwritten')
+        self.deleteBucket(bucket = bucket)
+
+
     def test_crud_with_suspend(self):
         bucket = str(uuid.uuid4())
         key0, val0, vsn0 = "one", b"ONE", 'null'
