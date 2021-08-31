@@ -43,6 +43,7 @@ class VersioningTests(S3ApiVerificationTestBase):
         res = self.getBucketVersioning(bucket = bucket)
         self.assertEqual(self.getBucketVersioning(bucket = bucket), 'Suspended')
         # boto3 does not extract Riak CS specific fields, but they could be seen in the response body
+        self.deleteBucket(bucket = bucket)
 
     def test_basic_crud(self):
         bucket = str(uuid.uuid4())
@@ -70,6 +71,7 @@ class VersioningTests(S3ApiVerificationTestBase):
         self.assertEqual(key, vv[0]["Key"])
         self.assertEqual(v2, vv[0]["VersionId"])
         self.assertEqual(self.getObject(bucket = bucket, key = key, vsn = v2), val2)
+        self.deleteBucket(bucket = bucket)
 
     def test_crud_with_suspend(self):
         bucket = str(uuid.uuid4())
@@ -121,6 +123,8 @@ class VersioningTests(S3ApiVerificationTestBase):
         self.assertEqual(len(vv), 1)
         self.assertNotIn("null", vv)
 
+        self.deleteBucket(bucket = bucket)
+
     def test_multipart_crud(self):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
@@ -130,6 +134,7 @@ class VersioningTests(S3ApiVerificationTestBase):
                  b'surprise that part three is pretty much the same',
                  b'and the last part is number four']
         self.multipart_md5_helper(bucket, parts)
+        self.deleteBucket(bucket = bucket)
 
     def test_multiuser_crud(self):
         bucket = str(uuid.uuid4())

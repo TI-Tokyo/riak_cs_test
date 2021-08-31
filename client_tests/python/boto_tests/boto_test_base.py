@@ -110,8 +110,8 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         try:
             client.delete_bucket(Bucket = bucket)
         except:
-            for o in self.listKeys(bucket = bucket, client = client):
-                self.deleteObject(bucket = bucket, key = o, client = client)
+            for ov in self.listObjectVersions(bucket = bucket, client = client):
+                self.deleteObject(bucket = bucket, key = ov["Key"], vsn = ov["VersionId"], client = client)
             client.delete_bucket(Bucket = bucket)
 
     def listBuckets(self, client = None):
