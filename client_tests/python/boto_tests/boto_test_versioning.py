@@ -155,3 +155,72 @@ class VersioningTests(S3ApiVerificationTestBase):
         self.putBucketVersioning(bucket = bucket,
                                  status = 'Enabled')
 
+        client2 = self.make_client(self.user2)
+
+        v1 = self.putObject(bucket = bucket)
+
+        # user1 can read the object he created
+        self.assertEqual(self.getObject(bucket = bucket, vsn = v1), self.data)
+        # but user2 cannot
+        try:
+            self.getObject(bucket = bucket, vsn = v1, client = client2)
+            self.fail()
+        except botocore.exceptions.ClientError as e:
+            self.assertEqual(e.response['Error']['Code'], 'AccessDenied')
+
+        self.client.put_object_acl(Bucket = bucket,
+                                   Key = self.default_key,
+                                   VersionId = v1,
+                                   AccessControlPolicy = {
+                                       'Grants': [
+                                           {
+                                               'Grantee': {
+                                                   'EmailAddress': self.user2["email"],
+                                                   'Type': 'CanonicalUser'
+                                               },
+                                               'Permission': 'READ'
+                                           },
+                                           {
+                                               'Grantee': {
+                                                   'EmailAddress': self.user2["email"],
+                                                   'Type': 'CanonicalUser'
+                                               },
+                                               'Permission': 'WRITE'
+                                           },
+                                           {
+                                               'Grantee': {
+                                                   'EmailAddress': self.user1["email"],
+                                                   'Type': 'CanonicalUser'
+                                               },
+                                               'Permission': 'FULL_CONTROL'
+                                           }
+                                       ],
+                                       'Owner': {
+                                           'ID': self.user1["id"]
+                                       }
+                                   })
+        self.assertEqual(self.getObject(bucket = bucket, vsn = v1, client = client2), self.data)
+
+        try:
+            self.assertEqual(self.putObject(bucket = bucket, vsn = v1, client = client2, value = b'overwritten'), self.data)
+        except botocore.exceptions.ClientError as e:
+            self.assertEqual(e.response['Error']['Code'], 'AccessDenied')
+
+        # policy = {
+        #     "Version":"2008-10-17",
+        #     "Statement":[
+        #         {
+        #             "Sid":"Stmtaaa",
+        #             "Effect":"Allow",
+        #             "Principal":"*",
+        #             "Action":["s3:PutObject"],
+        #             "Resource":"arn:aws:s3:::%s/*" % bucket,
+        #             "Condition":{"IpAddress":{"aws:SourceIp":"127.0.0.1/32"}}
+        #          }
+        #     ]
+        # }
+        # self.client.put_bucket_policy(Bucket = bucket,
+        #                               Policy = json.dumps(policy))
+        self.assertEqual(self.putObject(bucket = bucket, vsn = v1, value = b'overwritten'), v1)
+        self.assertEqual(self.getObject(bucket = bucket, vsn = v1), b'overwritten')
+        self.deleteBucket(bucket = bucket)
