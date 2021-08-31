@@ -22,7 +22,7 @@
 ## ---------------------------------------------------------------------
 
 from boto_test_base import *
-import json, uuid
+import uuid
 
 class VersioningTests(S3ApiVerificationTestBase):
 

@@ -82,8 +82,8 @@ class S3ApiVerificationTestBase(unittest.TestCase):
                          "key_id": key_id, "key_secret": key_secret, "id": user_id}
 
         cls.user2 = create_user(cls.host, cls.port, "user2", str(uuid.uuid4()) + "@example.me")
-        cls.bucket_name = str(uuid.uuid4())
-        cls.key_name = str(uuid.uuid4())
+        cls.default_bucket = str(uuid.uuid4())
+        cls.default_key = str(uuid.uuid4())
         cls.data = mineCoins()
 
         warnings.simplefilter("ignore", ResourceWarning)
@@ -95,99 +95,119 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         True # del self.client # doesn't help to prevent ResourceWarning exception (there's a filter trick for that)
 
 
-    def createBucket(self, bucket = None):
+    def createBucket(self, bucket = None, client = None):
+        if client is None:
+            client = self.client
         if bucket is None:
-            bucket = self.bucket_name
-        return self.client.create_bucket(Bucket = bucket)
+            bucket = self.default_bucket
+        return client.create_bucket(Bucket = bucket)
 
-    def deleteBucket(self, bucket = None):
+    def deleteBucket(self, bucket = None, client = None):
+        if client is None:
+            client = self.client
         if bucket is None:
-            bucket = self.bucket_name
+            bucket = self.default_bucket
         try:
-            self.client.delete_bucket(Bucket = bucket)
+            client.delete_bucket(Bucket = bucket)
         except:
-            for o in self.listKeys(bucket = bucket):
-                self.deleteObject(bucket = bucket, key = o)
-            self.client.delete_bucket(Bucket = bucket)
+            for o in self.listKeys(bucket = bucket, client = client):
+                self.deleteObject(bucket = bucket, key = o, client = client)
+            client.delete_bucket(Bucket = bucket)
 
-    def listBuckets(self):
-        return [b['Name'] for b in self.client.list_buckets()['Buckets']]
+    def listBuckets(self, client = None):
+        if client is None:
+            client = self.client
+        return [b['Name'] for b in client.list_buckets()['Buckets']]
 
-    def listKeys(self, bucket = None):
+    def listKeys(self, bucket = None, client = None):
+        if client is None:
+            client = self.client
         if bucket is None:
-            bucket = self.bucket_name
-        return [k['Key'] for k in self.client.list_objects_v2(Bucket = bucket).get('Contents', [])]
+            bucket = self.default_bucket
+        return [k['Key'] for k in client.list_objects_v2(Bucket = bucket).get('Contents', [])]
 
-    def listObjectVersions(self, bucket = None):
+    def listObjectVersions(self, bucket = None, client = None):
+        if client is None:
+            client = self.client
         if bucket is None:
-            bucket = self.bucket_name
-        vv = self.client.list_object_versions(Bucket = bucket)
+            bucket = self.default_bucket
+        vv = client.list_object_versions(Bucket = bucket)
         return vv.get('Versions', [])
 
-    def putObject(self, bucket = None, key = None, value = None, metadata = {}):
+    def putObject(self, bucket = None, key = None, value = None, metadata = {}, client = None):
+        if client is None:
+            client = self.client
         if bucket is None:
-            bucket = self.bucket_name
+            bucket = self.default_bucket
         if key is None:
-            key = self.key_name
+            key = self.default_key
         if value is None:
             value = self.data
-        res = self.client.put_object(Bucket = bucket,
-                                     Key = key,
-                                     Body = value,
-                                     Metadata = metadata)
+        res = client.put_object(Bucket = bucket,
+                                Key = key,
+                                Body = value,
+                                Metadata = metadata)
         return res['ResponseMetadata']['HTTPHeaders']['x-amz-version-id']
 
-    def getObject(self, bucket = None, key = None, vsn = None):
+    def getObject(self, bucket = None, key = None, vsn = None, client = None):
+        if client is None:
+            client = self.client
         if bucket is None:
-            bucket = self.bucket_name
+            bucket = self.default_bucket
         if key is None:
-            key = self.key_name
+            key = self.default_key
         if vsn is None:
             vsn = 'null'
-        return bytes(self.client.get_object(Bucket = bucket,
-                                            Key = key,
-                                            VersionId = vsn)['Body'].read())
+        return bytes(client.get_object(Bucket = bucket,
+                                       Key = key,
+                                       VersionId = vsn)['Body'].read())
 
-    def deleteObject(self, bucket = None, key = None, vsn = None):
+    def deleteObject(self, bucket = None, key = None, vsn = None, client = None):
+        if client is None:
+            client = self.client
         if bucket is None:
-            bucket = self.bucket_name
+            bucket = self.default_bucket
         if key is None:
-            key = self.key_name
+            key = self.default_key
         if vsn is None:
             vsn = 'null'
-        return self.client.delete_object(Bucket = bucket,
-                                         Key = key,
-                                         VersionId = vsn)
+        return client.delete_object(Bucket = bucket,
+                                    Key = key,
+                                    VersionId = vsn)
 
-    def getBucketVersioning(self, bucket = None):
+    def getBucketVersioning(self, bucket = None, client = None):
+        if client is None:
+            client = self.client
         ####boto3.set_stream_logger('')
         if bucket is None:
-            bucket = self.bucket_name
-        return self.client.get_bucket_versioning(Bucket = bucket)['Status']
+            bucket = self.default_bucket
+        return client.get_bucket_versioning(Bucket = bucket)['Status']
 
     def putBucketVersioning(self, status,
                             bucket = None, mfaDelete = None,
                             useSubVersioning = None,
                             canUpdateVersions = None,
-                            replSiblings = None):
+                            replSiblings = None,
+                            client = None):
+        if client is None:
+            client = self.client
         if bucket is None:
-            bucket = self.bucket_name
+            bucket = self.default_bucket
         if mfaDelete is None:
             vsnconf = {'Status': status}
         else:
             vsnconf = {'MFADelete': mfaDelete,
                        'Status': status}
 
-        self.client.meta.events.register_first(
+        client.meta.events.register_first(
             'before-sign.s3.PutBucketVersioning',
             lambda request, **kwargs: add_versioning_headers(request,
                                                              useSubVersioning,
                                                              canUpdateVersions,
                                                              replSiblings,
                                                              **kwargs))
-        res = self.client.put_bucket_versioning(Bucket = bucket,
-                                                VersioningConfiguration = vsnconf)
-        return res
+        return client.put_bucket_versioning(Bucket = bucket,
+                                            VersioningConfiguration = vsnconf)
 
     def verifyDictListsIdentical(self, cc1, cc2):
         [self.assertIn(c, cc1) for c in cc2]

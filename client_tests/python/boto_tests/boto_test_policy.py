@@ -218,7 +218,7 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
         ## policy accepts anyone who comes with http
         os.environ['http_proxy'] = ''
         conn = httplib2.Http()
-        resp, content = conn.request('http://%s:%d/%s' % (self.host, self.port, self.key_name), "GET",
+        resp, content = conn.request('http://%s:%d/%s' % (self.host, self.port, self.default_key), "GET",
                                      headers = {"Host": "%s.s3.amazonaws.com" % bucket})
         conn.close()
         self.assertEqual(resp['status'], '200')
@@ -243,7 +243,7 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
 
         os.environ['http_proxy'] = ''
         conn = httplib2.Http()
-        resp, content = conn.request('http://%s:%d/%s' % (self.host, self.port, self.key_name), "GET",
+        resp, content = conn.request('http://%s:%d/%s' % (self.host, self.port, self.default_key), "GET",
                                      headers = {"Host": "%s.s3.amazonaws.com" % bucket})
         conn.close()
         self.assertEqual(resp['status'], '403')

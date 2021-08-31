@@ -53,9 +53,9 @@ class ObjectMetadataTest(S3ApiVerificationTestBase):
         self.putObject(bucket = bucket,
                        value = "test_normal_object_metadata",
                        metadata = self.metadata)
-        self.assert_metadata(bucket, self.key_name)
-        self.change_metadata(bucket, self.key_name)
-        self.assert_updated_metadata(bucket, self.key_name)
+        self.assert_metadata(bucket, self.default_key)
+        self.change_metadata(bucket, self.default_key)
+        self.assert_updated_metadata(bucket, self.default_key)
         self.deleteBucket(bucket = bucket)
 
     def test_mp_object_metadata(self):

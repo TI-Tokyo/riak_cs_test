@@ -32,99 +32,106 @@ class BasicTests(S3ApiVerificationTestBase):
 
     def test_create_bucket(self):
         self.createBucket()
-        self.assertIn(self.bucket_name, self.listBuckets())
+        self.assertIn(self.default_bucket, self.listBuckets())
+        self.deleteBucket()
 
     def test_put_object(self, key = None):
         if key is None:
-            key = self.key_name
+            key = self.default_key
         self.createBucket()
         self.putObject(key = key)
         self.assertIn(key, self.listKeys())
         self.assertEqual(self.data, self.getObject(key = key))
+        self.deleteBucket()
 
     def test_put_object_with_trailing_slash(self):
-        self.test_put_object(self.key_name + '/')
+        self.test_put_object(self.default_key + '/')
 
     def test_delete_object(self):
         #boto3.set_stream_logger('')
         self.createBucket()
         self.putObject()
-        self.assertIn(self.key_name, self.listKeys())
+        self.assertIn(self.default_key, self.listKeys())
         self.deleteObject()
-        self.assertNotIn(self.key_name, self.listKeys())
+        self.assertNotIn(self.default_key, self.listKeys())
         self.assertRaises(self.client.exceptions.NoSuchKey,
-                          lambda: self.client.get_object(Bucket = self.bucket_name,
-                                                         Key = self.key_name).get('Body').read())
+                          lambda: self.client.get_object(Bucket = self.default_bucket,
+                                                         Key = self.default_key).get('Body').read())
+        self.deleteBucket()
 
 
     def test_delete_objects(self):
-        bucket_name = str(uuid.uuid4())
-        bucket = self.createBucket(bucket = bucket_name)
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
         keys = ['0', '1', u'Unicodeあいうえお', '2', 'multiple   spaces']
         values = [mineCoins() for _ in range(1, 4)]
         kvs = zip(keys, values)
         for k,v in kvs:
-            self.putObject(bucket = bucket_name, key = k, value = v)
+            self.putObject(bucket = bucket, key = k, value = v)
 
-        got_keys = self.listKeys(bucket = bucket_name)
+        got_keys = self.listKeys(bucket = bucket)
         self.assertEqual(keys.sort(), got_keys.sort())
 
-        result = self.client.delete_objects(Bucket = bucket_name,
+        result = self.client.delete_objects(Bucket = bucket,
                                             Delete = {'Objects': [{'Key': k} for k in keys]})
 
         self.assertEqual(keys, [k['Key'] for k in result['Deleted']])
         self.assertEqual([], result.get('Errors', []))
 
         self.assertRaises(self.client.exceptions.NoSuchKey,
-                          lambda: self.client.get_object(Bucket = bucket_name,
+                          lambda: self.client.get_object(Bucket = bucket,
                                                          Key = keys[0]).get('Body').read())
+        self.deleteBucket(bucket = bucket)
 
     def test_delete_bucket(self):
         self.createBucket()
-        self.assertIn(self.bucket_name, self.listBuckets())
+        self.assertIn(self.default_bucket, self.listBuckets())
         #boto3.set_stream_logger('')
         self.deleteBucket()
-        self.assertNotIn(self.bucket_name, self.listBuckets())
+        self.assertNotIn(self.default_bucket, self.listBuckets())
 
     def test_get_bucket_acl(self):
-        time.sleep(.5)
-        bucket_name = str(uuid.uuid4())
-        self.createBucket(bucket = bucket_name)
-        res = self.client.get_bucket_acl(Bucket = bucket_name)
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
+        res = self.client.get_bucket_acl(Bucket = bucket)
         self.assertEqual(res['Owner'], {'DisplayName': 'admin', 'ID': self.user1['id']})
         self.verifyDictListsIdentical(res['Grants'],
                                       [userAcl(self.user1, 'FULL_CONTROL')])
+        self.deleteBucket(bucket = bucket)
 
     def test_set_bucket_acl(self):
-        bucket_name = str(uuid.uuid4())
-        self.createBucket(bucket = bucket_name)
-        self.client.put_bucket_acl(Bucket = bucket_name,
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
+        self.client.put_bucket_acl(Bucket = bucket,
                                    ACL = 'public-read')
-        res = self.client.get_bucket_acl(Bucket = bucket_name)
+        res = self.client.get_bucket_acl(Bucket = bucket)
         self.assertEqual(res['Owner']['DisplayName'], self.user1['name'])
         self.assertEqual(res['Owner']['ID'], self.user1['id'])
         self.verifyDictListsIdentical(res['Grants'],
                                       [publicAcl('READ'), userAcl(self.user1, 'FULL_CONTROL')])
+        self.deleteBucket(bucket = bucket)
 
     def test_get_object_acl(self):
-        bucket_name = str(uuid.uuid4())
-        self.createBucket(bucket = bucket_name)
-        self.putObject(bucket = bucket_name)
-        res = self.client.get_object_acl(Bucket = bucket_name,
-                                         Key = self.key_name)
+        bucket = str(uuid.uuid4())
+        self.createBucket(bucket = bucket)
+        self.putObject(bucket = bucket)
+        res = self.client.get_object_acl(Bucket = bucket,
+                                         Key = self.default_key)
         self.assertEqual(res['Grants'], [userAcl(self.user1, 'FULL_CONTROL')])
+        self.deleteBucket(bucket = bucket)
 
     def test_set_object_acl(self):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
         self.putObject(bucket = bucket)
         self.client.put_object_acl(Bucket = bucket,
-                                   Key = self.key_name,
+                                   Key = self.default_key,
                                    ACL = 'public-read')
         res = self.client.get_object_acl(Bucket = bucket,
-                                         Key = self.key_name)
+                                         Key = self.default_key)
         self.verifyDictListsIdentical(res['Grants'],
                                       [publicAcl('READ'), userAcl(self.user1, 'FULL_CONTROL')])
+        self.deleteBucket(bucket = bucket)
 
 
 class SimpleCopyTest(S3ApiVerificationTestBase):
@@ -138,12 +145,12 @@ class SimpleCopyTest(S3ApiVerificationTestBase):
         self.createBucket(bucket = target_bucket)
 
         self.client.copy_object(Bucket = target_bucket,
-                                CopySource = '%s/%s' % (src_bucket, self.key_name),
-                                Key = self.key_name)
+                                CopySource = '%s/%s' % (src_bucket, self.default_key),
+                                Key = self.default_key)
 
         self.assertEqual(self.getObject(bucket = src_bucket), self.data)
         self.assertEqual(self.getObject(bucket = target_bucket), self.data)
-        self.assertIn(self.key_name, self.listKeys(bucket = target_bucket))
+        self.assertIn(self.default_key, self.listKeys(bucket = target_bucket))
 
         self.deleteBucket(bucket = src_bucket)
         self.deleteBucket(bucket = target_bucket)
@@ -151,18 +158,18 @@ class SimpleCopyTest(S3ApiVerificationTestBase):
     def test_put_copy_object_from_mp(self):
         src_bucket = str(uuid.uuid4())
         self.createBucket(bucket = src_bucket)
-        upload_id, result = self.upload_multipart(src_bucket, self.key_name, [self.data])
+        upload_id, result = self.upload_multipart(src_bucket, self.default_key, [self.data])
 
         target_bucket = str(uuid.uuid4())
         self.createBucket(bucket = target_bucket)
 
         self.client.copy_object(Bucket = target_bucket,
-                                CopySource = '%s/%s' % (src_bucket, self.key_name),
-                                Key = self.key_name)
+                                CopySource = '%s/%s' % (src_bucket, self.default_key),
+                                Key = self.default_key)
 
         self.assertEqual(self.getObject(bucket = src_bucket), self.data)
         self.assertEqual(self.getObject(bucket = target_bucket), self.data)
-        self.assertIn(self.key_name, self.listKeys(bucket = target_bucket))
+        self.assertIn(self.default_key, self.listKeys(bucket = target_bucket))
 
         self.deleteBucket(bucket = src_bucket)
         self.deleteBucket(bucket = target_bucket)
@@ -177,17 +184,17 @@ class SimpleCopyTest(S3ApiVerificationTestBase):
 
         start_offset, end_offset = 0, 9
         upload_id = self.client.create_multipart_upload(Bucket = target_bucket,
-                                                        Key = self.key_name)['UploadId']
+                                                        Key = self.default_key)['UploadId']
         res = self.client.upload_part_copy(Bucket = target_bucket,
-                                           Key = self.key_name,
+                                           Key = self.default_key,
                                            PartNumber = 1,
                                            UploadId = upload_id,
-                                           CopySource = "%s/%s" % (src_bucket, self.key_name),
+                                           CopySource = "%s/%s" % (src_bucket, self.default_key),
                                            CopySourceRange = "bytes=%d-%d" % (start_offset, end_offset))
         etags = [{'ETag': res['CopyPartResult']['ETag'], 'PartNumber': 1}]
 
         self.client.complete_multipart_upload(Bucket = target_bucket,
-                                              Key = self.key_name,
+                                              Key = self.default_key,
                                               UploadId = upload_id,
                                               MultipartUpload = {'Parts': etags})
 
@@ -199,23 +206,23 @@ class SimpleCopyTest(S3ApiVerificationTestBase):
     def test_upload_part_from_mp(self):
         src_bucket = str(uuid.uuid4())
         self.createBucket(bucket = src_bucket)
-        upload1_id, result = self.upload_multipart(src_bucket, self.key_name, [self.data])
+        upload1_id, result = self.upload_multipart(src_bucket, self.default_key, [self.data])
 
         target_bucket = str(uuid.uuid4())
         self.createBucket(bucket = target_bucket)
 
         start_offset, end_offset = 0, 9
         upload2_id = self.client.create_multipart_upload(Bucket = target_bucket,
-                                                         Key = self.key_name)['UploadId']
+                                                         Key = self.default_key)['UploadId']
         res = self.client.upload_part_copy(Bucket = target_bucket,
-                                           Key = self.key_name,
+                                           Key = self.default_key,
                                            PartNumber = 1,
                                            UploadId = upload2_id,
-                                           CopySource = "%s/%s" % (src_bucket, self.key_name),
+                                           CopySource = "%s/%s" % (src_bucket, self.default_key),
                                            CopySourceRange = "bytes=%d-%d" % (start_offset, end_offset))
         etags = [{'ETag': res['CopyPartResult']['ETag'], 'PartNumber': 1}]
         self.client.complete_multipart_upload(Bucket = target_bucket,
-                                              Key = self.key_name,
+                                              Key = self.default_key,
                                               UploadId = upload2_id,
                                               MultipartUpload = {'Parts': etags})
 
@@ -233,7 +240,7 @@ class SimpleCopyTest(S3ApiVerificationTestBase):
         self.createBucket(bucket = target_bucket)
         try:
             self.client.copy_object(Bucket = target_bucket,
-                                    Key = self.key_name,
+                                    Key = self.default_key,
                                     CopySource = '%s/%s' % (src_bucket, 'not_existing'))
             self.fail()
         except botocore.exceptions.ClientError as e:
@@ -253,7 +260,7 @@ class LargerFileUploadTest(S3ApiVerificationTestBase):
         file_obj = kb_file_gen(num_kilobytes)
         self.putObject(bucket = bucket,
                        value = file_obj)
-        got_object = self.client.get_object(Bucket = bucket, Key = self.key_name)
+        got_object = self.client.get_object(Bucket = bucket, Key = self.default_key)
         actual_md5 = hashlib.md5(bytes(got_object['Body'].read())).hexdigest()
         self.assertEqual(md5_expected, actual_md5)
         self.assertEqual(md5_expected, remove_double_quotes(got_object['ETag']))
@@ -290,22 +297,22 @@ class LargerFileUploadTest(S3ApiVerificationTestBase):
 
 class UnicodeNamedObjectTest(S3ApiVerificationTestBase):
     "test to check unicode object name works"
-    utf8_key_name = u"utf8ファイル名.txt"
+    utf8_default_key = u"utf8ファイル名.txt"
     #                     ^^^^^^^^^ filename in Japanese
 
     def test_unicode_object(self):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
-        key = UnicodeNamedObjectTest.utf8_key_name
+        key = UnicodeNamedObjectTest.utf8_default_key
         self.putObject(bucket = bucket)
         self.assertEqual(self.getObject(bucket = bucket), self.data)
-        self.assertIn(self.key_name, self.listKeys(bucket = bucket))
+        self.assertIn(self.default_key, self.listKeys(bucket = bucket))
         self.deleteBucket(bucket = bucket)
 
     def test_delete_object(self):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
-        key = UnicodeNamedObjectTest.utf8_key_name
+        key = UnicodeNamedObjectTest.utf8_default_key
         self.putObject(bucket = bucket)
         self.deleteObject(bucket = bucket)
         self.assertNotIn(key, self.listKeys(bucket = bucket))
@@ -321,7 +328,7 @@ class ContentMd5Test(S3ApiVerificationTestBase):
         bad_md5 = hashlib.md5(s).hexdigest()
         try:
             self.client.put_object(Bucket = bucket,
-                                   Key = self.key_name,
+                                   Key = self.default_key,
                                    Body = 'this is different from the md5 we calculated',
                                    ContentMD5 = bad_md5)
         except botocore.exceptions.ClientError as e:
@@ -341,7 +348,7 @@ class ContentMd5Test(S3ApiVerificationTestBase):
         bad_md5 = hashlib.md5(bad_value).hexdigest()
         try:
             self.client.put_object(Bucket = bucket,
-                                   Key = self.key_name,
+                                   Key = self.default_key,
                                    Body = 'this is different from the md5 we calculated',
                                    ContentMD5 = bad_md5)
         except botocore.exceptions.ClientError as e:

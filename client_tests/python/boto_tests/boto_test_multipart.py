@@ -109,19 +109,19 @@ class LargerMultipartFileUploadTest(S3ApiVerificationTestBase):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
         upload_id = self.client.create_multipart_upload(Bucket = bucket,
-                                                        Key = self.key_name)['UploadId']
+                                                        Key = self.default_key)['UploadId']
         etags = []
         for idx, (part, md5_of_part) in enumerate(zipped_parts_and_md5s):
             res = self.client.upload_part(UploadId = upload_id,
                                           Bucket = bucket,
-                                          Key = self.key_name,
+                                          Key = self.default_key,
                                           Body = part,
                                           PartNumber = idx + 1)
             self.assertEqual(res['ETag'], '"' + md5_of_part + '"')
             etags += [{'ETag': res['ETag'], 'PartNumber': idx + 1}]
         self.client.complete_multipart_upload(UploadId = upload_id,
                                               Bucket = bucket,
-                                              Key = self.key_name,
+                                              Key = self.default_key,
                                               MultipartUpload = {'Parts': etags})
         actual_md5 = hashlib.md5(bytes(self.getObject(bucket = bucket))).hexdigest()
         self.assertEqual(expected_md5, actual_md5)
