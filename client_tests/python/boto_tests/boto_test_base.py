@@ -79,6 +79,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         else:
             cls.user1 = {"name": "admin",  # matches the values set in .../tests/rtcs_admin.erl
                          "email": "admin@me.com",
+                         "display_name": "Mr Admin",
                          "key_id": key_id, "key_secret": key_secret, "id": user_id}
 
         cls.user2 = create_user(cls.host, cls.port, "user2", str(uuid.uuid4()) + "@example.me")

@@ -168,6 +168,7 @@ class VersioningTests(S3ApiVerificationTestBase):
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'AccessDenied')
 
+        # grant read access to user2 on this object
         self.client.put_object_acl(Bucket = bucket,
                                    Key = self.default_key,
                                    VersionId = v1,
@@ -179,48 +180,62 @@ class VersioningTests(S3ApiVerificationTestBase):
                                                    'Type': 'CanonicalUser'
                                                },
                                                'Permission': 'READ'
-                                           },
-                                           {
-                                               'Grantee': {
-                                                   'EmailAddress': self.user2["email"],
-                                                   'Type': 'CanonicalUser'
-                                               },
-                                               'Permission': 'WRITE'
-                                           },
-                                           {
-                                               'Grantee': {
-                                                   'EmailAddress': self.user1["email"],
-                                                   'Type': 'CanonicalUser'
-                                               },
-                                               'Permission': 'FULL_CONTROL'
                                            }
                                        ],
                                        'Owner': {
                                            'ID': self.user1["id"]
                                        }
                                    })
+        # now user2 can read
         self.assertEqual(self.getObject(bucket = bucket, vsn = v1, client = client2), self.data)
 
+        # but not write
+        #boto3.set_stream_logger('')
         try:
-            self.assertEqual(self.putObject(bucket = bucket, vsn = v1, client = client2, value = b'overwritten'), self.data)
+            self.putObject(client = client2, bucket = bucket, vsn = v1, value = b'overwritten')
+            self.fail()
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'AccessDenied')
 
-        # policy = {
-        #     "Version":"2008-10-17",
-        #     "Statement":[
-        #         {
-        #             "Sid":"Stmtaaa",
-        #             "Effect":"Allow",
-        #             "Principal":"*",
-        #             "Action":["s3:PutObject"],
-        #             "Resource":"arn:aws:s3:::%s/*" % bucket,
-        #             "Condition":{"IpAddress":{"aws:SourceIp":"127.0.0.1/32"}}
-        #          }
-        #     ]
-        # }
-        # self.client.put_bucket_policy(Bucket = bucket,
-        #                               Policy = json.dumps(policy))
-        self.assertEqual(self.putObject(bucket = bucket, vsn = v1, value = b'overwritten'), v1)
-        self.assertEqual(self.getObject(bucket = bucket, vsn = v1), b'overwritten')
+        # allow writing to this bucket for all
+        policy = {
+            "Version":"2008-10-17",
+            "Statement":[
+                {
+                    "Sid":"Stmtaaa",
+                    "Effect":"Allow",
+                    "Principal": {"AWS": "*"},
+                    "Action":["s3:PutObject"],
+                    "Resource":"arn:aws:s3:::%s/*" % bucket,
+                    "Condition":{"IpAddress":{"aws:SourceIp":"127.0.0.1/32"}}
+                 }
+            ]
+        }
+        #boto3.set_stream_logger('')
+        self.client.put_bucket_policy(Bucket = bucket,
+                                      Policy = json.dumps(policy))
+
+        # grant read access to user2 on this object
+        self.client.put_object_acl(Bucket = bucket,
+                                   Key = self.default_key,
+                                   VersionId = v1,
+                                   AccessControlPolicy = {
+                                       'Grants': [
+                                           {
+                                               'Grantee': {
+                                                   'EmailAddress': self.user2["email"],
+                                                   'Type': 'CanonicalUser'
+                                               },
+                                               'Permission': 'WRITE'
+                                           }
+                                       ],
+                                       'Owner': {
+                                           'ID': self.user1["id"]
+                                       }
+                                   })
+
+
+        self.assertEqual(self.putObject(client = client2, bucket = bucket, vsn = v1, value = b'overwritten'), v1)
+        self.assertEqual(self.getObject(client = client2, bucket = bucket, vsn = v1), b'overwritten')
+
         self.deleteBucket(bucket = bucket)
