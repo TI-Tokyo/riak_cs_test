@@ -144,15 +144,17 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         if value is None:
             value = self.data
         if vsn is not None:
-            client.meta.events.register_first(
-                'before-sign.s3.PutObject',
-                lambda request, **kwargs: add_versionid_header(request,
-                                                               vsn,
-                                                               **kwargs))
+            client.meta.events.register(event_name = 'before-sign.s3.PutObject',
+                                        unique_id = 'unique-put_handler',
+                                        handler = lambda request, **kwargs: add_versionid_header(request, vsn, **kwargs))
         res = client.put_object(Bucket = bucket,
                                 Key = key,
                                 Body = value,
                                 Metadata = metadata)
+        if vsn is not None:
+            client.meta.events.unregister(event_name = 'before-sign.s3.PutObject',
+                                          unique_id = 'unique-put_handler')
+
         return res['ResponseMetadata']['HTTPHeaders']['x-amz-version-id']
 
     def getObject(self, bucket = None, key = None, vsn = None, client = None):
@@ -206,14 +208,18 @@ class S3ApiVerificationTestBase(unittest.TestCase):
                        'Status': status}
 
         client.meta.events.register_first(
-            'before-sign.s3.PutBucketVersioning',
-            lambda request, **kwargs: add_versioning_headers(request,
-                                                             useSubVersioning,
-                                                             canUpdateVersions,
-                                                             replSiblings,
-                                                             **kwargs))
-        return client.put_bucket_versioning(Bucket = bucket,
-                                            VersioningConfiguration = vsnconf)
+            event_name = 'before-sign.s3.PutBucketVersioning',
+            unique_id = 'unique-put_bucket_versioning',
+            handler = lambda request, **kwargs: add_versioning_headers(request,
+                                                                       useSubVersioning,
+                                                                       canUpdateVersions,
+                                                                       replSiblings,
+                                                                       **kwargs))
+        res = client.put_bucket_versioning(Bucket = bucket,
+                                           VersioningConfiguration = vsnconf)
+        client.meta.events.unregister(event_name = 'before-sign.s3.PutBucketVersioning',
+                                      unique_id = 'unique-put_bucket_versioning')
+        return res
 
     def verifyDictListsIdentical(self, cc1, cc2):
         [self.assertIn(c, cc1) for c in cc2]
