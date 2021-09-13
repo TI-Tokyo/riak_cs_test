@@ -26,7 +26,7 @@ from boto_test_versioning import VersioningTests
 from boto_test_multipart import MultiPartUploadTests, LargerMultipartFileUploadTest
 from boto_test_policy import BucketPolicyTest, MultipartUploadTestsUnderPolicy
 from boto_test_metadata import ObjectMetadataTest
-
+import unittest
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
