@@ -99,7 +99,7 @@ restart_cs_node() ->
 
 cleanup_any_prev_generated_configs() ->
     DevPath = rtcs_config:devpath(cs, current),
-    GenConfPath =  DevPath ++ "/dev/dev1/riak-cs/generated.conf/",
+    GenConfPath =  DevPath ++ "/dev/dev1/riak-cs/data/generated.conf/",
     AppConfigs = filelib:wildcard([GenConfPath ++ "app.*.config"]),
     VmArgses = filelib:wildcard([GenConfPath ++ "vm.*.args"]),
     case AppConfigs of
@@ -111,9 +111,9 @@ cleanup_any_prev_generated_configs() ->
 
 move_generated_configs_as_appconfigs() ->
     DevPath = rtcs_config:devpath(cs, current),
-    GenConfPath =  DevPath ++ "/dev/dev1/riak-cs/generated.conf/",
-    [AppConfig] = filelib:wildcard([GenConfPath ++ "app.*.config"]),
-    [VmArgs] = filelib:wildcard([GenConfPath ++ "vm.*.args"]),
+    GenConfPath =  DevPath ++ "/dev/dev1/riak-cs/data/generated.conf/",
+    [AppConfig|_] = filelib:wildcard([GenConfPath ++ "app.*.config"]),
+    [VmArgs|_] = filelib:wildcard([GenConfPath ++ "vm.*.args"]),
 
     ConfPath =  DevPath ++ "/dev/dev1/riak-cs/etc/",
     ok = file:rename(AppConfig, ConfPath ++ "app.config"),
