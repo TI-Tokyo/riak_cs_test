@@ -48,7 +48,7 @@ riakcmd(Path, Node, Cmd) ->
     end.
 
 riakreplcmd(Path, N, Cmd) ->
-    io_lib:format("~s/dev/dev~b/riak/bin/riak repl ~s", [Path, N, Cmd]).
+    io_lib:format("~s/dev/dev~b/riak/bin/riak-repl ~s", [Path, N, Cmd]).
 
 run_riak(Node, Path, Cmd) ->
     Exec = riakcmd(Path, Node, Cmd),
