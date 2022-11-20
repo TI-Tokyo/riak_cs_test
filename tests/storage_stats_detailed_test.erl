@@ -50,11 +50,11 @@ confirm() ->
     UserConfig = rtcs_admin:create_user(RiakNode, 1),
 
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET, UserConfig)),
-    lager:info("Investigating stats for this empty bucket..."),
+    logger:info("Investigating stats for this empty bucket..."),
     assert_results_for_empty_bucket(AdminConfig, UserConfig, CSNode, ?BUCKET),
 
     setup_objects(UserConfig, ?BUCKET),
-    lager:info("Investigating stats for non empty bucket..."),
+    logger:info("Investigating stats for non empty bucket..."),
     assert_results_for_non_empty_bucket(AdminConfig, UserConfig, CSNode, ?BUCKET),
 
     storage_stats_test:confirm_2(SetupRes),
@@ -100,17 +100,17 @@ setup_objects(UserConfig, Bucket) ->
     UploadId = erlcloud_xml:get_text(
                  "/InitiateMultipartUploadResult/UploadId", InitRes),
     MPBlocks = crypto:strong_rand_bytes(2*1024*1024),
-    {_RespHeaders1, _UploadRes} = erlcloud_s3_multipart:upload_part(
-                                    Bucket, ?KEY3, UploadId, 1, MPBlocks, UserConfig),
-    {_RespHeaders2, _UploadRes} = erlcloud_s3_multipart:upload_part(
-                                    Bucket, ?KEY3, UploadId, 2, MPBlocks, UserConfig),
+    {_RespHeaders1, _UploadRes1} = erlcloud_s3_multipart:upload_part(
+                                     Bucket, ?KEY3, UploadId, 1, MPBlocks, UserConfig),
+    {_RespHeaders2, _UploadRes2} = erlcloud_s3_multipart:upload_part(
+                                     Bucket, ?KEY3, UploadId, 2, MPBlocks, UserConfig),
     ok.
 
 assert_results_for_non_empty_bucket(AdminConfig, UserConfig, CSNode, Bucket) ->
     rt:setup_log_capture(CSNode),
 
     {Begin, End} = storage_stats_test:calc_storage_stats(CSNode),
-    lager:info("Admin user will get every fields..."),
+    logger:info("Admin user will get every fields..."),
     {JsonStat, XmlStat} = storage_stats_test:storage_stats_request(
                             AdminConfig, UserConfig, Begin, End),
 
@@ -132,7 +132,7 @@ assert_results_for_non_empty_bucket(AdminConfig, UserConfig, CSNode, Bucket) ->
                    {"ScheduledDeleteNewBytes",   100 + 200},
                    {"ScheduledDeleteNewBlocks",  2}]),
 
-    lager:info("Non-admin user will get only Objects and Bytes..."),
+    logger:info("Non-admin user will get only Objects and Bytes..."),
     {JsonStat2, XmlStat2} = storage_stats_test:storage_stats_request(
                               UserConfig, UserConfig, Begin, End),
     lists:foreach(fun({K, V}) ->
@@ -151,12 +151,12 @@ assert_results_for_non_empty_bucket(AdminConfig, UserConfig, CSNode, Bucket) ->
     ok.
 
 assert_storage_json_stats(Bucket, K, V, Sample) ->
-    lager:debug("assert json: ~p", [{K, V}]),
+    logger:debug("assert json: ~p", [{K, V}]),
     ?assertEqual(V, rtcs:json_get([list_to_binary(Bucket), list_to_binary(K)],
                                   Sample)).
 
 assert_storage_xml_stats(Bucket, K, V, Sample) ->
-    lager:debug("assert xml: ~p", [{K, V}]),
+    logger:debug("assert xml: ~p", [{K, V}]),
     ?assertEqual(V, proplists:get_value(list_to_atom(K),
                                         proplists:get_value(Bucket, Sample),
                                         notfound)).

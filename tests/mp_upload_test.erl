@@ -36,12 +36,12 @@
 confirm() ->
     {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}} = rtcs:setup(1),
 
-    lager:info("User is valid on the cluster, and has no buckets"),
+    logger:info("User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
 
     ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
 
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
     ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
@@ -128,7 +128,7 @@ confirm() ->
     %% Abort all uploads for the bucket
     abort_uploads(?TEST_BUCKET, UserConfig),
 
-    lager:info("deleting bucket ~p", [?TEST_BUCKET]),
+    logger:info("deleting bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
 
     ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
@@ -151,10 +151,10 @@ generate_part_data(X, Size)
 
 aborted_upload_test_case(Bucket, Key, Config) ->
     %% Initiate a multipart upload
-    lager:info("Initiating multipart upload"),
+    logger:info("Initiating multipart upload"),
     InitUploadRes = erlcloud_s3_multipart:initiate_upload(Bucket, Key, [], [], Config),
     UploadId = erlcloud_s3_multipart:upload_id(InitUploadRes),
-    lager:info("Upload ID: ~p", [UploadId]),
+    logger:info("Upload ID: ~p", [UploadId]),
 
     %% Verify the upload id is in list_uploads results and
     %% that the bucket information is correct
@@ -163,7 +163,7 @@ aborted_upload_test_case(Bucket, Key, Config) ->
     ?assertEqual(Bucket, proplists:get_value(bucket, UploadsList1)),
     ?assert(upload_id_present(UploadId, Uploads1)),
 
-    lager:info("Uploading parts"),
+    logger:info("Uploading parts"),
     _EtagList = upload_and_assert_parts(Bucket,
                                         Key,
                                         UploadId,
@@ -176,7 +176,7 @@ aborted_upload_test_case(Bucket, Key, Config) ->
     ?assertEqual([], proplists:get_value(contents, ObjList1)),
 
     %% Abort upload
-    lager:info("Aborting multipart upload"),
+    logger:info("Aborting multipart upload"),
     ?assertEqual(ok, erlcloud_s3_multipart:abort_upload(Bucket,
                                                            Key,
                                                            UploadId,
@@ -214,10 +214,10 @@ invalid_part_number_test_case(Bucket, Key, Config) ->
 
 basic_upload_test_case(Bucket, Key, Config) ->
     %% Initiate a multipart upload
-    lager:info("Initiating multipart upload"),
+    logger:info("Initiating multipart upload"),
     InitUploadRes = erlcloud_s3_multipart:initiate_upload(Bucket, Key, [], [], Config),
     UploadId = erlcloud_s3_multipart:upload_id(InitUploadRes),
-    lager:info("Upload ID: ~p", [UploadId]),
+    logger:info("Upload ID: ~p", [UploadId]),
 
     %% Verify the upload id is in list_uploads results and
     %% that the bucket information is correct
@@ -226,7 +226,7 @@ basic_upload_test_case(Bucket, Key, Config) ->
     ?assertEqual(Bucket, proplists:get_value(bucket, UploadsList1)),
     ?assert(upload_id_present(UploadId, Uploads1)),
 
-    lager:info("Uploading parts"),
+    logger:info("Uploading parts"),
     EtagList = upload_and_assert_parts(Bucket,
                                        Key,
                                        UploadId,
@@ -239,7 +239,7 @@ basic_upload_test_case(Bucket, Key, Config) ->
     ?assertEqual([], proplists:get_value(contents, ObjList1)),
 
     %% Complete upload
-    lager:info("Completing multipart upload"),
+    logger:info("Completing multipart upload"),
 
     ?assertEqual(ok, erlcloud_s3_multipart:complete_upload(Bucket,
                                                            Key,
@@ -273,12 +273,12 @@ basic_upload_test_case(Bucket, Key, Config) ->
 
 parts_too_small_test_case(Bucket, Key, Config) ->
     %% Initiate a multipart upload
-    lager:info("Initiating multipart upload (bad)"),
+    logger:info("Initiating multipart upload (bad)"),
     InitUploadRes = erlcloud_s3_multipart:initiate_upload(Bucket, Key, [], [], Config),
     UploadId = erlcloud_s3_multipart:upload_id(InitUploadRes),
-    lager:info("Upload ID: ~p", [UploadId]),
+    logger:info("Upload ID: ~p", [UploadId]),
 
-    lager:info("Uploading parts (bad)"),
+    logger:info("Uploading parts (bad)"),
     EtagList = upload_and_assert_parts(Bucket,
                                        Key,
                                        UploadId,
@@ -287,7 +287,7 @@ parts_too_small_test_case(Bucket, Key, Config) ->
                                        Config),
 
     %% Complete upload
-    lager:info("Completing multipart upload (bad)"),
+    logger:info("Completing multipart upload (bad)"),
 
     {'EXIT', {{aws_error, {http_error, 400, _, Body}}, _Backtrace}} =
         (catch erlcloud_s3_multipart:complete_upload(Bucket,

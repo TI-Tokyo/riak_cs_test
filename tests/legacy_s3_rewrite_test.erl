@@ -43,7 +43,7 @@ confirm() ->
         ok ->
             rtcs_dev:pass();
         {error, Reason} ->
-            lager:error("Error : ~p", [Reason]),
+            logger:error("Error : ~p", [Reason]),
             error({?MODULE, Reason})
     end.
 

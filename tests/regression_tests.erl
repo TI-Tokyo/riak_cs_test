@@ -57,18 +57,18 @@ confirm() ->
 %% issue 296</a>. The issue description is: 403 instead of 404 returned when
 %% trying to list nonexistent bucket.
 verify_cs296(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}}, BucketName) ->
-    lager:info("CS296: User is valid on the cluster, and has no buckets"),
+    logger:info("CS296: User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
 
     ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:list_objects(BucketName, UserConfig)),
 
-    lager:info("creating bucket ~p", [BucketName]),
+    logger:info("creating bucket ~p", [BucketName]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(BucketName, UserConfig)),
 
     ?assertMatch([{buckets, [[{name, BucketName}, _]]}],
         erlcloud_s3:list_buckets(UserConfig)),
 
-    lager:info("deleting bucket ~p", [BucketName]),
+    logger:info("deleting bucket ~p", [BucketName]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(BucketName, UserConfig)),
 
     ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:list_objects(BucketName, UserConfig)),
@@ -79,7 +79,7 @@ verify_cs296(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}},
 %% bucket that have never been created once.
 verify_cs347(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}}, BucketName) ->
 
-    lager:info("CS347: User is valid on the cluster, and has no buckets"),
+    logger:info("CS347: User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
 
     ListObjectRes1 =
@@ -91,13 +91,13 @@ verify_cs347(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}},
         end,
     ?assert(rtcs:check_no_such_bucket(ListObjectRes1, "/" ++ ?TEST_BUCKET_CS347 ++ "/")),
 
-    lager:info("creating bucket ~p", [BucketName]),
+    logger:info("creating bucket ~p", [BucketName]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(BucketName, UserConfig)),
 
     ?assertMatch([{buckets, [[{name, BucketName}, _]]}],
                  erlcloud_s3:list_buckets(UserConfig)),
 
-    lager:info("deleting bucket ~p", [BucketName]),
+    logger:info("deleting bucket ~p", [BucketName]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(BucketName, UserConfig)),
 
     ListObjectRes2 =
@@ -115,7 +115,7 @@ verify_cs347(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}},
 %% issue 436</a>. The issue description is: A 500 is returned instead of a 404 when
 %% trying to put to a nonexistent bucket.
 verify_cs436(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}}, BucketName) ->
-    lager:info("CS436: User is valid on the cluster, and has no buckets"),
+    logger:info("CS436: User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
 
     ?assertError({aws_error, {http_error, 404, _, _}},
@@ -125,13 +125,13 @@ verify_cs436(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}},
                                         UserConfig)),
 
     %% Create and delete test bucket
-    lager:info("creating bucket ~p", [BucketName]),
+    logger:info("creating bucket ~p", [BucketName]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(BucketName, UserConfig)),
 
     ?assertMatch([{buckets, [[{name, BucketName}, _]]}],
         erlcloud_s3:list_buckets(UserConfig)),
 
-    lager:info("deleting bucket ~p", [BucketName]),
+    logger:info("deleting bucket ~p", [BucketName]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(BucketName, UserConfig)),
 
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
@@ -163,7 +163,7 @@ verify_cs770({{UserConfig, _}, {RiakNodes, _, _}}, BucketName) ->
     %% put object and cancel it;
     ?assertEqual(ok, erlcloud_s3:create_bucket(BucketName, UserConfig)),
     Key = "foobar",
-    lager:debug("starting cs770 verification: ~s ~s", [BucketName, Key]),
+    logger:debug("starting cs770 verification: ~s ~s", [BucketName, Key]),
 
     {ok, Socket} = rtcs_object:upload(UserConfig,
                                       {normal_partial, 3*1024*1024, 1024*1024},
@@ -175,7 +175,7 @@ verify_cs770({{UserConfig, _}, {RiakNodes, _, _}}, BucketName) ->
     %% time the socket will be still alive, so no cancellation logic
     %% shouldn't be triggerred.
     ?assertEqual(writing, M?MANIFEST.state),
-    lager:debug("UUID of ~s ~s: ~p", [BucketName, Key, UUID]),
+    logger:debug("UUID of ~s ~s: ~p", [BucketName, Key, UUID]),
 
     %% Emulate socket error with {error, closed} at server
     ok = gen_tcp:close(Socket),
@@ -190,22 +190,21 @@ verify_cs770({{UserConfig, _}, {RiakNodes, _, _}}, BucketName) ->
 
     %% verify that object is also stored in latest GC bucket
     Ms = all_manifests_in_gc_bucket(Pbc),
-    lager:info("Retrieved ~p manifets from GC bucket", [length(Ms)]),
+    logger:info("Retrieved ~p manifets from GC bucket", [length(Ms)]),
     ?assertMatch(
        [{UUID, _}],
        lists:filter(fun({UUID0, M1}) when UUID0 =:= UUID ->
                             ?assertEqual(pending_delete, M1?MANIFEST.state),
                             true;
                        ({UUID0, _}) ->
-                            lager:debug("UUID=~p / ~p",
-                                        [mochihex:to_hex(UUID0), mochihex:to_hex(UUID)]),
+                            logger:debug("UUID=~p / ~p", [mochihex:to_hex(UUID0), mochihex:to_hex(UUID)]),
                             false;
                        (_Other) ->
-                            lager:error("Unexpected: ~p", [_Other]),
+                            logger:error("Unexpected: ~p", [_Other]),
                             false
                     end, Ms)),
 
-    lager:info("cs770 verification ok", []),
+    logger:info("cs770 verification ok", []),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(BucketName, UserConfig)),
     ok.
 
@@ -217,7 +216,7 @@ all_manifests_in_gc_bucket(Pbc) ->
                                                       V =/= <<>>],
                          twop_set:to_list(twop_set:resolve(Some))
                  end, Keys),
-    %% lager:debug("All manifests in GC buckets: ~p", [Ms]),
+    %% logger:debug("All manifests in GC buckets: ~p", [Ms]),
     lists:flatten(Ms).
 
 get_manifests(RiakNodes, BucketName, Key) ->
@@ -235,7 +234,7 @@ get_manifests(RiakNodes, BucketName, Key) ->
 verify_cs756({{UserConfig, _}, {RiakNodes, _, _}}, BucketName) ->
     %% Making sure API call to CS failed Riak KV underneath, all fails in 500
     %% This could be done with eqc
-    lager:info("CS756 regression"),
+    logger:info("CS756 regression"),
     [rt:stop(RiakNode) || RiakNode <- RiakNodes],
     [rt:wait_until_unpingable(RiakNode) || RiakNode <- RiakNodes],
 

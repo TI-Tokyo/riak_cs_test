@@ -43,8 +43,8 @@ upload_parts(Bucket, Key, UploadId, Config, PartCount, [Size | Sizes], Contents,
     {RespHeaders, _UploadRes} = erlcloud_s3_multipart:upload_part(
                                   Bucket, Key, UploadId, PartCount, Content, Config),
     PartEtag = proplists:get_value("ETag", RespHeaders),
-    lager:debug("UploadId: ~p~n", [UploadId]),
-    lager:debug("PartEtag: ~p~n", [PartEtag]),
+    logger:debug("UploadId: ~p", [UploadId]),
+    logger:debug("PartEtag: ~p", [PartEtag]),
     upload_parts(Bucket, Key, UploadId, Config, PartCount + 1,
                  Sizes, [Content | Contents], [{PartCount, PartEtag} | Parts]).
 
@@ -76,7 +76,7 @@ assert_part(Bucket, Key, UploadId, PartNum, Config, RespHeaders) ->
     PartEtag = proplists:get_value("ETag", RespHeaders),
     PartsTerm = erlcloud_s3_multipart:parts_to_term(
                   erlcloud_s3_multipart:list_parts(Bucket, Key, UploadId, [], Config)),
-    %% lager:debug("~p", [PartsTerm]),
+    %% logger:debug("~p", [PartsTerm]),
     Parts = proplists:get_value(parts, PartsTerm),
     ?assertEqual(Bucket, proplists:get_value(bucket, PartsTerm)),
     ?assertEqual(Key, proplists:get_value(key, PartsTerm)),

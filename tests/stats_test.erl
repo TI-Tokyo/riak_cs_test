@@ -27,24 +27,24 @@
 confirm() ->
     {{UserConfig, _}, {RiakNodes, _CSNodes, _Stanchion}} = rtcs:setup(1),
 
-    lager:info("Confirming initial stats"),
+    logger:info("Confirming initial stats"),
     confirm_initial_stats(cs, UserConfig, rtcs_config:cs_port(hd(RiakNodes))),
     confirm_initial_stats(stanchion, UserConfig, rtcs_config:stanchion_port()),
 
     do_some_api_calls(UserConfig, "bucket1", "bucket2"),
 
-    lager:info("Confirming stats after some operations"),
+    logger:info("Confirming stats after some operations"),
     confirm_stats(cs, UserConfig, rtcs_config:cs_port(hd(RiakNodes))),
     confirm_stats(stanchion, UserConfig, rtcs_config:stanchion_port()),
     rtcs_dev:pass().
 
 confirm_initial_stats(cs, UserConfig, Port) ->
     StatData = query_stats(cs, UserConfig, Port),
-    lager:debug("length(StatData) = ~p", [length(StatData)]),
+    logger:debug("length(StatData) = ~p", [length(StatData)]),
     ?assert(1125 < length(StatData)),
     [begin
          StatKey = list_to_binary(StatType ++ "_out_one"),
-         lager:debug("StatKey: ~p~n", [StatKey]),
+         logger:debug("StatKey: ~p", [StatKey]),
          ?assert(proplists:is_defined(StatKey, StatData)),
          Value = proplists:get_value(StatKey, StatData),
          ?assertEqual(0, Value)
@@ -72,11 +72,11 @@ confirm_initial_stats(cs, UserConfig, Port) ->
 
 confirm_initial_stats(stanchion, UserConfig, Port) ->
     Stats = query_stats(stanchion, UserConfig, Port),
-    lager:debug("length(Stats) = ~p", [length(Stats)]),
+    logger:debug("length(Stats) = ~p", [length(Stats)]),
     ?assert(130 < length(Stats)),
     [begin
          StatKey = list_to_binary(StatType ++ "_one"),
-         lager:debug("StatKey: ~p~n", [StatKey]),
+         logger:debug("StatKey: ~p", [StatKey]),
          ?assert(proplists:is_defined(StatKey, Stats)),
          Value = proplists:get_value(StatKey, Stats),
          ?assertEqual(0, Value)
@@ -136,7 +136,7 @@ do_some_api_calls(UserConfig, Bucket1, Bucket2) ->
     ok.
 
 query_stats(Type, UserConfig, Port) ->
-    lager:debug("Querying stats to ~p", [Type]),
+    logger:debug("Querying stats to ~p", [Type]),
     Date = httpd_util:rfc1123_date(),
     {Resource, SignType} = case Type of
                                cs -> {"/riak-cs/stats", s3};
@@ -146,14 +146,14 @@ query_stats(Type, UserConfig, Port) ->
         rtcs_admin:make_authorization(SignType, "GET", Resource, [], UserConfig, Date, []) ++
         "' http://localhost:" ++
         integer_to_list(Port) ++ Resource,
-    lager:info("Stats query cmd: ~p", [Cmd]),
+    logger:info("Stats query cmd: ~p", [Cmd]),
     Output = os:cmd(Cmd),
-    lager:debug("Stats output=~p~n",[Output]),
+    logger:debug("Stats output=~p",[Output]),
     {struct, JsonData} = mochijson2:decode(Output),
     JsonData.
 
 confirm_stat_count(StatData, StatType, ExpectedCount) ->
-    lager:debug("confirm_stat_count for ~p", [StatType]),
+    logger:debug("confirm_stat_count for ~p", [StatType]),
     ?assertEqual(ExpectedCount, proplists:get_value(StatType, StatData)).
 
 confirm_status_cmd(Type, ExpectedToken) ->

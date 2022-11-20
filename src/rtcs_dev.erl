@@ -37,7 +37,7 @@ setup_harness(_Test, _Args) ->
     lists:map(fun(X) -> clean_data_dir_all(X) end,
               devpaths()),
 
-    lager:info("Cleaning up lingering pipe directories"),
+    logger:info("Cleaning up lingering pipe directories"),
     rt:pmap(fun(Dir) ->
                     %% when joining two absolute paths, filename:join intentionally
                     %% throws away the first one. ++ gets us around that, while
@@ -82,7 +82,7 @@ path(Key, _) ->
 upgrade(Node, NewVersion, _CB) ->
     N = node_id(Node),
     Version = node_version(N),
-    lager:info("Upgrading ~p : ~p -> ~p", [Node, Version, NewVersion]),
+    logger:info("Upgrading ~p : ~p -> ~p", [Node, Version, NewVersion]),
     OldPath = relpath(Version),
     NewPath = relpath(NewVersion),
     WhichRiak = rtdev:which_riak(OldPath),
@@ -98,7 +98,7 @@ upgrade(Node, NewVersion, _CB) ->
         io_lib:format("cp -p -P -R \"~s/dev/dev~b/~s/data/ring\" \"~s/dev/dev~b/~s/data\"", [OldPath, N, WhichRiak, NewPath, N, WhichRiak])
     ],
     [ begin
-        lager:info("Running: ~s", [Cmd]),
+        logger:info("Running: ~s", [Cmd]),
         os:cmd(Cmd)
     end || Cmd <- Commands],
     VersionMap = orddict:store(N, NewVersion, rt_config:get(rt_versions)),
@@ -146,14 +146,14 @@ update_app_config(Node, Config) when is_atom(Node) ->
     end.
 
 update_app_config_file(ConfigFile, Config) ->
-    lager:debug("rtcs_dev:update_app_config_file(~s, ~s)", [ConfigFile, io_lib:format("\n~p\n", [Config])]),
+    logger:debug("rtcs_dev:update_app_config_file(~s, ~s)", [ConfigFile, io_lib:format("\n~p\n", [Config])]),
 
     BaseConfig =
         case file:consult(ConfigFile) of
             {ok, [ValidConfig]} ->
                 ValidConfig;
             {error, enoent} ->
-                lager:warning("~s not found", [ConfigFile]),
+                logger:warning("~s not found", [ConfigFile]),
                 []
         end,
     MergeA = orddict:from_list(Config),
@@ -183,7 +183,7 @@ clean_data_dir(Nodes, SubDir) when is_list(Nodes) ->
     lists:foreach(fun rm_dir/1, DataDirs).
 
 rm_dir(Dir) ->
-    lager:debug("Removing directory ~s", [Dir]),
+    logger:debug("Removing directory ~s", [Dir]),
     ?assertCmd("rm -rf " ++ Dir),
     ?assertEqual(false, filelib:is_dir(Dir)).
 
@@ -196,7 +196,7 @@ add_default_node_config(Nodes) ->
                     end, Nodes),
             ok;
         BadValue ->
-            lager:error("Invalid value for rt_default_config : ~p", [BadValue]),
+            logger:error("Invalid value for rt_default_config : ~p", [BadValue]),
             throw({invalid_config, {rt_default_config, BadValue}})
     end.
 
@@ -221,7 +221,7 @@ stop(Node) ->
 stop(Node, Vsn) ->
     Pid = rpc:call(Node, os, getpid, []),
     N = node_id(Node),
-    lager:debug("Stopping ~s (id ~p, pid ~s, devpath ~p)", [Node, N, Pid, cluster_devpath(Node, Vsn)]),
+    logger:debug("Stopping ~s (id ~p, pid ~s, devpath ~p)", [Node, N, Pid, cluster_devpath(Node, Vsn)]),
     rtdev:run_riak(Node, cluster_devpath(Node, Vsn), "stop"),
     ok = rt:wait_until_unpingable(Node).
 
@@ -244,8 +244,8 @@ interactive(Node, Command, Exp) ->
     N = node_id(Node),
     Path = relpath(node_version(Node)),
     Cmd = rtdev:riakcmd(Path, N, Command),
-    lager:info("Opening a port for riak ~s.", [Command]),
-    lager:debug("Calling open_port with cmd ~s", [binary_to_list(iolist_to_binary(Cmd))]),
+    logger:info("Opening a port for riak ~s.", [Command]),
+    logger:debug("Calling open_port with cmd ~s", [binary_to_list(iolist_to_binary(Cmd))]),
     P = open_port({spawn, binary_to_list(iolist_to_binary(Cmd))},
                   [stream, use_stdio, exit_status, binary, stderr_to_stdout]),
     interactive_loop(P, Exp).
@@ -256,7 +256,7 @@ interactive_loop(Port, Expected) ->
             %% We've gotten some data, so the port isn't done executing
             %% Let's break it up by newline and display it.
             Tokens = string:tokens(binary_to_list(Data), "\n"),
-            [lager:debug("~s", [Text]) || Text <- Tokens],
+            [logger:debug("~s", [Text]) || Text <- Tokens],
 
             %% Now we're going to take hd(Expected) which is either {expect, X}
             %% or {send, X}. If it's {expect, X}, we foldl through the Tokenized
@@ -319,9 +319,9 @@ admin(Node, Args, Options) ->
     N = node_id(Node),
     Path = relpath(node_version(N)),
     Cmd = rtdev:riak_admin_cmd(Path, N, Args),
-    lager:info("Running: ~s", [Cmd]),
+    logger:info("Running: ~s", [Cmd]),
     Result = execute_admin_cmd(Cmd, Options),
-    lager:info("~s", [Result]),
+    logger:info("~s", [Result]),
     {ok, Result}.
 
 execute_admin_cmd(Cmd, Options) ->
@@ -384,12 +384,12 @@ check_node({_N, Version}) ->
     case proplists:is_defined(Version, rt_config:get(build_paths)) of
         true -> ok;
         _ ->
-            lager:error("You don't have Riak ~s installed or configured", [Version]),
+            logger:error("You don't have Riak ~s installed or configured", [Version]),
             erlang:error("You don't have Riak " ++ atom_to_list(Version) ++ " installed or configured")
     end.
 
 set_backend(Backend) ->
-    lager:debug("rtcs_dev:set_backend(~p)", [Backend]),
+    logger:debug("rtcs_dev:set_backend(~p)", [Backend]),
     update_app_config(all, [{riak_kv, [{storage_backend, Backend}]}]),
     get_backends().
 
@@ -486,10 +486,10 @@ create_or_restore_config_backups(Nodes, Vsn) ->
               [begin
                    case filelib:is_regular(F ++ ".backup") of
                        true ->
-                           lager:info("found existing backup of ~s; restoring it", [F]),
+                           logger:info("found existing backup of ~s; restoring it", [F]),
                            [] = os:cmd(io_lib:format("cp -a \"~s.backup\" \"~s\"", [F, F]));
                        false ->
-                           lager:debug("backing up ~s", [F]),
+                           logger:debug("backing up ~s", [F]),
                            [] = os:cmd(io_lib:format("cp -a \"~s\" \"~s.backup\"", [F, F]))
                    end
                end || F <- [ConfFile, AdvCfgFile]]
@@ -504,14 +504,14 @@ create_or_restore_config_backups(Nodes, Vsn) ->
 %%                    Dir = io_lib:format("~s/data/~s", [NodePath, Item]),
 %%                    case filelib:is_dir(Dir ++ ".backup") of
 %%                        true ->
-%%                            lager:warning("not overwriting existing backup of ~s", [Dir]);
+%%                            logger:warning("not overwriting existing backup of ~s", [Dir]);
 %%                        false ->
 %%                            case filelib:is_dir(Dir) of
 %%                                true ->
-%%                                    lager:info("backing up ~s", [Dir]),
+%%                                    logger:info("backing up ~s", [Dir]),
 %%                                    os:cmd(io_lib:format("cp -a \"~s\" \"~s.backup\"", [Dir, Dir]));
 %%                                false ->
-%%                                    lager:info("creating empty ~s", [Dir]),
+%%                                    logger:info("creating empty ~s", [Dir]),
 %%                                    os:cmd(io_lib:format("mkdir \"~s.backup\"", [Dir]))
 %%                            end
 %%                    end
@@ -530,9 +530,9 @@ restore_configs(Nodes, Vsn) ->
               [begin
                    case filelib:is_regular(F ++ ".backup") of
                        false ->
-                           lager:info("backup of ~s not found", [F]);
+                           logger:info("backup of ~s not found", [F]);
                        true ->
-                           lager:debug("restoring ~s", [F]),
+                           logger:debug("restoring ~s", [F]),
                            [] = os:cmd(io_lib:format("mv -f \"~s.backup\" \"~s\"", [F, F]))
                    end
                end || F <- [ConfFile, AdvCfgFile]]
@@ -548,9 +548,9 @@ restore_configs(Nodes, Vsn) ->
 %%                    Dir = io_lib:format("~s/data/~s", [NodePath, Item]),
 %%                    case filelib:is_dir(Dir ++ ".backup") of
 %%                        false ->
-%%                            lager:warning("backup of ~s not found", [Dir]);
+%%                            logger:warning("backup of ~s not found", [Dir]);
 %%                        true ->
-%%                            lager:info("restoring ~s", [Dir]),
+%%                            logger:info("restoring ~s", [Dir]),
 %%                            [] = os:cmd(io_lib:format("rm -rf \"~s\"", [Dir])),
 %%                            [] = os:cmd(io_lib:format("mv \"~s.backup\" \"~s\"", [Dir, Dir]))
 %%                    end

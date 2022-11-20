@@ -28,12 +28,12 @@
 -define(TEST_BUCKET, "riak-test-bucket").
 
 test(UserConfig) ->
-    lager:info("User is valid on the cluster, and has no buckets"),
+    logger:info("User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
 
     ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
 
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
     ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
@@ -122,7 +122,7 @@ test(UserConfig) ->
     ?assertError({aws_error, {http_error, 400, _, _}},
                  erlcloud_s3:list_objects(?TEST_BUCKET, Options7, UserConfig)),
 
-    lager:info("deleting bucket ~p", [?TEST_BUCKET]),
+    logger:info("deleting bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
 
     ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),

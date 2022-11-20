@@ -44,20 +44,20 @@ confirm() ->
     rtcs_exec:gc(1, "set-leeway 1"),
     rtcs_exec:gc(1, "cancel"),
 
-    lager:info("Test GC run under an invalid state manifest..."),
+    logger:info("Test GC run under an invalid state manifest..."),
     {GCKey, {BKey, UUID}} = setup_obj(RiakNodes, UserConfig),
 
     %% Ensure the leeway has expired
     timer:sleep(2000),
 
     Result = rtcs_exec:gc(1, "earliest-keys"),
-    lager:debug("~p", [Result]),
+    logger:debug("~p", [Result]),
     ?assert(string:str(Result, "GC keys in") > 0),
 
     ok = verify_gc_run(hd(CSNodes), GCKey),
     ok = verify_riak_object_remaining_for_bad_key(RiakNodes, GCKey, {BKey, UUID}),
 
-    lager:info("Test repair script (repair_gc_bucket.erl) with more invlaid states..."),
+    logger:info("Test repair script (repair_gc_bucket.erl) with more invlaid states..."),
     ok = put_more_bad_keys(RiakNodes, UserConfig),
     %% Ensure the leeway has expired
     timer:sleep(2000),
@@ -96,9 +96,9 @@ setup_normal_obj(ObjSpecs, UserConfig) ->
 
 setup_obj(RiakNodes, UserConfig) ->
     %% Setup bucket
-    lager:info("User is valid on the cluster, and has no buckets"),
+    logger:info("User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
     setup_normal_obj([{"1", 100}, {"2", 200}, {"3", 0}], UserConfig),
@@ -112,7 +112,7 @@ setup_obj(RiakNodes, UserConfig) ->
     GCPbc = rtcs:pbc(RiakNodes, objects, ?TEST_BUCKET),
     {ok, GCKeys} = riakc_pb_socket:list_keys(GCPbc, ?GC_BUCKET),
     BKey = {list_to_binary(?TEST_BUCKET), list_to_binary(?TEST_KEY_BAD_STATE)},
-    lager:info("Changing state to active ~p, ~p", [?TEST_BUCKET, ?TEST_KEY_BAD_STATE]),
+    logger:info("Changing state to active ~p, ~p", [?TEST_BUCKET, ?TEST_KEY_BAD_STATE]),
     {ok, GCKey, UUID} = change_state_to_active(GCPbc, BKey, GCKeys),
 
     %% Put and delete some more objects
@@ -122,7 +122,7 @@ setup_obj(RiakNodes, UserConfig) ->
     {GCKey, {BKey, UUID}}.
 
 change_state_to_active(_Pbc, TargetBKey, []) ->
-    lager:warning("Target BKey ~p not found in GC bucket", [TargetBKey]),
+    logger:warning("Target BKey ~p not found in GC bucket", [TargetBKey]),
     {error, notfound};
 change_state_to_active(Pbc, TargetBKey, [GCKey|Rest]) ->
     {ok, Obj0} = riakc_pb_socket:get(Pbc, ?GC_BUCKET, GCKey),
@@ -133,7 +133,7 @@ change_state_to_active(Pbc, TargetBKey, [GCKey|Rest]) ->
         [] ->
             change_state_to_active(Pbc, TargetBKey, Rest);
         [{TargetUUID, TargetManifest}] ->
-            lager:info("Target BKey ~p found in GC bucket ~p", [TargetBKey, GCKey]),
+            logger:info("Target BKey ~p found in GC bucket ~p", [TargetBKey, GCKey]),
             NewManifestSet =
                 lists:foldl(fun twop_set:add_element/2, twop_set:new(),
                             [{TargetUUID,
@@ -144,8 +144,8 @@ change_state_to_active(Pbc, TargetBKey, [GCKey|Rest]) ->
                              lists:keydelete(TargetUUID, 1, Manifests)]),
             UpdObj = riakc_obj:update_value(Obj0, term_to_binary(NewManifestSet)),
             ok = riakc_pb_socket:put(Pbc, UpdObj),
-            lager:info("Bad state manifests have been put at ~p: ~p~n",
-                       [GCKey, twop_set:to_list(NewManifestSet)]),
+            logger:info("Bad state manifests have been put at ~p: ~p",
+                        [GCKey, twop_set:to_list(NewManifestSet)]),
             {ok, GCKey, TargetUUID}
     end.
 
@@ -160,7 +160,7 @@ put_more_bad_keys(RiakNodes, UserConfig) ->
     GCPbc = rtcs:pbc(RiakNodes, objects, ?TEST_BUCKET),
     {ok, GCKeys} = riakc_pb_socket:list_keys(GCPbc, ?GC_BUCKET),
     BadGCKeys = put_more_bad_keys(GCPbc, GCKeys, []),
-    lager:info("Bad state manifests have been put at ~p", [BadGCKeys]),
+    logger:info("Bad state manifests have been put at ~p", [BadGCKeys]),
     ok.
 
 put_more_bad_keys(_Pbc, [], BadGCKeys) ->
@@ -189,14 +189,14 @@ repair_gc_bucket(RiakNodeID) ->
             "--host 127.0.0.1 --port " ++ PbPort ++ " --leeway-seconds 1 --page-size 5 --debug",
             #{by => cs}),
     Lines = binary:split(list_to_binary(Res), [<<"\n">>], [global]),
-    lager:info("Repair script result: ==== BEGIN", []),
-    [lager:info("~s", [L]) || L <- Lines],
-    lager:info("Repair script result: ==== END", []),
+    logger:info("Repair script result: ==== BEGIN", []),
+    [logger:info("~s", [L]) || L <- Lines],
+    logger:info("Repair script result: ==== END", []),
     ok.
 
 verify_gc_run(Node, GCKey) ->
     rtcs_exec:gc(1, "batch 1"),
-    lager:info("Check log, warning for invalid state and info for GC finish"),
+    logger:info("Check log, warning for invalid state and info for GC finish"),
     true = rt:expect_in_log(Node,
                             "Invalid state manifest in GC bucket at <<\""
                             ++ binary_to_list(GCKey) ++ "\">>, "
@@ -210,8 +210,8 @@ verify_gc_run(Node, GCKey) ->
 
 verify_gc_run2(Node) ->
     rtcs_exec:gc(1, "batch 1"),
-    lager:info("Check collected count =:= 101, 1 from setup_obj, "
-               "100 from put_more_bad_keys."),
+    logger:info("Check collected count =:= 101, 1 from setup_obj, "
+                "100 from put_more_bad_keys."),
     true = rt:expect_in_log(Node,
                             "Finished garbage collection: \\d+ seconds, "
                             "\\d+ batch_count, 0 batch_skips, "
@@ -228,8 +228,8 @@ verify_riak_object_remaining_for_bad_key(RiakNodes, GCKey, {{Bucket, Key}, UUID}
     Manifests = twop_set:to_list(binary_to_term(riakc_obj:get_value(FileSetObj))),
     {UUID, Manifest} = lists:keyfind(UUID, 1, Manifests),
     riakc_pb_socket:stop(GCPbc),
-    lager:info("As expected, BAD manifest in GC bucket remains,"
-               " stand off orphan manfiests/blocks: ~p", [Manifest]),
+    logger:info("As expected, BAD manifest in GC bucket remains,"
+                " stand off orphan manfiests/blocks: ~p", [Manifest]),
     ok.
 
 verify_partial_gc_run(CSNode, RiakNodes,
@@ -248,7 +248,7 @@ verify_partial_gc_run(CSNode, RiakNodes,
          %% test.
          rtcs:reset_log(CSNode),
 
-         lager:debug("GC: (start, end) = (~p, ~p)", [S0, E0]),
+         logger:debug("GC: (start, end) = (~p, ~p)", [S0, E0]),
          S = rtcs:iso8601(S0),
          E = rtcs:iso8601(E0),
          BatchCmd = "batch -s " ++ S ++ " -e " ++ E,
@@ -259,21 +259,21 @@ verify_partial_gc_run(CSNode, RiakNodes,
                                  "\\d+ batch_count, 0 batch_skips, "
                                  "\\d+ manif_count, \\d+ block_count")
      end || {S0, E0} <- Starts],
-    lager:info("GC target period: (~p, ~p)", [Start0, End0]),
+    logger:info("GC target period: (~p, ~p)", [Start0, End0]),
     %% Reap!
     timer:sleep(3000),
     GCPbc = rtcs:pbc(RiakNodes, objects, ?TEST_BUCKET),
     {ok, Keys} = riakc_pb_socket:list_keys(GCPbc, ?GC_BUCKET),
-    lager:debug("Keys: ~p", [Keys]),
+    logger:debug("Keys: ~p", [Keys]),
     StartKey = list_to_binary(integer_to_list(Start0)),
     EndKey = list_to_binary(integer_to_list(End0)),
     EndKeyHPF = fun(Key) -> EndKey < Key end,
     StartKeyLPF = fun(Key) -> Key < StartKey end,
     BPF = fun(Key) -> StartKey < Key andalso Key < EndKey end,
 
-    lager:debug("Remaining Keys: ~p", [Keys]),
-    lager:debug("HPF result: ~p", [lists:filter(EndKeyHPF, Keys)]),
-    lager:debug("LPF result: ~p", [lists:filter(StartKeyLPF, Keys)]),
+    logger:debug("Remaining Keys: ~p", [Keys]),
+    logger:debug("HPF result: ~p", [lists:filter(EndKeyHPF, Keys)]),
+    logger:debug("LPF result: ~p", [lists:filter(StartKeyLPF, Keys)]),
     ?assertEqual(3, length(lists:filter(EndKeyHPF, Keys))),
     ?assertEqual(3, length(lists:filter(StartKeyLPF, Keys))),
     ?assertEqual([], lists:filter(BPF, Keys)),

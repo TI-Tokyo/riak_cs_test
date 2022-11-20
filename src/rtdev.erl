@@ -52,7 +52,7 @@ riakreplcmd(Path, N, Cmd) ->
 
 run_riak(Node, Path, Cmd) ->
     Exec = riakcmd(Path, Node, Cmd),
-    lager:info("Exec ~s", [Exec]),
+    logger:info("Exec ~s", [Exec]),
     R = os:cmd(Exec),
     case Cmd of
         "start" ->
@@ -74,7 +74,7 @@ run_riak(Node, Path, Cmd) ->
     end.
 
 run_riak_repl(Node, Path, Cmd) ->
-    lager:info("Running: ~s", [riakcmd(Path, Node, Cmd)]),
+    logger:info("Running: ~s", [riakcmd(Path, Node, Cmd)]),
     os:cmd(riakreplcmd(Path, node_id(Node), Cmd)).
     %% don't mess with intercepts and/or coverage,
     %% they should already be setup at this point
@@ -109,7 +109,7 @@ node_version(N) ->
 check_node({_N, Version}) ->
     case rt_util:find_atom_or_string(Version, rt_config:get(rtdev_path)) of
         undefined ->
-            lager:error("You don't have Riak ~s installed or configured", [Version]),
+            logger:error("You don't have Riak ~s installed or configured", [Version]),
             erlang:error(lists:flatten(io_lib:format("You don't have Riak ~p installed or configured", [Version])));
         _ -> ok
     end.

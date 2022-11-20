@@ -26,7 +26,7 @@ confirm() ->
     {ok, _} = application:ensure_all_started(ssl),
     CSConfig = [{ssl, [{certfile, "./etc/cert.pem"}, {keyfile, "./etc/key.pem"}]}],
     {{UserConfig, _}, _} = rtcs:setup(1, [{cs, [{riak_cs, CSConfig}]}]),
-    % lager:info("UserConfig: ~p", [UserConfig]),
+    % logger:info("UserConfig: ~p", [UserConfig]),
     ok = verify_cs1025(UserConfig),
     rtcs_dev:pass().
 
@@ -34,9 +34,9 @@ verify_cs1025(UserConfig) ->
     B = <<"booper">>,
     K = <<"drooper">>,
     K2 = <<"super">>,
-    lager:info("Creating a bucket ~s", [B]),
+    logger:info("Creating a bucket ~s", [B]),
     rtcs_object:upload(UserConfig, {https, 0}, B, <<>>),
-    lager:info("Creating a source object to copy, ~s", [K]),
+    logger:info("Creating a source object to copy, ~s", [K]),
     rtcs_object:upload(UserConfig, {https, 42}, B, K),
-    lager:info("Trying copy from ~s to ~s", [K, K2]),
+    logger:info("Trying copy from ~s to ~s", [K, K2]),
     rtcs_object:upload(UserConfig, https_copy, B, K2, K).

@@ -88,7 +88,7 @@ verify_cs654(UserConfig) ->
 -define(KEY_PREFIX_1, "a/").
 
 run_test_empty_common_prefixes(UserConfig) ->
-    lager:info("creating bucket ~p", [?TEST_BUCKET_1]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET_1]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET_1, UserConfig)),
     Count = 1002,
     list_objects_test_helper:load_objects(?TEST_BUCKET_1, Count, ?KEY_PREFIX_1, UserConfig),
@@ -128,7 +128,7 @@ run_test_empty_common_prefixes(UserConfig) ->
 -define(PENDING_DELETE_PREFIX, "2/").
 
 run_test_no_duplicate_key(UserConfig) ->
-    lager:info("creating bucket ~p", [?TEST_BUCKET_2]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET_2]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET_2, UserConfig)),
 
     list_objects_test_helper:load_objects(?TEST_BUCKET_2, 100, ?ACTIVE_PREFIX,
@@ -167,7 +167,7 @@ run_test_no_duplicate_key(UserConfig) ->
 -define(ACTIVE_PREFIX_2, "0/").
 
 run_test_no_infinite_loop(UserConfig) ->
-    lager:info("creating bucket ~p", [?TEST_BUCKET_3]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET_3]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET_3, UserConfig)),
 
     list_objects_test_helper:load_objects(?TEST_BUCKET_3, 1100, ?ACTIVE_PREFIX,

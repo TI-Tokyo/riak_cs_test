@@ -30,11 +30,11 @@
 %% - Start all nodes
 %% - Assert no blocks in `BlockKeysFileList` exist after execution
 offline_delete({RiakNodes, _CSNodes, _Stanchion} = Tussle, BlockKeysFileList) ->
-    lager:info("Assert all blocks exist before deletion"),
+    logger:info("Assert all blocks exist before deletion"),
     [assert_all_blocks_exists(RiakNodes, BlockKeysFile) ||
         BlockKeysFile <- BlockKeysFileList],
 
-    lager:info("Stop nodes and execute offline_delete script..."),
+    logger:info("Stop nodes and execute offline_delete script..."),
     rtcs_exec:stop_all_nodes(Tussle, current),
 
     [begin
@@ -43,27 +43,27 @@ offline_delete({RiakNodes, _CSNodes, _Stanchion} = Tussle, BlockKeysFileList) ->
                  "-r 8 --yes " ++
                      rtcs_config:riak_bitcaskroot(rtcs_config:devpath(riak, current), 1) ++
                      " " ++ BlockKeysFile),
-         lager:info("offline_delete.erl log:\n~s", [Res]),
-         lager:info("offline_delete.erl log:============= END")
+         logger:info("offline_delete.erl log:\n~s", [Res]),
+         logger:info("offline_delete.erl log:============= END")
      end || BlockKeysFile <- BlockKeysFileList],
 
-    lager:info("Assert all blocks are non-existent now"),
+    logger:info("Assert all blocks are non-existent now"),
     rtcs_exec:start_all_nodes(Tussle, current),
     [assert_any_blocks_not_exists(RiakNodes, BlockKeysFile) ||
         BlockKeysFile <- BlockKeysFileList],
-    lager:info("All cleaned up!"),
+    logger:info("All cleaned up!"),
     ok.
 
 assert_all_blocks_exists(RiakNodes, BlocksListFile) ->
     BlockKeys = block_keys(BlocksListFile),
-    lager:info("Assert all blocks still exist."),
+    logger:info("Assert all blocks still exist."),
     [assert_block_exists(RiakNodes, BlockKey) ||
         BlockKey <- BlockKeys],
     ok.
 
 assert_any_blocks_not_exists(RiakNodes, BlocksListFile) ->
     BlockKeys = block_keys(BlocksListFile),
-    lager:info("Assert all blocks are gone."),
+    logger:info("Assert all blocks are gone."),
     [assert_block_not_exists(RiakNodes, BlockKey) ||
         BlockKey <- BlockKeys],
     ok.
@@ -84,8 +84,8 @@ assert_block_exists(RiakNodes, {CsBucket, CsKey, UUID, Seq}) ->
     ok = case rc_helper:get_riakc_obj(RiakNodes, blocks, CsBucket, {CsKey, UUID, Seq}) of
              {ok, _Obj} -> ok;
              Other ->
-                 lager:error("block not found: ~p for ~p~n",
-                             [Other, {CsBucket, CsKey, UUID, Seq}]),
+                 logger:error("block not found: ~p for ~p~n",
+                              [Other, {CsBucket, CsKey, UUID, Seq}]),
                  {error, block_notfound}
          end.
 
@@ -94,6 +94,6 @@ assert_block_not_exists(RiakNodes, {CsBucket, CsKey, UUID, Seq}) ->
                                       CsBucket, {CsKey, UUID, Seq}) of
              {error, notfound} -> ok;
              {ok, _Obj} ->
-                 lager:error("block found: ~p", [{CsBucket, CsKey, UUID, Seq}]),
+                 logger:error("block found: ~p", [{CsBucket, CsKey, UUID, Seq}]),
                  {error, block_found}
          end.

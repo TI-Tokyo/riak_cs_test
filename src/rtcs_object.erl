@@ -42,7 +42,7 @@ upload(UserConfig, {normal_partial, CL, Actual}, B, K) when is_list(K),
     %% Fake checksum, this request should fail if all payloads were sent
     MD5 = "1B2M2Y8AsgTpgAmY7PhCfg==",
     ReqHdr = base_header(B, K, CL, MD5, UserConfig, ""),
-    lager:info("~s", [iolist_to_binary(ReqHdr)]),
+    logger:info("~s", [iolist_to_binary(ReqHdr)]),
 
     {Host, Port} = get_config_target_address(UserConfig),
     {ok, Sock} = gen_tcp:connect(Host, Port, [{active, false}]),
@@ -89,12 +89,12 @@ upload(UserConfig, multipart_copy, B, DstK, SrcK) ->
 send_ssl_request(Config, Payload) ->
     {Host, Port} = get_config_target_address(Config),
     {ok, Sock} = ssl:connect(Host, Port, [{active, false}, binary]),
-    lager:info("sending HTTPS request: ~s", [Payload]),
+    logger:info("sending HTTPS request: ~s", [Payload]),
     ok = ssl:send(Sock, Payload),
     {ok, Data} = ssl:recv(Sock, 0),
-    lager:debug("SSL recv: ~p", [Data]),
+    logger:debug("SSL recv: ~p", [Data]),
     {ok, Packet, Rest} = erlang:decode_packet(http, Data, []),
-    lager:debug("~p / ~p", [Packet, Rest]),
+    logger:debug("~p / ~p", [Packet, Rest]),
     ?assertEqual({http_response, {1, 1}, 200, "OK"}, Packet),
     ssl:close(Sock),
     ok.
@@ -110,11 +110,12 @@ base_header(B, K, CL, MD5, UserConfig, MetaTags) ->
               case CL of 0 -> ""; _ -> MD5 end, $\n,
               "application/octet-stream", $\n,
               Date, $\n, MetaTags, $/, B, $/, K, []],
-    lager:debug("String to Sign: ~s", [ToSign]),
-    Sig = base64:encode_to_string(crypto:hmac(
-                                    sha,
-                                    UserConfig#aws_config.secret_access_key,
-                                    ToSign)),
+    logger:debug("String to Sign: ~s", [ToSign]),
+    Sig = base64:encode_to_string(
+            crypto:mac(hmac,
+                       sha,
+                       UserConfig#aws_config.secret_access_key,
+                       ToSign)),
     Auth = io_lib:format("Authorization: AWS ~s:~s",
                          [UserConfig#aws_config.access_key_id, Sig]),
     FirstLine = io_lib:format("PUT /~s HTTP/1.1", [K]),

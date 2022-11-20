@@ -33,10 +33,10 @@
 confirm() ->
     {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}} = rtcs:setup(1),
 
-    lager:info("User is valid on the cluster, and has no buckets"),
+    logger:info("User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
 
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
     ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
@@ -44,8 +44,8 @@ confirm() ->
 
     {Content, Etag, ThreeDates} =
         setup_object(?TEST_BUCKET, ?TEST_KEY, UserConfig),
-    lager:debug("Etag: ~p~n", [Etag]),
-    lager:debug("{Before, LastModified, After}: ~p~n", [ThreeDates]),
+    logger:debug("Etag: ~p", [Etag]),
+    logger:debug("{Before, LastModified, After}: ~p", [ThreeDates]),
 
     last_modified_condition_test_cases(?TEST_BUCKET, ?TEST_KEY,
                                        Content, ThreeDates, UserConfig),

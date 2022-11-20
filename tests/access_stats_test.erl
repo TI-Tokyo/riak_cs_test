@@ -46,7 +46,7 @@ confirm() ->
                                riak_cs_storage_mr]),
 
     Results = generate_some_accesses(UserConfig),
-    lager:debug("Client results: ~p", [Results]),
+    logger:debug("Client results: ~p", [Results]),
     flush_access_stats(),
     assert_access_stats(json, UserConfig, Results),
     assert_access_stats(xml, UserConfig, Results),
@@ -61,7 +61,7 @@ generate_some_accesses(UserConfig, DurationSecs) ->
     Begin = calendar:universal_time(),
     Until = calendar:datetime_to_gregorian_seconds(Begin) + DurationSecs,
     R0 = dict:new(),
-    lager:info("creating bucket ~p", [?BUCKET]),
+    logger:info("creating bucket ~p", [?BUCKET]),
     %% Create bucket
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET, UserConfig)),
     R1 = dict:update_counter({"BucketCreate", "Count"}, 1, R0),
@@ -108,7 +108,7 @@ generate_some_accesses(UserConfig, UntilGregSecs, R0) ->
 
 flush_access_stats() ->
     Res = rtcs_exec:flush_access(1),
-    lager:info("riak-cs-access flush result: ~s", [Res]),
+    logger:info("riak-cs-access flush result: ~s", [Res]),
     ExpectRegexp = "All access logs were flushed.\n$",
     ?assertMatch({match, _}, re:run(Res, ExpectRegexp)).
 
@@ -121,10 +121,10 @@ assert_access_stats(Format, UserConfig, {Begin, End, ClientStats}) ->
     StatsKey = lists:flatten(["usage/", KeyId, "/a", FormatInstruction, "/",
                               Begin, "/", End, "/"]),
     GetResult = erlcloud_s3:get_object("riak-cs", StatsKey, UserConfig),
-    lager:debug("GET Access stats response: ~p", [GetResult]),
+    logger:debug("GET Access stats response: ~p", [GetResult]),
     Content = proplists:get_value(content, GetResult),
     Samples = node_samples_from_content(Format, "rcs-dev1@127.0.0.1", Content),
-    lager:debug("Access samples (~s): ~p", [Format, Samples]),
+    logger:debug("Access samples (~s): ~p", [Format, Samples]),
 
     ?assertEqual(client_result({"BucketCreate", "Count"},       ClientStats),
             sum_samples(Format, "BucketCreate", "Count",        Samples)),
@@ -163,9 +163,9 @@ verify_stats_lost_logging(UserConfig, RiakNodes, CSNodes) ->
     flush_access_stats(),
     %% check logs, at same node with flush_access_stats
     CSNode = hd(CSNodes),
-    lager:info("Checking log in ~p", [CSNode]),
+    logger:info("Checking log in ~p", [CSNode]),
     ExpectLine = io_lib:format("lost access stat: User=~s, Slice=", [KeyId]),
-    lager:debug("expected log line: ~s", [ExpectLine]),
+    logger:debug("expected log line: ~s", [ExpectLine]),
     true = rt:expect_in_log(CSNode, ExpectLine),
     rtcs_dev:pass().
 
@@ -175,7 +175,7 @@ client_result(Key, ResultSet) ->
 node_samples_from_content(json, Node, Content) ->
     Usage = mochijson2:decode(Content),
     ListOfNodeStats = rtcs:json_get([<<"Access">>, <<"Nodes">>], Usage),
-    lager:debug("ListOfNodeStats: ~p", [ListOfNodeStats]),
+    logger:debug("ListOfNodeStats: ~p", [ListOfNodeStats]),
     NodeBin = list_to_binary(Node),
     [NodeStats | _] = lists:dropwhile(
                         fun(NodeStats) ->

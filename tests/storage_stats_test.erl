@@ -125,7 +125,7 @@ mess_with_writing_various_props(RiakNodes, UserConfig, VariousProps) ->
                 Manifest1 = Manifest0?MANIFEST{state=NewState, props=Props},
                 RiakObject = riakc_obj:update_value(RiakObject0,
                                                     term_to_binary([{UUID, Manifest1}])),
-                lager:info("~p", [Manifest1?MANIFEST.props]),
+                logger:info("~p", [Manifest1?MANIFEST.props]),
 
                 Block = crypto:strong_rand_bytes(100),
                 ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(CSBucket, CSKey,
@@ -161,7 +161,7 @@ mess_with_tombstone(RiakNodes, UserConfig) ->
 
     %% %% This leaves a tombstone which messes up the storage calc
     ok = riakc_pb_socket:delete(Pid, Bucket, list_to_binary(CSKey)),
-    %% lager:info("listkeys: ~p", [riakc_pb_socket:list_keys(Pid, Bucket)]),
+    %% logger:info("listkeys: ~p", [riakc_pb_socket:list_keys(Pid, Bucket)]),
 
     ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(?BUCKET8, CSKey,
                                                                 Block, UserConfig)),
@@ -193,7 +193,7 @@ assure_num_siblings(Pid, Bucket, Key, Num) ->
 
 
 store_object(Bucket, UserConfig) ->
-    lager:info("creating bucket ~p", [Bucket]),
+    logger:info("creating bucket ~p", [Bucket]),
     %% Create bucket
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, UserConfig)),
     %% Put 100-byte object
@@ -204,7 +204,7 @@ store_object(Bucket, UserConfig) ->
     {Bucket, ExpectedObjects, ExpectedBytes}.
 
 delete_object(Bucket, UserConfig) ->
-    lager:info("creating bucket ~p", [Bucket]),
+    logger:info("creating bucket ~p", [Bucket]),
     %% Create bucket
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, UserConfig)),
     %% Put 100-byte object
@@ -216,7 +216,7 @@ delete_object(Bucket, UserConfig) ->
     {Bucket, ExpectedObjects, ExpectedBytes}.
 
 store_objects(Bucket, UserConfig) ->
-    lager:info("creating bucket ~p", [Bucket]),
+    logger:info("creating bucket ~p", [Bucket]),
     %% Create bucket
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, UserConfig)),
     %% Put 100-byte object 10 times
@@ -248,7 +248,7 @@ calc_storage_stats(CSNode) ->
     %% FIXME: workaround for #766
     timer:sleep(1000),
     Res = rtcs_exec:calculate_storage(1),
-    lager:info("riak-cs-admin storage batch result: ~s", [Res]),
+    logger:info("riak-cs-admin storage batch result: ~s", [Res]),
     ExpectRegexp = "Batch storage calculation started.\n$",
     ?assertMatch({match, _}, re:run(Res, ExpectRegexp)),
     true = rt:expect_in_log(CSNode, "Finished storage calculation"),
@@ -284,37 +284,37 @@ storage_stats_request(SignUserConfig, UserConfig, Begin, End) ->
 
 storage_stats_json_request(SignUserConfig, UserConfig, Begin, End) ->
     Samples = samples_from_json_request(SignUserConfig, UserConfig, {Begin, End}),
-    lager:debug("Storage samples[json]: ~p", [Samples]),
+    logger:debug("Storage samples[json]: ~p", [Samples]),
     ?assertEqual(1, length(Samples)),
     [Sample] = Samples,
-    lager:info("Storage sample[json]: ~p", [Sample]),
+    logger:info("Storage sample[json]: ~p", [Sample]),
     Sample.
 
 storage_stats_xml_request(SignUserConfig, UserConfig, Begin, End) ->
     Samples = samples_from_xml_request(SignUserConfig, UserConfig, {Begin, End}),
-    lager:debug("Storage samples[xml]: ~p", [Samples]),
+    logger:debug("Storage samples[xml]: ~p", [Samples]),
     ?assertEqual(1, length(Samples)),
     [Sample] = Samples,
     ParsedSample = to_proplist_stats(Sample),
-    lager:info("Storage sample[xml]: ~p", [ParsedSample]),
+    logger:info("Storage sample[xml]: ~p", [ParsedSample]),
     ParsedSample.
 
 samples_from_json_request(SignUserConfig, UserConfig, {Begin, End}) ->
     KeyId = UserConfig#aws_config.access_key_id,
     StatsKey = string:join(["usage", KeyId, "bj", Begin, End], "/"),
     GetResult = erlcloud_s3:get_object("riak-cs", StatsKey, SignUserConfig),
-    lager:debug("GET Storage stats response[json]: ~p", [GetResult]),
+    logger:debug("GET Storage stats response[json]: ~p", [GetResult]),
     Usage = mochijson2:decode(proplists:get_value(content, GetResult)),
-    lager:debug("Usage Response[json]: ~p", [Usage]),
+    logger:debug("Usage Response[json]: ~p", [Usage]),
     rtcs:json_get([<<"Storage">>, <<"Samples">>], Usage).
 
 samples_from_xml_request(SignUserConfig, UserConfig, {Begin, End}) ->
     KeyId = UserConfig#aws_config.access_key_id,
     StatsKey = string:join(["usage", KeyId, "bx", Begin, End], "/"),
     GetResult = erlcloud_s3:get_object("riak-cs", StatsKey, SignUserConfig),
-    lager:debug("GET Storage stats response[xml]: ~p", [GetResult]),
+    logger:debug("GET Storage stats response[xml]: ~p", [GetResult]),
     {Usage, _Rest} = xmerl_scan:string(binary_to_list(proplists:get_value(content, GetResult))),
-    lager:debug("Usage Response[xml]: ~p", [Usage]),
+    logger:debug("Usage Response[xml]: ~p", [Usage]),
     xmerl_xpath:string("//Storage/Samples/Sample",Usage).
 
 to_proplist_stats(Sample) ->

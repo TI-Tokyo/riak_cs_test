@@ -38,8 +38,8 @@
 confirm() ->
     case rt_config:get(flavor, basic) of
         {multibag, _} ->
-            lager:info("Block audit script does not support multibag env."),
-            lager:info("Skip the test."),
+            logger:info("Block audit script does not support multibag env."),
+            logger:info("Skip the test."),
             rtcs_dev:pass();
         _ -> confirm1()
     end.
@@ -62,14 +62,14 @@ confirm1() ->
     Res1 = rtcs_exec:exec_priv_escript(
              1, "internal/block_audit.erl",
              "-h 127.0.0.1 -p 10017 -dd", #{by => cs}),
-    lager:debug("block_audit.erl log:\n~s", [Res1]),
-    lager:debug("block_audit.erl log:============= END"),
+    logger:debug("block_audit.erl log:\n~s", [Res1]),
+    logger:debug("block_audit.erl log:============= END"),
     fake_false_orphans(RiakNodes, FalseOrphans1 ++ FalseOrphans2),
     Res2 = rtcs_exec:exec_priv_escript(
              1, "internal/ensure_orphan_blocks.erl",
              "-h 127.0.0.1 -p 10017 -dd", #{by => cs}),
-    lager:debug("ensure_orphan_blocks.erl log:\n~s", [Res2]),
-    lager:debug("ensure_orphan_blocks.erl log:============= END"),
+    logger:debug("ensure_orphan_blocks.erl log:\n~s", [Res2]),
+    logger:debug("ensure_orphan_blocks.erl log:============= END"),
     assert_result(?BUCKET1),
     assert_result(?BUCKET2),
 
@@ -92,9 +92,9 @@ setup_objects(RiakNodes, UserConfig, Bucket, Type,
                Key <- [KeyAlive, KeyOrphaned, KeyFalseOrphaned]]
     end,
     ok = rc_helper:delete_riakc_obj(RiakNodes, objects, Bucket, KeyOrphaned),
-    lager:info("To fake deficit replicas for ~p, delete objects and restore it "
-               "between block_audit and ensure_orphan_blocks runs",
-               [{Bucket, KeyFalseOrphaned}]),
+    logger:info("To fake deficit replicas for ~p, delete objects and restore it "
+                "between block_audit and ensure_orphan_blocks runs",
+                [{Bucket, KeyFalseOrphaned}]),
     {ok, FalseOrphanedRObj} = rc_helper:get_riakc_obj(RiakNodes, objects,
                                                       Bucket, KeyFalseOrphaned),
     ok = rc_helper:delete_riakc_obj(RiakNodes, objects, Bucket, KeyFalseOrphaned),
@@ -103,7 +103,7 @@ setup_objects(RiakNodes, UserConfig, Bucket, Type,
 fake_false_orphans(RiakNodes, FalseOrphans) ->
     [begin
          R = rc_helper:update_riakc_obj(RiakNodes, objects, B, K, O),
-         lager:debug("fake_false_orphans ~p: ~p", [{B, K}, R])
+         logger:debug("fake_false_orphans ~p: ~p", [{B, K}, R])
      end ||
         {B, K, O} <- FalseOrphans].
 

@@ -47,7 +47,7 @@
                                         [{string(), {non_neg_integer(), non_neg_integer()}}].
 storage_stats_json_request(AdminConfig, UserConfig, Begin, End) ->
     Samples = samples_from_json_request(AdminConfig, UserConfig, {Begin, End}),
-    lager:debug("Storage samples[json]: ~p", [Samples]),
+    logger:debug("Storage samples[json]: ~p", [Samples]),
     {struct, Slice} = latest(Samples, undefined),
     by_bucket_list(Slice, []).
 
@@ -67,10 +67,10 @@ create_admin_user(Node) ->
     %% must match the values in client_tests/python/boto_test.py
 
     {UserConfig, Id} = create_user(rtcs_config:cs_port(Node), Email, User),
-    lager:info("Riak CS Admin account created with ~p", [Email]),
-    lager:info("KeyId = ~p",[UserConfig#aws_config.access_key_id]),
-    lager:info("KeySecret = ~p",[UserConfig#aws_config.secret_access_key]),
-    lager:info("Id = ~p",[Id]),
+    logger:info("Riak CS Admin account created with ~p", [Email]),
+    logger:info("KeyId = ~p",[UserConfig#aws_config.access_key_id]),
+    logger:info("KeySecret = ~p",[UserConfig#aws_config.secret_access_key]),
+    logger:info("Id = ~p",[Id]),
     {UserConfig, Id}.
 
 -spec create_user(atom(), non_neg_integer()) -> #aws_config{}.
@@ -79,9 +79,9 @@ create_user(Node, UserIndex) ->
     User = "Test User" ++ integer_to_list(UserIndex),
     Email = lists:flatten(io_lib:format("~p~p~p@basho.com", [A, B, C])),
     {UserConfig, _Id} = create_user(rtcs_config:cs_port(Node), Email, User),
-    lager:info("Created user ~p with keys ~p ~p", [Email,
-                                                   UserConfig#aws_config.access_key_id,
-                                                   UserConfig#aws_config.secret_access_key]),
+    logger:info("Created user ~p with keys ~p ~p", [Email,
+                                                    UserConfig#aws_config.access_key_id,
+                                                    UserConfig#aws_config.secret_access_key]),
     UserConfig.
 
 -spec create_user(non_neg_integer(), string(), string()) -> {#aws_config{}, string()}.
@@ -91,7 +91,7 @@ create_user(Port, EmailAddr, Name) ->
 
 -spec create_user(non_neg_integer(), string(), string(), string()) -> {#aws_config{}, string()}.
 create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
-    lager:debug("Trying to create user ~p", [EmailAddr]),
+    logger:debug("Trying to create user ~p", [EmailAddr]),
     Resource = "/riak-cs/user",
     ReqBody = "{\"email\":\"" ++ EmailAddr ++  "\", \"name\":\"" ++ Name ++"\"}",
     Delay = rt_config:get(rt_retry_delay),
@@ -102,13 +102,13 @@ create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
                            {ReqBody, "application/json"}, [])
                 end,
     Condition = fun({'EXIT', Res}) ->
-                        lager:error("create_user failing, Res: ~p", [Res]),
+                        logger:error("create_user failing, Res: ~p", [Res]),
                         false;
                    ({_ResHeader, _ResBody}) ->
                         true
                 end,
     {_ResHeader, ResBody} = rtcs:wait_until(OutputFun, Condition, Retries, Delay),
-    lager:debug("ResBody: ~s", [ResBody]),
+    logger:debug("ResBody: ~s", [ResBody]),
     JsonData = mochijson2:decode(ResBody),
     [KeyId, KeySecret, Id] = [binary_to_list(rtcs:json_get([K], JsonData)) ||
                                  K <- [<<"key_id">>, <<"key_secret">>, <<"id">>]],
@@ -119,16 +119,16 @@ update_user(UserConfig, _Port, Resource, ContentType, UpdateDoc) ->
     {_ResHeader, ResBody} = erlcloud_s3:s3_request(
                               UserConfig, put, "", Resource, [], "",
                               {UpdateDoc, ContentType}, []),
-    lager:debug("ResBody: ~s", [ResBody]),
+    logger:debug("ResBody: ~s", [ResBody]),
     ResBody.
 
 -spec get_user(#aws_config{}, non_neg_integer(), string(), string()) -> string().
 get_user(UserConfig, _Port, Resource, AcceptContentType) ->
-    lager:debug("Retreiving user record"),
+    logger:debug("Retreiving user record"),
     Headers = [{"Accept", AcceptContentType}],
     {_ResHeader, ResBody} = erlcloud_s3:s3_request(
                               UserConfig, get, "", Resource, [], "", "", Headers),
-    lager:debug("ResBody: ~s", [ResBody]),
+    logger:debug("ResBody: ~s", [ResBody]),
     ResBody.
 
 -spec list_users(#aws_config{}, non_neg_integer(), string(), string()) -> string().
@@ -155,7 +155,7 @@ make_authorization(Type, Method, Resource, ContentType, Config, Date, AmzHeaders
     StsAmzHeaderPart = [[K, $:, V, $\n] || {K, V} <- AmzHeaders],
     StringToSign = [Method, $\n, [], $\n, ContentType, $\n, Date, $\n,
                     StsAmzHeaderPart, Resource],
-    lager:debug("StringToSign~n~s~n", [StringToSign]),
+    logger:debug("StringToSign: ~s", [StringToSign]),
     Signature =
         base64:encode_to_string(rtcs:sha_mac(Config#aws_config.secret_access_key, StringToSign)),
     lists:flatten([Prefix, " ", Config#aws_config.access_key_id, $:, Signature]).

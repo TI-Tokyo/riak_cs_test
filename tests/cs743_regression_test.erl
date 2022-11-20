@@ -43,11 +43,11 @@ confirm() ->
 
     Begin = rtcs:datetime(),
     run_storage_batch(hd(CSNodes)),
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
     N = 1024,
-    lager:info("creating ~p objects in ~p", [N, ?TEST_BUCKET]),
+    logger:info("creating ~p objects in ~p", [N, ?TEST_BUCKET]),
     ok = etoomanyobjects(N, UserConfig),
     timer:sleep(1000),
 
@@ -62,9 +62,9 @@ assert_storage_stats(UserConfig, Begin, End) ->
     KeyId = UserConfig#aws_config.access_key_id,
     StatsKey = lists:flatten(["usage/", KeyId, "/bj/", Begin, "/", End, "/"]),
     GetResult = erlcloud_s3:get_object("riak-cs", StatsKey, UserConfig),
-    lager:info("Storage stats response: ~p", [GetResult]),
+    logger:info("Storage stats response: ~p", [GetResult]),
     Usage = mochijson2:decode(proplists:get_value(content, GetResult)),
-    lager:info("Storage Usage: ~p", [Usage]),
+    logger:info("Storage Usage: ~p", [Usage]),
     Samples = rtcs:json_get([<<"Storage">>, <<"Samples">>], Usage),
 
     ?assert(lists:any(
@@ -82,10 +82,10 @@ assert_storage_stats(UserConfig, Begin, End) ->
 
 run_storage_batch(CSNode) ->
     {ok, Status0} = rpc:call(CSNode, riak_cs_storage_d, status, []),
-    lager:info("~p", [Status0]),
+    logger:info("~p", [Status0]),
     ok = rpc:call(CSNode, riak_cs_storage_d, start_batch, [[{recalc,true}]]),
     {ok, Status1} = rpc:call(CSNode, riak_cs_storage_d, status, []),
-    lager:info("~p", [Status1]),
+    logger:info("~p", [Status1]),
     %%{ok,
     %% {calculating,[{schedule,[]},{last,undefined},{current,{{2013,12,26},{3,55,29}}},
     %% {next,undefined},{elapsed,0},{users_done,1},{users_skipped,0},{users_left,0}]}}

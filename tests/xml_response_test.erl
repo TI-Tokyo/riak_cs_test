@@ -47,28 +47,28 @@ verify_multipart_upload_response() ->
     % TODO: rtcs:setup should read this from the conf file
     Config = AdminConfig#aws_config{s3_host = Host},
 
-    lager:info("creating bucket ~p", [Bucket]),
+    logger:info("creating bucket ~p", [Bucket]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, Config)),
 
     {ok, {_, Result}} = perform_multipart_upload(
         Bucket, Key, NumParts, PartSize, Config),
-    % lager:info("Response Data of '~s/~s':\n~p\n", [Bucket, Key, Result]),
+    % logger:info("Response Data of '~s/~s':\n~p\n", [Bucket, Key, Result]),
 
     verify_multipart_upload_response(Result, Host, Bucket, Key),
 
     rtcs_dev:pass().
 
 perform_multipart_upload(Bucket, Key, NumParts, PartSize, Config) ->
-    lager:info("initiating multipart upload of '~s/~s'", [Bucket, Key]),
+    logger:info("initiating multipart upload of '~s/~s'", [Bucket, Key]),
     UploadId = erlcloud_s3_multipart:upload_id(
         erlcloud_s3_multipart:initiate_upload(Bucket, Key, [], [], Config)),
 
-    lager:info("uploading parts of '~s/~s'", [Bucket, Key]),
+    logger:info("uploading parts of '~s/~s'", [Bucket, Key]),
     EtagList = upload_and_assert_parts(
         Bucket, Key, UploadId, NumParts, PartSize, Config),
-    % lager:info("ETags of '~s/~s': ~p", [Bucket, Key, EtagList]),
+    % logger:info("ETags of '~s/~s': ~p", [Bucket, Key, EtagList]),
 
-    lager:info("completing upload of '~s/~s'", [Bucket, Key]),
+    logger:info("completing upload of '~s/~s'", [Bucket, Key]),
     complete_multipart_upload(Bucket, Key, UploadId, EtagList, Config).
 
 verify_multipart_upload_response(ResponseBody, RootHost, Bucket, Key) ->
@@ -111,7 +111,7 @@ complete_multipart_upload(Bucket, Key, UploadId, EtagList, Config) ->
         [],                                     % params
         etags_to_multipart_request(EtagList),   % POST data
         []),                                    % headers
-    % lager:info("Raw Response: ~p", [Response]),
+    % logger:info("Raw Response: ~p", [Response]),
     case Response of
         {_, []} ->
             {ok, Response};
@@ -129,7 +129,7 @@ etags_to_multipart_request(EtagList) ->
     ReqData = [{'Part', [
         {'PartNumber', [erlang:integer_to_list(N)]},
         {'ETag', [T]}]} || {N, T} <- EtagList],
-    % lager:info("Request Data: ~p", [ReqData]),
+    % logger:info("Request Data: ~p", [ReqData]),
     Request = {'CompleteMultipartUpload', ReqData},
     erlang:list_to_binary(xmerl:export_simple([Request], xmerl_xml)).
 

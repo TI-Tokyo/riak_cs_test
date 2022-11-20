@@ -39,9 +39,9 @@ confirm() ->
                   end, RiakNodes),
 
     %% stanchion ops ok
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
-    lager:info("deleting bucket ~p", [?TEST_BUCKET]),
+    logger:info("deleting bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
 
     %% stop stanchion to check ops fails
@@ -49,7 +49,7 @@ confirm() ->
     rt:wait_until_unpingable(Stanchion),
 
     %% stanchion ops ng; we get 500 here for sure.
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertException(error, {aws_error, {http_error, 500, _, _}},
                     erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
@@ -58,7 +58,7 @@ confirm() ->
     rt:wait_until_pingable(Stanchion),
 
     %% stanchion ops ng; we get 500 here for sure.
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertException(error, {aws_error, {http_error, 500, _, _}},
                      erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
@@ -71,9 +71,9 @@ confirm() ->
                   end, RiakNodes),
 
     %% stanchion ops ok again
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
-    lager:info("deleting bucket ~p", [?TEST_BUCKET]),
+    logger:info("deleting bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
     rtcs_dev:pass().
 

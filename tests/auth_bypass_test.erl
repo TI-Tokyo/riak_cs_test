@@ -59,16 +59,16 @@ confirm_auth_bypass(Bucket, Key, UserConfig, Port) ->
 get_both_contents(Bucket, Key, UserConfig, Port) ->
     S3Result = erlcloud_s3:get_object(Bucket, Key, UserConfig),
     S3Content = extract_contents(proplists:get_value(content, S3Result)),
-    lager:debug("erlcloud output: ~p~n", [S3Content]),
+    logger:debug("erlcloud output: ~p", [S3Content]),
 
     CurlContent = extract_contents(curl_request(Bucket, Key, Port)),
-    lager:debug("curl output: ~p~n", [CurlContent]),
+    logger:debug("curl output: ~p", [CurlContent]),
     {S3Content, CurlContent}.
 
 curl_request(Bucket, Key, Port) ->
     Cmd = "curl -s http://localhost:" ++ integer_to_list(Port)
         ++ "/" ++ Bucket ++ "/" ++ Key,
-    lager:debug("cmd: ~p", [Cmd]),
+    logger:debug("cmd: ~p", [Cmd]),
     os:cmd(Cmd).
 
 extract_contents(Output) when is_binary(Output) ->
@@ -78,10 +78,10 @@ extract_contents(Output) ->
     extract_contents(Tokens, MaybeBoundary, []).
 
 extract_contents([], NonMultipartContent, []) ->
-    lager:debug("extracted contents: ~p~n", [NonMultipartContent]),
+    logger:debug("extracted contents: ~p", [NonMultipartContent]),
     NonMultipartContent;
 extract_contents([], _Boundary, Contents) ->
-    lager:debug("extracted contents: ~p~n", [Contents]),
+    logger:debug("extracted contents: ~p", [Contents]),
     Contents;
 extract_contents(["Content-Type: application/xml", Content | Tokens],
                 Boundary, Contents) ->

@@ -27,12 +27,12 @@ confirm() ->
     UserConfig = rtcs_admin:create_user(hd(CSNodes), 1),
     rtcs_bag:set_weights(BagFlavor),
 
-    lager:info("User is valid on the cluster, and has no buckets"),
+    logger:info("User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
 
     assert_bucket_create_delete_twice(UserConfig),
 
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
     ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],

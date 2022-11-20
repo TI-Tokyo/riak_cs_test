@@ -43,7 +43,7 @@ confirm() ->
 
     ok = verify_create_delete(UserConfig),
 
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
     ok = verify_bucket_location(UserConfig),
@@ -63,14 +63,14 @@ confirm() ->
 
 
 verify_create_delete(UserConfig) ->
-    lager:info("User is valid on the cluster, and has no buckets"),
+    logger:info("User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
-    lager:info("deleting bucket ~p", [?TEST_BUCKET]),
+    logger:info("deleting bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
-    lager:info("User is valid on the cluster, and has no buckets"),
+    logger:info("User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
     ok.
 
@@ -80,7 +80,7 @@ verify_bucket_delete_fails(UserConfig) ->
     erlcloud_s3:put_object(?TEST_BUCKET, ?KEY_SINGLE_BLOCK, SingleBlock, UserConfig),
 
     %% verify bucket deletion fails if any objects exist
-    lager:info("deleting bucket ~p (to fail)", [?TEST_BUCKET]),
+    logger:info("deleting bucket ~p (to fail)", [?TEST_BUCKET]),
     ?assertError({aws_error, {http_error, _, _, _}},
                  erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
 
@@ -93,9 +93,9 @@ verify_bucket_mpcleanup(UserConfig) ->
     Bucket = ?TEST_BUCKET,
     Key = ?KEY_SINGLE_BLOCK,
     InitUploadRes = erlcloud_s3_multipart:initiate_upload(Bucket, Key, [], [], UserConfig),
-    lager:info("InitUploadRes = ~p", [InitUploadRes]),
+    logger:info("InitUploadRes = ~p", [InitUploadRes]),
     UploadId = erlcloud_s3_multipart:upload_id(InitUploadRes),
-    lager:info("UploadId = ~p", [UploadId]),
+    logger:info("UploadId = ~p", [UploadId]),
 
     %% make sure that mp uploads created
     UploadsList1 = erlcloud_s3_multipart:list_uploads(Bucket, [], UserConfig),
@@ -103,7 +103,7 @@ verify_bucket_mpcleanup(UserConfig) ->
     ?assertEqual(Bucket, proplists:get_value(bucket, UploadsList1)),
     ?assert(mp_upload_test:upload_id_present(UploadId, Uploads1)),
 
-    lager:info("deleting bucket ~p", [?TEST_BUCKET]),
+    logger:info("deleting bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
 
     %% check that writing mp uploads never resurrect
@@ -135,10 +135,10 @@ verify_bucket_mpcleanup_racecond_and_fix(UserConfig, UserConfig1,
     %% DO cleanup here
     case rpc:call(CSNode, riak_cs_console, cleanup_orphan_multipart, []) of
         {badrpc, Error} ->
-            lager:error("cleanup_orphan_multipart error: ~p~n", [Error]),
+            logger:error("cleanup_orphan_multipart error: ~p", [Error]),
             throw(Error);
         Res ->
-            lager:info("Result of cleanup_orphan_multipart: ~p~n", [Res])
+            logger:info("Result of cleanup_orphan_multipart: ~p", [Res])
     end,
 
     %% list_keys here? wait for GC?
@@ -166,10 +166,10 @@ verify_cleanup_orphan_mp(UserConfig, UserConfig1, RiakNodes, CSNode) ->
     %% DO cleanup here
     case rpc:call(CSNode, riak_cs_console, cleanup_orphan_multipart, []) of
         {badrpc, Error} ->
-            lager:error("cleanup_orphan_multipart error: ~p~n", [Error]),
+            logger:error("cleanup_orphan_multipart error: ~p", [Error]),
             throw(Error);
         Res ->
-            lager:info("Result of cleanup_orphan_multipart: ~p~n", [Res])
+            logger:info("Result of cleanup_orphan_multipart: ~p", [Res])
     end,
 
     %% and Okay, it's clear, another user creates same bucket
@@ -198,16 +198,16 @@ prepare_bucket_with_orphan_mp(BucketName, Key, UserConfig, RiakNodes) ->
 
 verify_max_buckets_per_user(UserConfig) ->
     [{buckets, Buckets}] = erlcloud_s3:list_buckets(UserConfig),
-    lager:debug("existing buckets: ~p", [Buckets]),
+    logger:debug("existing buckets: ~p", [Buckets]),
     BucketNameBase = "toomanybuckets",
     [begin
          BucketName = BucketNameBase++integer_to_list(N),
-         lager:debug("creating bucket ~p", [BucketName]),
+         logger:debug("creating bucket ~p", [BucketName]),
          ?assertEqual(ok,
                       erlcloud_s3:create_bucket(BucketName, UserConfig))
      end
      || N <- lists:seq(1,100-length(Buckets))],
-    lager:debug("100 buckets created", []),
+    logger:debug("100 buckets created", []),
     BucketName1 = BucketNameBase ++ "101",
     ?assertError({aws_error, {http_error, 400, [], _}},
                  erlcloud_s3:create_bucket(BucketName1, UserConfig)),

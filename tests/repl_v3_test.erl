@@ -53,16 +53,16 @@ confirm() ->
     %% User 2, Cluster 1 config
     U2C1Config = rtcs_admin:aws_config(U2C2Config, [{port, rtcs_config:cs_port(AFirst)}]),
 
-    lager:info("User 1 IS valid on the primary cluster, and has no buckets"),
+    logger:info("User 1 IS valid on the primary cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(U1C1Config)),
 
-    lager:info("User 2 IS valid on the primary cluster, and has no buckets"),
+    logger:info("User 2 IS valid on the primary cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(U2C1Config)),
 
-    lager:info("User 2 is NOT valid on the secondary cluster"),
+    logger:info("User 2 is NOT valid on the secondary cluster"),
     ?assertError({aws_error, _}, erlcloud_s3:list_buckets(U2C2Config)),
 
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, U1C1Config)),
 
     ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
@@ -84,7 +84,7 @@ confirm() ->
     Obj = erlcloud_s3:get_object(?TEST_BUCKET, "object_one", U1C1Config),
     ?assertEqual(Object1, proplists:get_value(content, Obj)),
 
-    lager:info("set up v3 replication between clusters"),
+    logger:info("set up v3 replication between clusters"),
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %% Name and connect Riak Enterprise V3 replication between A and B
@@ -99,7 +99,7 @@ confirm() ->
     repl_helpers:wait_until_13_leader(AFirst),
     LeaderA = rpc:call(AFirst, riak_core_cluster_mgr, get_leader, []),
     LeaderB = rpc:call(BFirst, riak_core_cluster_mgr, get_leader, []),
-    lager:info("leaders: A: ~s, B: ~s", [LeaderA, LeaderB]),
+    logger:info("leaders: A: ~s, B: ~s", [LeaderA, LeaderB]),
 
     rpc:call(LeaderA, riak_repl_console, modes, [["mode_repl13"]]),
     rpc:call(LeaderB, riak_repl_console, modes, [["mode_repl13"]]),
@@ -120,7 +120,7 @@ confirm() ->
 
     case proplists:get_value(proxy_get_enabled, Status) of
         undefined -> ?assert(false);
-        EnabledFor -> lager:info("PG enabled for cluster ~p",[EnabledFor])
+        EnabledFor -> logger:info("PG enabled for cluster ~p",[EnabledFor])
     end,
     rt:wait_until_ring_converged(ANodes),
     rt:wait_until_ring_converged(BNodes),
@@ -131,20 +131,20 @@ confirm() ->
     %% run an initial fullsync
     repl_helpers:start_and_wait_until_fullsync_complete13(LeaderA),
 
-    lager:info("User 2 is valid on secondary cluster after fullsync,"
-               " still no buckets"),
+    logger:info("User 2 is valid on secondary cluster after fullsync,"
+                " still no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(U2C2Config)),
 
-    lager:info("User 1 has the test bucket on the secondary cluster now"),
+    logger:info("User 1 has the test bucket on the secondary cluster now"),
     ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
         erlcloud_s3:list_buckets(U1C2Config)),
 
-    lager:info("Object written on primary cluster is readable from secondary "
+    logger:info("Object written on primary cluster is readable from secondary "
         "cluster"),
     Obj2 = erlcloud_s3:get_object(?TEST_BUCKET, "object_one", U1C2Config),
     ?assertEqual(Object1, proplists:get_value(content, Obj2)),
 
-    lager:info("write 2 more objects to the primary cluster"),
+    logger:info("write 2 more objects to the primary cluster"),
 
     Object2 = crypto:strong_rand_bytes(4194304),
     erlcloud_s3:put_object(?TEST_BUCKET, "object_two", Object2, U1C1Config),
@@ -152,19 +152,19 @@ confirm() ->
     Object3 = crypto:strong_rand_bytes(4194304),
     erlcloud_s3:put_object(?TEST_BUCKET, "object_three", Object3, U1C1Config),
 
-    lager:info("disable proxy_get"),
+    logger:info("disable proxy_get"),
     disable_pg(LeaderA, "B", ANodes, BNodes, BPort),
 
-    lager:info("check we can still read the fullsynced object"),
+    logger:info("check we can still read the fullsynced object"),
     Obj3 = erlcloud_s3:get_object(?TEST_BUCKET, "object_one", U1C2Config),
     ?assertEqual(Object1, proplists:get_value(content,Obj3)),
 
-    lager:info("check all 3 objects are listed on the sink cluster"),
+    logger:info("check all 3 objects are listed on the sink cluster"),
     ?assertEqual(["object_one", "object_three", "object_two"],
         [proplists:get_value(key, O) || O <- proplists:get_value(contents,
                 erlcloud_s3:list_objects(?TEST_BUCKET, U1C2Config))]),
 
-    lager:info("check that the 2 other objects can't be read"),
+    logger:info("check that the 2 other objects can't be read"),
     %% We expect errors here since proxy_get will fail due to the
     %% clusters being disconnected.
     ?assertError({aws_error, _}, erlcloud_s3:get_object(?TEST_BUCKET,
@@ -172,59 +172,59 @@ confirm() ->
     ?assertError({aws_error, _}, erlcloud_s3:get_object(?TEST_BUCKET,
                                                         "object_three", U1C2Config)),
 
-    lager:info("enable proxy_get"),
+    logger:info("enable proxy_get"),
     enable_pg(LeaderA, "B", ANodes, BNodes, BPort),
 
-    lager:info("check we can read object_two via proxy get"),
+    logger:info("check we can read object_two via proxy get"),
     Obj6 = erlcloud_s3:get_object(?TEST_BUCKET, "object_two", U1C2Config),
     ?assertEqual(Object2, proplists:get_value(content, Obj6)),
 
-    lager:info("disable proxy_get again"),
+    logger:info("disable proxy_get again"),
     disable_pg(LeaderA, "B", ANodes, BNodes, BPort),
 
-    lager:info("check we still can't read object_three"),
+    logger:info("check we still can't read object_three"),
     ?assertError({aws_error, _}, erlcloud_s3:get_object(?TEST_BUCKET,
             "object_three", U1C2Config)),
 
-    lager:info("check that proxy getting object_two wrote it locally, so we"
+    logger:info("check that proxy getting object_two wrote it locally, so we"
         " can read it"),
     Obj8 = erlcloud_s3:get_object(?TEST_BUCKET, "object_two", U1C2Config),
     ?assertEqual(Object2, proplists:get_value(content, Obj8)),
 
-    lager:info("delete object_one while clusters are disconnected"),
+    logger:info("delete object_one while clusters are disconnected"),
     erlcloud_s3:delete_object(?TEST_BUCKET, "object_one", U1C1Config),
 
-    lager:info("enable proxy_get"),
+    logger:info("enable proxy_get"),
     enable_pg(LeaderA, "B", ANodes, BNodes, BPort),
 
-    lager:info("delete object_two while clusters are connected"),
+    logger:info("delete object_two while clusters are connected"),
     erlcloud_s3:delete_object(?TEST_BUCKET, "object_two", U1C1Config),
 
-    lager:info("object_one is still visible on secondary cluster"),
+    logger:info("object_one is still visible on secondary cluster"),
     Obj9 = erlcloud_s3:get_object(?TEST_BUCKET, "object_one", U1C2Config),
     ?assertEqual(Object1, proplists:get_value(content, Obj9)),
 
-    lager:info("object_two is deleted"),
+    logger:info("object_two is deleted"),
     ?assertError({aws_error, _},
                  erlcloud_s3:get_object(?TEST_BUCKET, "object_two", U1C2Config)),
 
     repl_helpers:start_and_wait_until_fullsync_complete13(LeaderA),
 
-    lager:info("object_one is deleted after fullsync"),
+    logger:info("object_one is deleted after fullsync"),
     ?assertError({aws_error, _},
                  erlcloud_s3:get_object(?TEST_BUCKET, "object_one", U1C2Config)),
 
-    lager:info("disable proxy_get again"),
+    logger:info("disable proxy_get again"),
     disable_pg(LeaderA, "B", ANodes, BNodes, BPort),
 
     Object3A = crypto:strong_rand_bytes(4194304),
     ?assert(Object3 /= Object3A),
 
-    lager:info("write a new version of object_three"),
+    logger:info("write a new version of object_three"),
 
     erlcloud_s3:put_object(?TEST_BUCKET, "object_three", Object3A, U1C1Config),
 
-    lager:info("Independently write different object_four and object_five to bolth clusters"),
+    logger:info("Independently write different object_four and object_five to bolth clusters"),
 
     Object4A = crypto:strong_rand_bytes(4194304),
     Object4B = crypto:strong_rand_bytes(4194304),
@@ -237,55 +237,55 @@ confirm() ->
     erlcloud_s3:put_object(?TEST_BUCKET, "object_four", Object4B, U1C2Config),
     erlcloud_s3:put_object(?TEST_BUCKET, "object_five", Object5B, U1C2Config),
 
-    lager:info("delay writing object 5 on primary cluster 1 second after "
-        "writing to secondary cluster"),
+    logger:info("delay writing object 5 on primary cluster 1 second after "
+                "writing to secondary cluster"),
     timer:sleep(1000),
     erlcloud_s3:put_object(?TEST_BUCKET, "object_five", Object5A, U1C1Config),
 
-    lager:info("enable proxy_get"),
+    logger:info("enable proxy_get"),
     enable_pg(LeaderA, "B", ANodes, BNodes, BPort),
 
-    lager:info("secondary cluster has old version of object three"),
+    logger:info("secondary cluster has old version of object three"),
     Obj10 = erlcloud_s3:get_object(?TEST_BUCKET, "object_three", U1C2Config),
     ?assertEqual(Object3, proplists:get_value(content, Obj10)),
 
-    lager:info("secondary cluster has 'B' version of object four"),
+    logger:info("secondary cluster has 'B' version of object four"),
     Obj11 = erlcloud_s3:get_object(?TEST_BUCKET, "object_four", U1C2Config),
     ?assertEqual(Object4B, proplists:get_value(content, Obj11)),
 
     repl_helpers:start_and_wait_until_fullsync_complete13(LeaderA),
 
-    lager:info("secondary cluster has new version of object three"),
+    logger:info("secondary cluster has new version of object three"),
     Obj12 = erlcloud_s3:get_object(?TEST_BUCKET, "object_three", U1C2Config),
     ?assertEqual(Object3A, proplists:get_value(content, Obj12)),
 
-    lager:info("secondary cluster has 'B' version of object four"),
+    logger:info("secondary cluster has 'B' version of object four"),
     Obj13 = erlcloud_s3:get_object(?TEST_BUCKET, "object_four", U1C2Config),
     ?assertEqual(Object4B, proplists:get_value(content, Obj13)),
 
-    lager:info("secondary cluster has 'A' version of object five, because it "
-        "was written later"),
+    logger:info("secondary cluster has 'A' version of object five, because it "
+                "was written later"),
     Obj14 = erlcloud_s3:get_object(?TEST_BUCKET, "object_five", U1C2Config),
     ?assertEqual(Object5A, proplists:get_value(content, Obj14)),
 
-    lager:info("write 'A' version of object four again on primary cluster"),
+    logger:info("write 'A' version of object four again on primary cluster"),
 
     erlcloud_s3:put_object(?TEST_BUCKET, "object_four", Object4A, U1C1Config),
 
-    lager:info("secondary cluster now has 'A' version of object four"),
+    logger:info("secondary cluster now has 'A' version of object four"),
 
     Obj15 = erlcloud_s3:get_object(?TEST_BUCKET, "object_four", U1C2Config),
     ?assertEqual(Object4A, proplists:get_value(content,Obj15)),
 
-    lager:info("Disable proxy_get (not disconnect) "
-               "and enable realtime block replication"),
+    logger:info("Disable proxy_get (not disconnect) "
+                "and enable realtime block replication"),
     set_proxy_get(LeaderA, "disable", "B", ANodes, BNodes),
     set_block_rt(RiakNodes),
 
     Object6 = crypto:strong_rand_bytes(4194304),
     erlcloud_s3:put_object(?TEST_BUCKET, "object_six", Object6, U1C1Config),
     repl_helpers:wait_until_realtime_sync_complete(ANodes),
-    lager:info("The object can be downloaded from sink cluster"),
+    logger:info("The object can be downloaded from sink cluster"),
     Obj16 = erlcloud_s3:get_object(?TEST_BUCKET, "object_six", U1C2Config),
     ?assertEqual(Object6, proplists:get_value(content, Obj16)),
 
@@ -305,7 +305,7 @@ set_proxy_get(SourceLeader, EnableOrDisable, SinkName, ANodes, BNodes) ->
     Status = rpc:call(SourceLeader, riak_repl_console, status, [quiet]),
     case proplists:get_value(proxy_get_enabled, Status) of
         undefined -> ?assert(false);
-        EnabledFor -> lager:info("PG enabled for cluster ~p", [EnabledFor])
+        EnabledFor -> logger:info("PG enabled for cluster ~p", [EnabledFor])
     end,
     rt:wait_until_ring_converged(ANodes),
     rt:wait_until_ring_converged(BNodes),

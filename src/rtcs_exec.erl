@@ -39,7 +39,7 @@ start_cs(N) -> start_cs(N, current).
 
 start_cs(N, Vsn) ->
     Exec = node_executable(N, Vsn),
-    lager:info("Running ~s start", [Exec]),
+    logger:info("Running ~s start", [Exec]),
     R = os:cmd(Exec ++ " start"),
     rtcs:maybe_load_intercepts(N),
     R.
@@ -48,7 +48,7 @@ stop_cs(N) -> stop_cs(N, current).
 
 stop_cs(N, Vsn) ->
     Exec = node_executable(N, Vsn),
-    lager:info("Running ~s stop", [Exec]),
+    logger:info("Running ~s stop", [Exec]),
     os:cmd(Exec ++ " stop").
 
 
@@ -133,7 +133,7 @@ exec_priv_escript(N, Command, ScriptOptions, #{by := ByWhom}) ->
           end,
 
     ERL_LIBS = lists:flatten(lists:join(":", filelib:wildcard(rtcs_dev:node_path(rtcs:cs_node(N)) ++ "/lib/*"))),
-    lager:info("Running ~s", [Cmd]),
+    logger:info("Running ~s", [Cmd]),
     os:cmd(io_lib:format("ERL_LIBS=~s ~s", [ERL_LIBS, Cmd])).
 
 switch_stanchion_cs(N, Host, Port) -> switch_stanchion_cs(N, Host, Port, current).
@@ -141,21 +141,21 @@ switch_stanchion_cs(N, Host, Port) -> switch_stanchion_cs(N, Host, Port, current
 switch_stanchion_cs(N, Host, Port, Vsn) ->
     SubCmd = io_lib:format("switch ~s ~p", [Host, Port]),
     Cmd = riakcs_switchcmd(rtcs_config:devpath(cs, Vsn), N, SubCmd),
-    lager:info("Running ~s", [Cmd]),
+    logger:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
 
 show_stanchion_cs(N) -> show_stanchion_cs(N, current).
 
 show_stanchion_cs(N, Vsn) ->
     Cmd = riakcs_switchcmd(rtcs_config:devpath(cs, Vsn), N, "show"),
-    lager:info("Running ~s", [Cmd]),
+    logger:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
 
 start_stanchion() -> start_stanchion(current).
 
 start_stanchion(Vsn) ->
     Cmd = stanchioncmd(rtcs_config:devpath(stanchion, Vsn), "start"),
-    lager:info("Running ~s", [Cmd]),
+    logger:info("Running ~s", [Cmd]),
     R = os:cmd(Cmd),
     rtcs:maybe_load_intercepts(rtcs:stanchion_node()),
     R.
@@ -164,28 +164,28 @@ stop_stanchion() -> stop_stanchion(current).
 
 stop_stanchion(Vsn) ->
     Cmd = stanchioncmd(rtcs_config:devpath(stanchion, Vsn), "stop"),
-    lager:info("Running ~s", [Cmd]),
+    logger:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
 
 flush_access(N) -> flush_access(N, current).
 
 flush_access(N, Vsn) ->
     Cmd = riakcs_accesscmd(rtcs_config:devpath(cs, Vsn), N, "flush"),
-    lager:info("Running ~s", [Cmd]),
+    logger:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
 
 gc(N, SubCmd) -> gc(N, SubCmd, current).
 
 gc(N, SubCmd, Vsn) ->
     Cmd = riakcs_gccmd(rtcs_config:devpath(cs, Vsn), N, SubCmd),
-    lager:info("Running ~s", [Cmd]),
+    logger:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
 
 calculate_storage(N) -> calculate_storage(N, current).
 
 calculate_storage(N, Vsn) ->
     Cmd = riakcs_storagecmd(rtcs_config:devpath(cs, Vsn), N, "batch -r"),
-    lager:info("Running ~s", [Cmd]),
+    logger:info("Running ~s", [Cmd]),
     os:cmd(Cmd).
 
 enable_proxy_get(SrcNode, Vsn, SinkCluster) ->
@@ -203,8 +203,8 @@ cmd(Cmd, Opts) ->
     cmd(Cmd, Opts, rt_config:get(rt_max_wait_time)).
 
 cmd(Cmd, Opts, WaitTime) ->
-    lager:debug("Command: ~s", [Cmd]),
-    lager:debug("Options: ~p", [Opts]),
+    logger:debug("Command: ~s", [Cmd]),
+    logger:debug("Options: ~p", [Opts]),
     Port = open_port({spawn_executable, Cmd},
                      [in, exit_status, binary,
                       stream, stderr_to_stdout,{line, 200} | Opts]),
@@ -213,14 +213,14 @@ cmd(Cmd, Opts, WaitTime) ->
 get_cmd_result(Port, WaitTime) ->
     receive
         {Port, {data, {Flag, Line}}} when Flag =:= eol orelse Flag =:= noeol ->
-            lager:info(Line),
+            logger:info(Line),
             get_cmd_result(Port, WaitTime);
         {Port, {exit_status, 0}} ->
             ok;
         {Port, {exit_status, Status}} ->
             {error, {exit_status, Status}};
         {Port, Other} ->
-            lager:warning("Other data from port: ~p", [Other]),
+            logger:warning("Other data from port: ~p", [Other]),
             get_cmd_result(Port, WaitTime)
     after WaitTime ->
             {error, timeout}

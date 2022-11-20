@@ -27,7 +27,7 @@
 new_group_leader(Runner) ->
     spawn_link(?MODULE, group_leader_loop, [Runner]).
 
-% @doc listens for io_requests, and pipes them into lager
+% @doc listens for io_requests, and pipes them into logger
 group_leader_loop(Runner) ->
     receive
     {io_request, From, ReplyAs, Req} ->
@@ -108,6 +108,6 @@ io_requests([R | Rs], ok) ->
 io_requests(_, Result) ->
     Result.
 
-%% If we get multiple lines, we'll split them up for lager to maximize the prettiness.
+%% If we get multiple lines, we'll split them up for logger to maximize the prettiness.
 log_chars(Chars) ->
-    [lager:info("~s", [Line]) || Line <- string:tokens(lists:flatten(Chars), "\n")].
+    [logger:info("~s", [Line]) || Line <- string:tokens(lists:flatten(Chars), "\n")].

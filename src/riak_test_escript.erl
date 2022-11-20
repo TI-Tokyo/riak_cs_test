@@ -27,7 +27,7 @@
 -define(HARNESS, (rt_config:get(rt_harness))).
 
 add_deps(Path) ->
-    lager:debug("Adding path ~s~n", [Path]),
+    logger:debug("Adding path ~s~n", [Path]),
     {ok, Deps} = file:list_dir(Path),
     [code:add_path(lists:append([Path, "/", Dep, "/ebin"])) || Dep <- Deps],
     ok.
@@ -83,8 +83,6 @@ main(Args) ->
     %% ibrowse
     application:load(ibrowse),
     application:start(ibrowse),
-    %% Start Lager
-    application:load(lager),
 
     Config = proplists:get_value(config, ParsedArgs),
     ConfigFile = proplists:get_value(file, ParsedArgs),
@@ -103,30 +101,23 @@ main(Args) ->
     case file:make_dir(rt_config:get(rt_scratch_dir)) of
         ok -> great;
         {error, eexist} -> great;
-        {ErrorType, ErrorReason} -> lager:error("Could not create scratch dir, {~p, ~p}", [ErrorType, ErrorReason])
+        {ErrorType, ErrorReason} -> logger:error("Could not create scratch dir, {~p, ~p}", [ErrorType, ErrorReason])
     end,
 
     %% Fileoutput
     Outdir = proplists:get_value(outdir, ParsedArgs),
-    ConsoleLagerLevel = case Outdir of
-        undefined -> rt_config:get(lager_level, info);
-        _ ->
-            filelib:ensure_dir(Outdir),
-            notice
-    end,
 
-    ConsoleFormatter = lager_default_formatter,
-    ConsoleFormatConfig = [time," [",severity,"] ", pid, " ", message, "\n"],
-    ConsoleBackend =
-        [{level, ConsoleLagerLevel},
-            {formatter, ConsoleFormatter},
-            {formatter_config, ConsoleFormatConfig}],
-    FileBackend =
-        [{file, "log/test.log"}, {level, ConsoleLagerLevel}],
-    application:set_env(lager, error_logger_hwm, 250), %% helpful for debugging
-    application:set_env(lager, handlers, [{lager_console_backend, ConsoleBackend},
-                                          {lager_file_backend, FileBackend}]),
-    lager:start(),
+    logger:set_primary_config(level, rt_config:get(logger_level, info)),
+    logger:update_handler_config(
+      default,
+      #{config => #{type => standard_io},
+        formatter => {logger_formatter, #{template => [time," [",level,"] ",msg,"\n"],
+                                          time_designator => $ }
+                     }
+       }
+     ),
+    logger:add_handler_filter(default, no_sasl_please,
+                              {fun logger_filters:domain/2, {stop, sub, [otp, sasl]}}),
 
     %% Report
     Report = case proplists:get_value(report, ParsedArgs, undefined) of
@@ -149,7 +140,7 @@ main(Args) ->
 
     case Tests0 of
         [] ->
-            lager:warning("No tests are scheduled to run"),
+            logger:warning("No tests are scheduled to run"),
             init:stop(1);
         _ -> keep_on_keepin_on
     end,
@@ -170,13 +161,13 @@ main(Args) ->
                                   end,
                     ActualOffset = ((TestCount div Denominator) * Offset) rem (TestCount+1),
                     {TestA, TestB} = lists:split(ActualOffset, Tests0),
-                    lager:info("Offsetting ~b tests by ~b (~b workers, ~b"
+                    logger:info("Offsetting ~b tests by ~b (~b workers, ~b"
                                " offset)", [TestCount, ActualOffset, Workers,
                                             Offset]),
                     TestB ++ TestA
             end,
 
-    lager:info("Tests to run: ~p", [[[T || {T, _} <- Tests]]]),
+    logger:info("Tests to run: ~p", [[[T || {T, _} <- Tests]]]),
     %% Two hard-coded deps...
     add_deps(?HARNESS:get_deps()),
     add_deps("_build/test/lib/riak_test/tests"),
@@ -185,7 +176,7 @@ main(Args) ->
     ENode = rt_config:get(rt_nodename, 'riak_test@127.0.0.1'),
     Cookie = rt_config:get(rt_cookie, riak),
     CoverDir = rt_config:get(cover_output, "coverage"),
-    lager:info("ENode ~w Cookie ~w", [ENode, Cookie]),
+    logger:info("ENode ~w Cookie ~w", [ENode, Cookie]),
     [] = os:cmd("epmd -daemon"),
     net_kernel:start([ENode]),
     erlang:set_cookie(node(), Cookie),
@@ -203,14 +194,14 @@ main(Args) ->
 
 maybe_teardown(false, TestResults, Coverage, Verbose, _Batch) ->
     print_summary(TestResults, Coverage, Verbose),
-    lager:info("Keeping cluster running as requested");
+    logger:info("Keeping cluster running as requested");
 maybe_teardown(true, TestResults, Coverage, Verbose, Batch) ->
     case {length(TestResults), proplists:get_value(status, hd(TestResults)), Batch} of
         {1, fail, false} ->
             print_summary(TestResults, Coverage, Verbose),
             so_kill_riak_maybe();
         _ ->
-            lager:info("Multiple tests run or no failure"),
+            logger:info("Multiple tests run or no failure"),
             rt:teardown(),
             print_summary(TestResults, Coverage, Verbose)
     end,
@@ -264,7 +255,7 @@ which_tests_to_run(undefined, CommandLineTests) ->
         [] ->
             ok;
         NRTests ->
-            lager:info("These modules are not runnable tests: ~p", [NRTests])
+            logger:info("These modules are not runnable tests: ~p", [NRTests])
     end,
     Tests;
 which_tests_to_run(Platform, []) -> giddyup:get_suite(Platform);
@@ -278,7 +269,7 @@ which_tests_to_run(Platform, CommandLineTests) ->
         [] ->
             ok;
         NRTests ->
-            lager:info("These modules are not runnable tests: ~p", [NRTests])
+            logger:info("These modules are not runnable tests: ~p", [NRTests])
     end,
     Tests.
 
@@ -383,7 +374,7 @@ parse_webhook(Props) ->
                         name=proplists:get_value(name, Props, "Webhook"),
                         headers=proplists:get_value(headers, Props, [])};
         false ->
-            lager:error("Invalid configuration for webhook : ~p", Props),
+            logger:error("Invalid configuration for webhook : ~p", Props),
             undefined
     end.
 

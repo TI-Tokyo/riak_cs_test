@@ -37,8 +37,8 @@
 confirm() ->
     case rt_config:get(flavor, basic) of
         {multibag, _} ->
-            lager:info("select_gc_bucket script does not support multibag env."),
-            lager:info("Skip the test."),
+            logger:info("select_gc_bucket script does not support multibag env."),
+            logger:info("Skip the test."),
             rtcs_dev:pass();
         _ -> confirm1()
     end.
@@ -64,8 +64,8 @@ confirm1() ->
              1, "internal/select_gc_bucket.erl",
              "-h 127.0.0.1 -p 10017 -e today -o " ++ BlockKeysFile,
              #{by => cs}),
-    lager:debug("select_gc_bucket.erl log:\n~s", [Res1]),
-    lager:debug("select_gc_bucket.erl log:============= END"),
+    logger:debug("select_gc_bucket.erl log:\n~s", [Res1]),
+    logger:debug("select_gc_bucket.erl log:============= END"),
 
     tools_helper:offline_delete({RiakNodes, CSNodes, Stanchion}, [BlockKeysFile]),
     rtcs_dev:pass().

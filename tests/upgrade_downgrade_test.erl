@@ -43,7 +43,7 @@ confirm() ->
     {_, RiakCurrentVsn} =
         rtcs_dev:riak_root_and_vsn(current),
 
-    lager:info("Upgrading previous to current", []),
+    logger:info("Upgrading previous to current", []),
     rtcs_exec:stop_all_nodes(Tussle, previous),
 
     [begin
@@ -60,7 +60,7 @@ confirm() ->
 
     ok = verify_all_data(UserConfig, Data),
     ok = cleanup_all_data(UserConfig),
-    lager:info("Upgrading to current successfully done"),
+    logger:info("Upgrading to current successfully done"),
 
     {ok, Data2} = prepare_all_data(UserConfig),
 
@@ -68,7 +68,7 @@ confirm() ->
         rtcs_dev:riak_root_and_vsn(previous),
 
 
-    lager:info("Downgrading current to previous", []),
+    logger:info("Downgrading current to previous", []),
     rtcs_exec:stop_all_nodes(Tussle, current),
 
     rtcs_config:migrate_stanchion(current, previous, AdminCreds),
@@ -82,14 +82,14 @@ confirm() ->
     rtcs_exec:start_all_nodes(Tussle, previous),
 
     ok = verify_all_data(UserConfig, Data2),
-    lager:info("Downgrading to previous successfully done"),
+    logger:info("Downgrading to previous successfully done"),
 
     rtcs_dev:restore_configs(RiakNodes ++ CSNodes ++ [Stanchion], previous),
     rtcs_dev:pass().
 
 
 prepare_current(NumNodes) ->
-    lager:info("Preparing current cluster", []),
+    logger:info("Preparing current cluster", []),
     {RiakNodes, CSNodes, _StanchionNode} = rtcs:flavored_setup(#{num_nodes => NumNodes,
                                                                  flavor => rt_config:get(flavor, basic),
                                                                  config_spec => rtcs_config:configs([]),
@@ -102,10 +102,10 @@ prepare_current(NumNodes) ->
 
 %% TODO: add more data and test cases
 prepare_all_data(UserConfig) ->
-    lager:info("User is valid on the cluster, and has no buckets"),
+    logger:info("User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
 
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
     ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],

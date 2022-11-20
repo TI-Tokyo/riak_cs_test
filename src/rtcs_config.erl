@@ -93,7 +93,6 @@ riak_config(Vsn, CsVsn, Backend) ->
     CSPath = rt_config:get(CsVsn),
     AddPaths = filelib:wildcard(CSPath ++ "/dev/dev1/riak-cs/lib/riak_cs*/ebin"),
     [
-     lager_config(),
      riak_core_config(Vsn),
      repl_config(),
      {riak_api,
@@ -186,7 +185,6 @@ previous_cs_config(UserExtra) ->
 
 previous_cs_config(UserExtra, OtherApps) ->
     [
-     lager_config(),
      {riak_cs,
       UserExtra ++
           [
@@ -213,7 +211,6 @@ cs_config(UserExtra) ->
 
 cs_config(UserExtra, OtherApps) ->
     [
-     lager_config(),
      {riak_cs,
       UserExtra ++
           [
@@ -238,7 +235,6 @@ replace(Key, Value, Config0) ->
 
 previous_stanchion_config() ->
     [
-     lager_config(),
      {stanchion,
       [
        {admin_key, "admin-key"},
@@ -249,7 +245,6 @@ previous_stanchion_config() ->
 
 stanchion_config() ->
     [
-     lager_config(),
      {stanchion,
       [
        {admin_key, "admin-key"},
@@ -258,15 +253,6 @@ stanchion_config() ->
       ]
      }].
 
-lager_config() ->
-    {lager,
-     [
-      {handlers,
-       [
-        {lager_file_backend, [{file, "./log/console.log"}, {level, rt_config:get(console_log_level, debug)}, {size, 10485760}, {date, "$D0"}, {count, 5}]},
-        {lager_file_backend, [{file, "./log/error.log"}, {level, error}, {size, 10485760}, {date, "$D0"}, {count, 5}]}
-       ]}
-     ]}.
 
 riak_bitcaskroot(Prefix, N) ->
     io_lib:format("~s/dev/dev~b/riak/data/bitcask", [Prefix, N]).
@@ -396,7 +382,7 @@ update_stanchion_config(Prefix, Config) ->
     update_app_config(stanchion_etcpath(Prefix), Config).
 
 update_app_config(Path, Config) ->
-    lager:debug("rtcs:update_app_config(~s,~p)", [Path, Config]),
+    logger:debug("rtcs:update_app_config(~s,~p)", [Path, Config]),
     FileFormatString = "~s/~s.config",
     AppConfigFile = io_lib:format(FileFormatString, [Path, "app"]),
     AdvConfigFile = io_lib:format(FileFormatString, [Path, "advanced"]),
@@ -412,19 +398,19 @@ update_app_config(Path, Config) ->
 enable_zdbbl(Vsn) ->
     Fs = filelib:wildcard(filename:join([devpath(riak, Vsn),
                                          "dev", "dev*", "etc", "vm.args"])),
-    lager:debug("rtcs:enable_zdbbl for vm.args : ~p", [Fs]),
+    logger:debug("rtcs:enable_zdbbl for vm.args : ~p", [Fs]),
     [os:cmd("sed -i -e 's/##+zdbbl /+zdbbl /g' " ++ F) || F <- Fs],
     ok.
 
 merge(BaseConfig, undefined) ->
     BaseConfig;
 merge(BaseConfig, Config) ->
-    lager:debug("Merging Config: BaseConfig=~p", [BaseConfig]),
-    lager:debug("Merging Config: Config=~p", [Config]),
+    logger:debug("Merging Config: BaseConfig=~p", [BaseConfig]),
+    logger:debug("Merging Config: Config=~p", [Config]),
     MergeA = orddict:from_list(Config),
     MergeB = orddict:from_list(BaseConfig),
     MergedConfig = orddict:merge(fun internal_merge/3, MergeA, MergeB),
-    lager:debug("Merged config: ~p", [MergedConfig]),
+    logger:debug("Merged config: ~p", [MergedConfig]),
     MergedConfig.
 
 internal_merge(_Key, [{_, _}|_] = VarsA, [{_, _}|_] = VarsB) ->
@@ -448,7 +434,7 @@ migrate(From, To, N, AdminCreds, Who) when
     Config0 = read_config(From, N, Who),
     Config1 = migrate_config(From, To, Config0, Who),
     Prefix = devpath(Who, To),
-    lager:debug("migrating ~s => ~s", [devpath(Who, From), Prefix]),
+    logger:debug("migrating ~s => ~s", [devpath(Who, From), Prefix]),
     case Who of
         cs -> update_cs_config(Prefix, N, Config1, AdminCreds);
         stanchion -> update_stanchion_config(Prefix, Config1, AdminCreds)

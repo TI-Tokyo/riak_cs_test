@@ -148,11 +148,11 @@ cleanup(State) ->
     run(Tag, cleanup_ops(), State).
 
 run(Tag, Ops, State) ->
-    lager:info("[~s] BEGIN", [Tag]),
+    logger:info("[~s] BEGIN", [Tag]),
     Circle = init_circle(Tag, State),
     {USec, {ok, NewState}} =
         timer:tc(fun() -> apply_operations(Circle, State, Ops) end),
-    lager:info("[~s] END: ~B [msec]", [Tag, USec div 1000]),
+    logger:info("[~s] END: ~B [msec]", [Tag, USec div 1000]),
     {ok, NewState}.
 
 set_node1_version(Vsn, State) when Vsn =:= previous orelse Vsn =:= current ->
@@ -178,10 +178,10 @@ init_circle(Tag, #state{admin_config=AdminConfig, riak_nodes = [RiakNode|_]} = _
 apply_operations(_Circle, State, []) ->
     {ok, State};
 apply_operations(#circle{tag=Tag} = Circle, State, [Op | Rest]) ->
-    lager:info("[~s] Applying operation ~w ...", [Tag, Op]),
+    logger:info("[~s] Applying operation ~w ...", [Tag, Op]),
     {USec, {ok, NewCircle, NewState}} =
         timer:tc(fun() -> apply_operation(Op, Circle, State) end),
-    lager:info("[~s] Finished operation ~w in ~B [msec]", [Tag, Op, USec div 1000]),
+    logger:info("[~s] Finished operation ~w in ~B [msec]", [Tag, Op, USec div 1000]),
     apply_operations(NewCircle, NewState, Rest).
 
 -spec apply_operation(op(), circle(), state()) -> {ok, circle(), state()}.
@@ -221,7 +221,7 @@ apply_operation(delete_bucket_old, CurrentCircle, #state{circles=Circles} = Stat
     {ok, CurrentCircle, State#state{circles=NewCircles}};
 apply_operation(stats_access, Circle, State) ->
     Res = rtcs_exec:flush_access(1),
-    lager:info("riak-cs-access flush result: ~s", [Res]),
+    logger:info("riak-cs-access flush result: ~s", [Res]),
     ExpectRegexp = "All access logs were flushed.\n$",
     ?assertMatch({match, _}, re:run(Res, ExpectRegexp)),
     %% TODO
@@ -231,7 +231,7 @@ apply_operation(stats_storage, CurrentCircle,
                 #state{admin_config=AdminConfig, begin_at=Begin,
                        cs_nodes=[CSNode|_], circles=Circles} = State) ->
     Res = rtcs_exec:calculate_storage(1),
-    lager:info("riak-cs-admin storage batch result: ~s", [Res]),
+    logger:info("riak-cs-admin storage batch result: ~s", [Res]),
     ExpectRegexp = "Batch storage calculation started.\n$",
     ?assertMatch({match, _}, re:run(Res, ExpectRegexp)),
     true = rt:expect_in_log(CSNode, "Finished storage calculation"),
@@ -250,10 +250,10 @@ apply_operation(gc, Circle, #state{cs_nodes=[CSNode|_]} = State) ->
                    ExpectSubstr = "There is no garbage collection in progress",
                    case string:str(Res, ExpectSubstr) of
                        0 ->
-                           lager:debug("riak-cs-gc status: ~s", [Res]),
+                           logger:debug("riak-cs-gc status: ~s", [Res]),
                            false;
                        _ ->
-                           lager:debug("GC completed"),
+                           logger:debug("GC completed"),
                            true
                    end
            end),
@@ -337,10 +337,10 @@ get_objects(UserConfig, #bucket{name=B, count=KeyCount} = Bucket) ->
          case proplists:get_value(content, GetResponse) of
              Expected -> ok;
              Other    ->
-                 lager:error("Unexpected contents for bucket=~s, key=~s", [B, K]),
-                 lager:error("First 100 bytes of expected content~n~s",
+                 logger:error("Unexpected contents for bucket=~s, key=~s", [B, K]),
+                 logger:error("First 100 bytes of expected content~n~s",
                              [first_n_bytes(Expected, 100)]),
-                 lager:error("First 100 bytes of actual content~n~s",
+                 logger:error("First 100 bytes of actual content~n~s",
                              [first_n_bytes(Other, 100)]),
                  error({content_unmatched, B, K})
          end
@@ -389,7 +389,7 @@ delete_bucket(UserConfig, Bucket) ->
 
 get_storage_stats(AdminConfig, Begin, End,
                   #circle{user_config=UserConfig, buckets=Buckets} = Circle) ->
-    lager:debug("storage stats for user ~s, ~s/~s",
+    logger:debug("storage stats for user ~s, ~s/~s",
                 [UserConfig#aws_config.access_key_id, Begin, End]),
     Expected = lists:sort(
                  [{B, {Count, bucket_bytes(B, Count)}} ||
@@ -473,14 +473,14 @@ wait_until_merge_worker_idle(Nodes) ->
             N,
             fun(Node) ->
                     Status = rpc:call(Node, bitcask_merge_worker, status, []),
-                    lager:debug("Wait util bitcask_merge_worker to finish on ~p:"
+                    logger:debug("Wait util bitcask_merge_worker to finish on ~p:"
                                 " status=~p~n", [Node, Status]),
                     Status =:= {0, undefined}
             end) || N <- Nodes],
     ok.
 
 trigger_bitcask_merge(Node, Vsn) ->
-    lager:debug("Trigger bitcask merger for node ~s (version: ~s)~n", [Node, Vsn]),
+    logger:debug("Trigger bitcask merger for node ~s (version: ~s)~n", [Node, Vsn]),
     VnodeNames = bitcask_vnode_names(Node, Vsn),
     [begin
          VnodeDir = filename:join(bitcask_data_root(), VnodeName),
@@ -534,19 +534,19 @@ check_data_files_are_small_enough(Node, Vsn, [VnodeName|Rest]) ->
                      {ok, #file_info{size=S}} -> {F, S};
                      {error, enoent} -> {F, 0} % already deleted
                  end || F <- DataFiles],
-    lager:debug("FileSizes (~p): ~p~n", [{Node, VnodeName}, FileSizes]),
+    logger:debug("FileSizes (~p): ~p~n", [{Node, VnodeName}, FileSizes]),
     TotalSize = lists:sum([S || {_, S} <- FileSizes]),
     case {length(FileSizes) =< 2, TotalSize < 32*1024} of
         {true, true} ->
-            lager:info("bitcask data file check OK for ~p ~p",
+            logger:info("bitcask data file check OK for ~p ~p",
                        [Node, VnodeName]),
             check_data_files_are_small_enough(Node, Vsn, Rest);
         {false, _} ->
-            lager:info("bitcask data file check failed, count(files)=~p for ~p ~p",
+            logger:info("bitcask data file check failed, count(files)=~p for ~p ~p",
                        [length(FileSizes), Node, VnodeName]),
             false;
         {_, false} ->
-            lager:info("bitcask data file check failed, sum(file size)=~p for ~p ~p",
+            logger:info("bitcask data file check failed, sum(file size)=~p for ~p ~p",
                        [TotalSize, Node, VnodeName]),
             false
     end.

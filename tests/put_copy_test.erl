@@ -87,7 +87,7 @@ verify_simple_copy(UserConfig) ->
                  erlcloud_s3:copy_object(?BUCKET2, ?KEY2, ?BUCKET, ?KEY, UserConfig)),
 
     Props = erlcloud_s3:get_object(?BUCKET2, ?KEY2, UserConfig),
-    lager:debug("copied object: ~p", [Props]),
+    logger:debug("copied object: ~p", [Props]),
     ?assertEqual(?DATA0, proplists:get_value(content, Props)),
 
     ok.
@@ -112,7 +112,7 @@ verify_others_copy(UserConfig, OtherUserConfig) ->
                  erlcloud_s3:copy_object(?BUCKET3, ?KEY, ?BUCKET, ?KEY, OtherUserConfig)),
 
     Props2 = erlcloud_s3:get_object(?BUCKET3, ?KEY, OtherUserConfig),
-    lager:debug("copied object: ~p", [Props2]),
+    logger:debug("copied object: ~p", [Props2]),
     ?assertEqual(?DATA0, proplists:get_value(content, Props2)),
     ok.
 
@@ -128,20 +128,20 @@ verify_multipart_copy(UserConfig) ->
 
     InitUploadRes=erlcloud_s3_multipart:initiate_upload(?BUCKET2, ?KEY3, "text/plain", [], UserConfig),
     UploadId = erlcloud_s3_multipart:upload_id(InitUploadRes),
-    lager:info("~p ~p", [InitUploadRes, UploadId]),
-    
+    logger:info("~p ~p", [InitUploadRes, UploadId]),
+
     {RespHeaders1, _} = rtcs_multipart:upload_part_copy(?BUCKET2, ?KEY3, UploadId, 1,
                                                         ?BUCKET, ?KEY, UserConfig),
-    lager:debug("RespHeaders1: ~p", [RespHeaders1]),
+    logger:debug("RespHeaders1: ~p", [RespHeaders1]),
     Etag1 = rtcs_multipart:assert_part(?BUCKET2, ?KEY3, UploadId, 1, UserConfig, RespHeaders1),
 
     {RespHeaders2, _} = rtcs_multipart:upload_part_copy(?BUCKET2, ?KEY3, UploadId, 2,
                                                         ?BUCKET, ?KEY2, UserConfig),
-    lager:debug("RespHeaders2: ~p", [RespHeaders2]),
+    logger:debug("RespHeaders2: ~p", [RespHeaders2]),
     Etag2 = rtcs_multipart:assert_part(?BUCKET2, ?KEY3, UploadId, 2, UserConfig, RespHeaders2),
 
     List = erlcloud_s3_multipart:list_uploads(?BUCKET2, [], UserConfig),
-    lager:debug("List: ~p", [List]),
+    logger:debug("List: ~p", [List]),
 
     EtagList = [ {1, Etag1}, {2, Etag2} ],
     ?assertEqual(ok, erlcloud_s3_multipart:complete_upload(?BUCKET2,
@@ -156,7 +156,7 @@ verify_multipart_copy(UserConfig) ->
 
     MillionPocketBurgers = iolist_to_binary([MillionPockets, MillionBurgers]),
     Props = erlcloud_s3:get_object(?BUCKET2, ?KEY3, UserConfig),
-    %% lager:debug("~p> Props => ~p", [?LINE, Props]),
+    %% logger:debug("~p> Props => ~p", [?LINE, Props]),
     ?assertEqual(MillionPocketBurgers, proplists:get_value(content, Props)),
     ok.
 
@@ -243,7 +243,7 @@ verify_security(Alice, Bob, Charlie) ->
                {"Content-Length", 0}],
     {ok, Status, Hdr, _Msg} = ibrowse:send_req(URL, Headers, put, [],
                                                Charlie#aws_config.http_options),
-    lager:debug("request ~p ~p => ~p ~p", [URL, Headers, Status, Hdr]),
+    logger:debug("request ~p ~p => ~p ~p", [URL, Headers, Status, Hdr]),
     ?assertEqual("403", Status),
 
     ok.
@@ -253,13 +253,13 @@ verify_source_not_found(UserConfig) ->
     {'EXIT', {{aws_error, {http_error, 404, _, ErrorXml}}, _Stack}} =
         (catch erlcloud_s3:copy_object(?BUCKET2, ?KEY2,
                                    ?BUCKET, NonExistingKey, UserConfig)),
-    lager:debug("ErrorXml: ~s", [ErrorXml]),
+    logger:debug("ErrorXml: ~s", [ErrorXml]),
     ?assert(string:str(ErrorXml,
                        "<Resource>/" ++ ?BUCKET ++
                            "/" ++ NonExistingKey ++ "</Resource>") > 0).
 
 verify_replace_usermeta(UserConfig) ->
-    lager:info("Verify replacing usermeta using Put Copy"),
+    logger:info("Verify replacing usermeta using Put Copy"),
 
     %% Put Initial Object
     Headers0 = [{"Content-Type", "text/plain"}],
@@ -267,7 +267,7 @@ verify_replace_usermeta(UserConfig) ->
     ?assertEqual([{version_id, "null"}],
                  erlcloud_s3:put_object(?BUCKET, ?REPLACE_KEY, ?DATA0, Options0, Headers0, UserConfig)),
     Props0 = erlcloud_s3:get_object(?BUCKET, ?REPLACE_KEY, UserConfig),
-    lager:debug("Initial Obj: ~p", [Props0]),
+    logger:debug("Initial Obj: ~p", [Props0]),
     ?assertEqual("text/plain", proplists:get_value(content_type, Props0)),
     ?assertHeader("x-amz-meta-key1", "val1", Props0),
     ?assertHeader("x-amz-meta-key2", "val2", Props0),
@@ -280,7 +280,7 @@ verify_replace_usermeta(UserConfig) ->
                  erlcloud_s3:copy_object(?BUCKET, ?REPLACE_KEY, ?BUCKET, ?REPLACE_KEY,
                                      Options1, Headers1, UserConfig)),
     Props1 = erlcloud_s3:get_object(?BUCKET, ?REPLACE_KEY, UserConfig),
-    lager:debug("Updated Obj: ~p", [Props1]),
+    logger:debug("Updated Obj: ~p", [Props1]),
     ?assertEqual(?DATA0, proplists:get_value(content, Props1)),
     ?assertEqual("application/octet-stream", proplists:get_value(content_type, Props1)),
     ?assertHeader("x-amz-meta-key1", undefined, Props1),
@@ -303,7 +303,7 @@ verify_without_cl_header(UserConfig) ->
     ok.
 
 verify_without_cl_header(UserConfig, normal, Data) ->
-    lager:info("Verify basic (non-MP) PUT copy without Content-Length header"),
+    logger:info("Verify basic (non-MP) PUT copy without Content-Length header"),
     Target = fmt("/~s/~s", [?BUCKET4, ?TGT_KEY]),
     Source = fmt("/~s/~s", [?BUCKET4, ?SRC_KEY]),
     _Res = exec_curl(UserConfig, "PUT", Target, [{"x-amz-copy-source", Source}]),
@@ -312,12 +312,12 @@ verify_without_cl_header(UserConfig, normal, Data) ->
     ?assertEqual(Data, proplists:get_value(content, Props)),
     ok;
 verify_without_cl_header(UserConfig, mp, Data) ->
-    lager:info("Verify Multipart upload copy without Content-Length header"),
+    logger:info("Verify Multipart upload copy without Content-Length header"),
     InitUploadRes = erlcloud_s3_multipart:initiate_upload(
                       ?BUCKET4, ?MP_TGT_KEY, "application/octet-stream",
                       [], UserConfig),
     UploadId = erlcloud_s3_multipart:upload_id(InitUploadRes),
-    lager:info("~p ~p", [InitUploadRes, UploadId]),
+    logger:info("~p ~p", [InitUploadRes, UploadId]),
     Source = fmt("/~s/~s", [?BUCKET4, ?SRC_KEY]),
     MpTarget = fmt("/~s/~s?partNumber=1&uploadId=~s", [?BUCKET4, ?MP_TGT_KEY, UploadId]),
     _Res = exec_curl(UserConfig, "PUT", MpTarget,
@@ -325,11 +325,11 @@ verify_without_cl_header(UserConfig, mp, Data) ->
                       {"x-amz-copy-source-range", "bytes=1-2"}]),
 
     ListPartsXml = erlcloud_s3_multipart:list_parts(?BUCKET4, ?MP_TGT_KEY, UploadId, [], UserConfig),
-    lager:debug("ListParts: ~p", [ListPartsXml]),
+    logger:debug("ListParts: ~p", [ListPartsXml]),
     ListPartsRes = erlcloud_s3_multipart:parts_to_term(ListPartsXml),
     Parts = proplists:get_value(parts, ListPartsRes),
     EtagList = [{PartNum, Etag} || {PartNum, [{etag, Etag}, {size, _Size}]} <- Parts],
-    lager:debug("EtagList: ~p", [EtagList]),
+    logger:debug("EtagList: ~p", [EtagList]),
     ?assertEqual(ok, erlcloud_s3_multipart:complete_upload(
                        ?BUCKET4, ?MP_TGT_KEY, UploadId, EtagList, UserConfig)),
     Props = erlcloud_s3:get_object(?BUCKET4, ?MP_TGT_KEY, UserConfig),
@@ -347,9 +347,9 @@ exec_curl(#aws_config{s3_port=Port} = UserConfig, Method, Resource, AmzHeaders) 
                                 {"Content-Type", ContentType} | AmzHeaders]],
     Cmd="curl -X " ++ Method ++ " -v -s " ++ HeaderArgs ++
         "'http://127.0.0.1:" ++ integer_to_list(Port) ++ Resource ++ "'",
-    lager:debug("Curl command line: ~s", [Cmd]),
+    logger:debug("Curl command line: ~s", [Cmd]),
     Res = os:cmd(Cmd),
-    lager:debug("Curl result: ~s", [Res]),
+    logger:debug("Curl result: ~s", [Res]),
     Res.
 
 fmt(Fmt, Args) ->

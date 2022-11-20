@@ -37,11 +37,11 @@ confirm() ->
     {{UserConfig, _}, _} = rtcs:setup(1, [{cs, cs_config()}]),
 
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
-    lager:info("User is valid on the cluster, and has no buckets"),
+    logger:info("User is valid on the cluster, and has no buckets"),
 
     ?assertError({aws_error, {http_error, 404, [], _}}, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
 
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
     ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
@@ -51,7 +51,7 @@ confirm() ->
     too_large_upload_part_test_case(?TEST_BUCKET, ?TEST_KEY1, UserConfig),
     too_large_object_put_test_case(?TEST_BUCKET, ?TEST_KEY2, UserConfig),
 
-    lager:info("deleting bucket ~p", [?TEST_BUCKET]),
+    logger:info("deleting bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
 
     ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
@@ -65,7 +65,7 @@ generate_part_data(X, Size)
 
 too_large_upload_part_test_case(Bucket, Key, Config) ->
     %% Initiate a multipart upload
-    lager:info("Initiating multipart upload"),
+    logger:info("Initiating multipart upload"),
     InitUploadRes = erlcloud_s3_multipart:initiate_upload(Bucket, Key, [], [], Config),
     UploadId = erlcloud_s3_multipart:upload_id(InitUploadRes),
 
@@ -76,7 +76,7 @@ too_large_upload_part_test_case(Bucket, Key, Config) ->
     ?assertEqual(Bucket, proplists:get_value(bucket, UploadsList1)),
     ?assert(upload_id_present(UploadId, Uploads1)),
 
-    lager:info("Uploading an oversize part"),
+    logger:info("Uploading an oversize part"),
     ?assertError({aws_error, {http_error, 400, _, _}},
                  erlcloud_s3_multipart:upload_part(Bucket,
                                                    Key,

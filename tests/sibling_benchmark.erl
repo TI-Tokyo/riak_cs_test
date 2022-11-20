@@ -79,17 +79,17 @@ confirm() ->
 
     %% setting up the stage
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
     %% The first object
     erlcloud_s3:put_object(?TEST_BUCKET, ?KEY_SINGLE_BLOCK, <<"boom!">>, UserConfig),
 
     get_counts(RiakNodes, ?TEST_BUCKET, ?KEY_SINGLE_BLOCK),
-    lager:info("====================== run benchmark ====================="),
+    logger:info("====================== run benchmark ====================="),
     {ok, Pid} = start_stats_checker(RiakNodes),
 
-    lager:info("write_concurrency: ~p, write_interval: ~p msec, DVV: ~p",
-               [Concurrency, Interval, DVVEnabled]),
+    logger:info("write_concurrency: ~p, write_interval: ~p msec, DVV: ~p",
+                [Concurrency, Interval, DVVEnabled]),
 
     Writers = [start_object_writer(UserConfig, Interval) || _ <- lists:seq(1, Concurrency)],
     {ok, Reader} = start_object_reader(UserConfig),
@@ -101,11 +101,11 @@ confirm() ->
 
     ok = stop_object_reader(Reader),
     [stop_object_writer(Writer) || {ok, Writer} <- Writers],
-    lager:info("====================== benchmark done ===================="),
+    logger:info("====================== benchmark done ===================="),
     MaxSib = stop_stats_checker(Pid),
     %% Max number of siblings should not exceed number of upload concurrency
     %% according to DVVset implementation
-    lager:info("MaxSib:Concurrency = ~p:~p", [MaxSib, Concurrency]),
+    logger:info("MaxSib:Concurrency = ~p:~p", [MaxSib, Concurrency]),
     %% Real concurrency is, added by GC workers
     ?assert(MaxSib =< Concurrency + 5),
 
@@ -118,15 +118,15 @@ confirm() ->
                   [RawManifestBucket, RawKey]) of
         ok -> ok;
         {error, not_supported} ->
-            _ = lager:info("resolve_siblings does not suport multibag yet, skip it"),
+            _ = logger:info("resolve_siblings does not suport multibag yet, skip it"),
             ok
     end,
 
     %% tearing down the stage
     erlcloud_s3:delete_object(?TEST_BUCKET, ?KEY_SINGLE_BLOCK, UserConfig),
-    lager:info("deleting bucket ~p", [?TEST_BUCKET]),
+    logger:info("deleting bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
-    lager:info("User is valid on the cluster, and has no buckets"),
+    logger:info("User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
     rtcs_dev:pass().
 
@@ -211,11 +211,11 @@ pp(Target, Stats) ->
     Maxs = [ safe_get_value(AtomMaxs, Stat)   || Stat <- Stats ],
     MeansStr = [ "\t" ++ safe_integer_to_list(Mean) || Mean <- Means ],
     MaxsStr = [ "\t" ++ safe_integer_to_list(Max) || Max <- Maxs ],
-    lager:info("~s Mean: ~s", [Target, MeansStr]),
-    lager:info("~s Max: ~s", [Target, MaxsStr]),
+    logger:info("~s Mean: ~s", [Target, MeansStr]),
+    logger:info("~s Max: ~s", [Target, MaxsStr]),
     Max = lists:foldl(fun erlang:max/2, 0,
                       lists:filter(fun is_integer/1, Maxs)),
-    %% lager:debug("Max ~p: ~p <= ~p", [Target, Max, Maxs]),
+    %% logger:debug("Max ~p: ~p <= ~p", [Target, Max, Maxs]),
     Max.
 
 safe_get_value(_AtomKey, {badrpc, _}) -> undefined;
@@ -234,20 +234,20 @@ get_counts(RiakNodes, Bucket, Key) ->
     Histories = [ binary_to_term(V) ||
                     V <- riakc_obj:get_values(RiakObj),
                     V /= <<>>],
-    %% [lager:info("History Length: ~p", [length(H)]) || H <- Histories],
+    %% [logger:info("History Length: ~p", [length(H)]) || H <- Histories],
     HistoryCounts = [ length(H) || H <- Histories ],
-    lager:info("SiblingCount: ~p, HistoryCounts: ~w", [SiblingCount, HistoryCounts]),
+    logger:info("SiblingCount: ~p, HistoryCounts: ~w", [SiblingCount, HistoryCounts]),
     {ok, SiblingCount, HistoryCounts}.
 
 leave_and_join_node(_RiakNodes, 0) -> ok;
 leave_and_join_node(RiakNodes, N) ->
-    lager:info("leaving node2 (~p)", [N]),
+    logger:info("leaving node2 (~p)", [N]),
     Node2 = hd(tl(RiakNodes)),
     rt:leave(Node2),
     ?assertEqual(ok, rt:wait_until_unpingable(Node2)),
     timer:sleep(1000),
 
-    lager:info("joining node2 again (~p)", [N]),
+    logger:info("joining node2 again (~p)", [N]),
     Node1 = hd(RiakNodes),
     rt:start_and_wait(Node2),
     rt:staged_join(Node2, Node1),

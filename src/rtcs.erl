@@ -40,7 +40,7 @@ setup(NumNodes, Configs) ->
 
 setup(NumNodes, Configs, Vsn) ->
     Flavor = rt_config:get(flavor, basic),
-    lager:info("Flavor: ~p", [Flavor]),
+    logger:info("Flavor: ~p", [Flavor]),
     application:ensure_all_started(erlcloud),
 
     {_, [CSNode0|_], _} = Nodes =
@@ -133,7 +133,7 @@ setup_clusters(#{config_spec := Configs,
     rt:pmap(fun(N) -> rtcs_dev:start(N, Vsn) end, RiakNodes),
     rt:wait_for_service(RiakNodes, riak_kv),
 
-    lager:info("Make clusters"),
+    logger:info("Make clusters"),
     JoinFun(RiakNodes),
     ok = rt:wait_until_nodes_ready(RiakNodes),
     ok = rt:wait_until_no_pending_changes(RiakNodes),
@@ -142,7 +142,7 @@ setup_clusters(#{config_spec := Configs,
     rtcs_exec:start_stanchion(Vsn),
     rt:wait_until(got_pong(StanchionNode, Vsn)),
     rt:pmap(fun(N) -> rtcs_exec:start_cs(N, Vsn), rt:wait_until(got_pong(N, Vsn)) end, CSNodes),
-    lager:info("Tussle clustered"),
+    logger:info("Tussle clustered"),
 
     Nodes.
 
@@ -190,13 +190,13 @@ configure_clusters(#{num_nodes := NumNodes,
     NodeMap = orddict:from_list(lists:zip(RiakNodes, lists:seq(1, NumNodes)) ++
                                     lists:zip(CSNodes, lists:seq(1, NumNodes)) ++
                                     [{StanchionNode, 1}]),
-    lager:debug("NodeMap: ~p", [NodeMap]),
+    logger:debug("NodeMap: ~p", [NodeMap]),
     rt_config:set(rt_nodes, NodeMap),
 
     {_RiakRoot, RiakVsn} = rtcs_dev:riak_root_and_vsn(Vsn),
 
     VersionMap = lists:zip(lists:seq(1, NumNodes), lists:duplicate(NumNodes, RiakVsn)),
-    lager:debug("VersionMap: ~p", [VersionMap]),
+    logger:debug("VersionMap: ~p", [VersionMap]),
     rt_config:set(rt_versions, VersionMap),
 
     rtcs_dev:create_snmp_dirs(RiakNodes),
@@ -219,7 +219,7 @@ configure_clusters(#{num_nodes := NumNodes,
 setup_admin_user(NumNodes, Vsn)
   when Vsn =:= current orelse Vsn =:= previous ->
 
-    lager:info("Setting up admin user", []),
+    logger:info("Setting up admin user", []),
     %% Create admin user and set in cs and stanchion configs
     {AdminCreds, AdminUId} = rtcs_admin:create_admin_user(1),
     #aws_config{access_key_id=KeyID,
@@ -249,7 +249,7 @@ setup_admin_user(NumNodes, Vsn)
 
 -spec set_conf(atom() | {atom(), atom()} | string(), [{string(), string()}]) -> ok.
 set_conf(all, NameValuePairs) ->
-    lager:info("rtcs:set_conf(all, ~p)", [NameValuePairs]),
+    logger:info("rtcs:set_conf(all, ~p)", [NameValuePairs]),
     [ set_conf(DevPath, NameValuePairs) || DevPath <- rtcs_dev:devpaths()],
     ok;
 set_conf(Name, NameValuePairs) when Name =:= riak orelse
@@ -258,23 +258,23 @@ set_conf(Name, NameValuePairs) when Name =:= riak orelse
     set_conf({Name, current}, NameValuePairs),
     ok;
 set_conf({Name, Vsn}, NameValuePairs) ->
-    lager:debug("rtcs:set_conf({~p, ~p}, ~p)", [Name, Vsn, NameValuePairs]),
+    logger:debug("rtcs:set_conf({~p, ~p}, ~p)", [Name, Vsn, NameValuePairs]),
     set_conf(rtcs_dev:devpath(Name, Vsn), NameValuePairs),
     ok;
 set_conf({Name, Vsn, N}, NameValuePairs) ->
-    lager:debug("rtcs:set_conf({~p, ~p, ~p}, ~p)", [Name, Vsn, N, NameValuePairs]),
+    logger:debug("rtcs:set_conf({~p, ~p, ~p}, ~p)", [Name, Vsn, N, NameValuePairs]),
     rtdev:append_to_conf_file(rtcs_dev:get_conf(rtcs_dev:devpath(Name, Vsn), N), NameValuePairs),
     ok;
 set_conf(Node, NameValuePairs) when is_atom(Node) ->
     rtdev:append_to_conf_file(rtcs_dev:get_conf(Node), NameValuePairs),
     ok;
 set_conf(DevPath, NameValuePairs) ->
-    lager:debug("rtcs:set_conf(~p, ~p)", [DevPath, NameValuePairs]),
+    logger:debug("rtcs:set_conf(~p, ~p)", [DevPath, NameValuePairs]),
     [rtdev:append_to_conf_file(RiakConf, NameValuePairs) || RiakConf <- rtcs_dev:all_the_files(DevPath, "etc/*.conf")],
     ok.
 
 set_advanced_conf(all, NameValuePairs) ->
-    lager:debug("rtcs:set_advanced_conf(all, ~p)", [NameValuePairs]),
+    logger:debug("rtcs:set_advanced_conf(all, ~p)", [NameValuePairs]),
     [ set_advanced_conf(DevPath, NameValuePairs) || DevPath <- rtcs_dev:devpaths()],
     ok;
 set_advanced_conf(Name, NameValuePairs) when Name =:= riak orelse
@@ -283,11 +283,11 @@ set_advanced_conf(Name, NameValuePairs) when Name =:= riak orelse
     set_advanced_conf({Name, current}, NameValuePairs),
     ok;
 set_advanced_conf({Name, Vsn}, NameValuePairs) ->
-    lager:debug("rtcs:set_advanced_conf({~p, ~p}, ~p)", [Name, Vsn, NameValuePairs]),
+    logger:debug("rtcs:set_advanced_conf({~p, ~p}, ~p)", [Name, Vsn, NameValuePairs]),
     set_advanced_conf(rtcs_dev:devpath(Name, Vsn), NameValuePairs),
     ok;
 set_advanced_conf({Name, Vsn, N}, NameValuePairs) ->
-    lager:debug("rtcs:set_advanced_conf({~p, ~p, ~p}, ~p)", [Name, Vsn, N, NameValuePairs]),
+    logger:debug("rtcs:set_advanced_conf({~p, ~p, ~p}, ~p)", [Name, Vsn, N, NameValuePairs]),
     rtcs_dev:update_app_config_file(rtcs_dev:get_app_config(rtcs_dev:devpath(Name, Vsn), N), NameValuePairs),
     ok;
 set_advanced_conf(Node, NameValuePairs) when is_atom(Node) ->
@@ -308,18 +308,18 @@ assert_error_log_empty(Vsn, N) ->
         {error, enoent} -> ok;
         {ok, <<>>} -> ok;
         {ok, Errors} ->
-            lager:warning("Not empty error.log (~s): the first few lines are...~n~s",
-                          [ErrorLog,
-                           lists:map(
-                             fun(L) -> io_lib:format("cs dev~p error.log: ~s\n", [N, L]) end,
-                             lists:sublist(binary:split(Errors, <<"\n">>, [global]), 3))]),
+            logger:warning("Not empty error.log (~s): the first few lines are...~n~s",
+                           [ErrorLog,
+                            lists:map(
+                              fun(L) -> io_lib:format("cs dev~p error.log: ~s\n", [N, L]) end,
+                              lists:sublist(binary:split(Errors, <<"\n">>, [global]), 3))]),
             error(not_empty_error_log)
     end.
 
 truncate_error_log(N) ->
     Cmd = os:find_executable("rm"),
     ErrorLog = rtcs_config:riakcs_logpath(rt_config:get(rtcs_config:cs_current()), N, "error.log"),
-    lager:info("truncating ~s", [ErrorLog]),
+    logger:info("truncating ~s", [ErrorLog]),
     ok = rtcs_exec:cmd(Cmd, [{args, ["-f", ErrorLog]}]).
 
 wait_until(_, _, 0, _) ->
@@ -343,7 +343,7 @@ pbc(basic, _ObjectKind, RiakNodes, _Opts) ->
 pbc({multibag, _} = Flavor, ObjectKind, RiakNodes, Opts) ->
     rtcs_bag:pbc(Flavor, ObjectKind, RiakNodes, Opts).
 
-sha_mac(Key,STS) -> crypto:hmac(sha, Key,STS).
+sha_mac(Key,STS) -> crypto:mac(hmac, sha, Key,STS).
 sha(Bin) -> crypto:hash(sha, Bin).
 md5(Bin) -> crypto:hash(md5, Bin).
 
@@ -394,7 +394,7 @@ error_child_element_verifier(Code, Message, Resource) ->
 assert_versions(App, Nodes, Regexp) ->
     [begin
          {ok, Vsn} = rpc:call(N, application, get_key, [App, vsn]),
-         lager:debug("~s's vsn at ~s: ~s", [App, N, Vsn]),
+         logger:debug("~s's vsn at ~s: ~s", [App, N, Vsn]),
          {match, _} = re:run(Vsn, Regexp)
      end ||
         N <- Nodes].
@@ -409,11 +409,7 @@ iso8601(Timestamp) when is_integer(Timestamp) ->
                   [Y, M, D, H, I, S]).
 
 reset_log(Node) ->
-    {ok, _Logs} = rpc:call(Node, gen_event, delete_handler,
-                           [lager_event, riak_test_lager_backend, normal]),
-    ok = rpc:call(Node, gen_event, add_handler,
-                  [lager_event, riak_test_lager_backend,
-                   [rt_config:get(lager_level, info), false]]).
+    ok = rpc:call(Node, riak_test_logger_backend, clear, []).
 
 riak_node(N) ->
     ?DEV(N).

@@ -40,10 +40,10 @@
 confirm() ->
     {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}} = rtcs:setup(1),
 
-    lager:info("User is valid on the cluster, and has no buckets"),
+    logger:info("User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
 
-    lager:info("creating bucket ~p", [?TEST_BUCKET]),
+    logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
     ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
@@ -152,7 +152,7 @@ timestamp_skew_cases(UserConfig) ->
                         Seconds = calendar:datetime_to_gregorian_seconds(Localtime),
                         SkewedTime = calendar:gregorian_seconds_to_datetime(Seconds - 987),
                         Date = meck:passthrough([SkewedTime]),
-                        lager:info("Clock skew: ~p => ~p => ~p", [Localtime, SkewedTime, Date]),
+                        logger:info("Clock skew: ~p => ~p => ~p", [Localtime, SkewedTime, Date]),
                         Date
                 end),
     try
@@ -165,7 +165,7 @@ timestamp_skew_cases(UserConfig) ->
             ErrMsg = "The difference between the request time and the current time is too large.",
             ?assertEqual(ErrMsg, erlcloud_xml:get_text("/Error/Message", XML));
         E:R ->
-            lager:error("~p:~p", [E, R]),
+            logger:error("~p:~p", [E, R]),
             ?assert(false)
     after
         meck:unload(httpd_util)
@@ -245,7 +245,7 @@ assert_content_range(Skip, Length, Size, Obj) ->
     ?assertEqual(Expected, ContentRange).
 
 %% TODO: riak_test includes its own mochiweb by escriptizing.
-%% End position which is lager than size is fixed on the branch 1.5 of basho/mochweb:
+%% End position which is larger than size is fixed on the branch 1.5 of basho/mochweb:
 %%   https://github.com/basho/mochiweb/commit/38992be7822ddc1b8e6f318ba8e73fc8c0b7fd22
 %%   Accept range end position which exceededs the resource size
 %% After mochiweb is tagged, change riakhttpc and webmachine's deps to the tag.
@@ -277,7 +277,7 @@ upload_parts(Bucket, Key, UploadId, Config, PartCount, [Size | Sizes], Contents,
     {RespHeaders, _UploadRes} = erlcloud_s3_multipart:upload_part(
                                   Bucket, Key, UploadId, PartCount, Content, Config),
     PartEtag = proplists:get_value("ETag", RespHeaders),
-    lager:debug("UploadId: ~p~n", [UploadId]),
-    lager:debug("PartEtag: ~p~n", [PartEtag]),
+    logger:debug("UploadId: ~p", [UploadId]),
+    logger:debug("PartEtag: ~p", [PartEtag]),
     upload_parts(Bucket, Key, UploadId, Config, PartCount + 1,
                  Sizes, [Content | Contents], [{PartCount, PartEtag} | Parts]).

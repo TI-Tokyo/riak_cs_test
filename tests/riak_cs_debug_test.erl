@@ -104,7 +104,7 @@ cleanup_any_prev_generated_configs() ->
     VmArgses = filelib:wildcard([GenConfPath ++ "vm.*.args"]),
     case AppConfigs of
         [_|_] ->
-            [begin lager:info("deleting old ~s", [F]), ok = file:delete(F) end || F <- lists:droplast(AppConfigs) ++ lists:droplast(VmArgses)];
+            [begin logger:info("deleting old ~s", [F]), ok = file:delete(F) end || F <- lists:droplast(AppConfigs) ++ lists:droplast(VmArgses)];
         _ ->
             ok
     end.

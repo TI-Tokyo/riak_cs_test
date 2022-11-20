@@ -19,8 +19,8 @@ verify_sites_balanced(NumSites, BNodes0) ->
                     ?assertEqual(NumSites, client_count(Leader));
                 _ ->
                     NodeCounts = [{Node, client_count(Node)} || Node <- BNodes],
-                    lager:notice("nodecounts ~p", [NodeCounts]),
-                    lager:notice("leader ~p", [Leader]),
+                    logger:notice("nodecounts ~p", [NodeCounts]),
+                    logger:notice("leader ~p", [Leader]),
                     Min = NumSites div NumNodes,
                     [?assert(Count >= Min) || {_Node, Count} <- NodeCounts]
             end;
@@ -47,13 +47,13 @@ client_count(Node) ->
     length(Clients).
 
 add_site(Node, {IP, Port, Name}) ->
-    lager:info("Add site ~p ~p:~p at node ~p", [Name, IP, Port, Node]),
+    logger:info("Add site ~p ~p:~p at node ~p", [Name, IP, Port, Node]),
     Args = [IP, integer_to_list(Port), Name],
     Res = rpc:call(Node, riak_repl_console, add_site, [Args]),
     ?assertEqual(ok, Res).
 
 del_site(Node, Name) ->
-    lager:info("Del site ~p at ~p", [Name, Node]),
+    logger:info("Del site ~p at ~p", [Name, Node]),
     Res = rpc:call(Node, riak_repl_console, del_site, [[Name]]),
     ?assertEqual(ok, Res).
 
@@ -62,7 +62,7 @@ verify_listeners(Listeners) ->
     [?assertEqual(ok, verify_listener(Node, Strs)) || {_, _, Node} <- Listeners].
 
 verify_listener(Node, Strs) ->
-    lager:info("Verify listeners ~p ~p", [Node, Strs]),
+    logger:info("Verify listeners ~p ~p", [Node, Strs]),
     rt:wait_until(Node,
         fun(_) ->
                 Status = rpc:call(Node, riak_repl_console, status, [quiet]),
@@ -79,7 +79,7 @@ add_listeners(Nodes=[FirstNode|_]) ->
     PN.
 
 add_listener(N, Node, IP, Port) ->
-    lager:info("Adding repl listener to ~p ~s:~p", [Node, IP, Port]),
+    logger:info("Adding repl listener to ~p ~s:~p", [Node, IP, Port]),
     Args = [[atom_to_list(Node), IP, integer_to_list(Port)]],
     Res = rpc:call(N, riak_repl_console, add_listener, Args),
     ?assertEqual(ok, Res).
@@ -102,9 +102,9 @@ verify_site_ips(Leader, Site, Listeners) ->
 start_and_wait_until_fullsync_complete(Node) ->
     Status0 = rpc:call(Node, riak_repl_console, status, [quiet]),
     Count = proplists:get_value(server_fullsyncs, Status0) + 1,
-    lager:info("waiting for fullsync count to be ~p", [Count]),
+    logger:info("waiting for fullsync count to be ~p", [Count]),
 
-    lager:info("Starting fullsync on ~p (~p)", [Node,
+    logger:info("Starting fullsync on ~p (~p)", [Node,
             rtdev:node_version(rtdev:node_id(Node))]),
     rpc:call(Node, riak_repl_console, start_fullsync, [[]]),
     %% sleep because of the old bug where stats will crash if you call it too
@@ -130,12 +130,12 @@ start_and_wait_until_fullsync_complete(Node) ->
                     ok;
                 _ ->
                     ?assertEqual(ok, wait_until_connection(Node)),
-                    lager:warning("Pre 1.2.0 node failed to fullsync, retrying"),
+                    logger:warning("Pre 1.2.0 node failed to fullsync, retrying"),
                     start_and_wait_until_fullsync_complete(Node)
             end
     end,
 
-    lager:info("Fullsync on ~p complete", [Node]).
+    logger:info("Fullsync on ~p complete", [Node]).
 
 
 wait_until_leader(Node) ->
@@ -187,7 +187,7 @@ wait_until_leader_converge([Node|_] = Nodes) ->
                             undefined ->
                                 false;
                             L ->
-                                %lager:info("Leader for ~p is ~p",
+                                %logger:info("Leader for ~p is ~p",
                                 %[N,L]),
                                 L
                         end
@@ -204,7 +204,7 @@ wait_until_connection(Node) ->
                     [_C] ->
                         true;
                     Conns ->
-                        lager:warning("multiple connections detected: ~p",
+                        logger:warning("multiple connections detected: ~p",
                             [Conns]),
                         true
                 end
@@ -264,12 +264,12 @@ stop_realtime(Node, Cluster) ->
     ?assertEqual(ok, Res).
 
 name_cluster(Node, Name) ->
-    lager:info("Naming cluster ~p",[Name]),
+    logger:info("Naming cluster ~p",[Name]),
     Res = rpc:call(Node, riak_repl_console, clustername, [[Name]]),
     ?assertEqual(ok, Res).
 
 connect_clusters13(LeaderA, ANodes, BPort, Name) ->
-    lager:info("Connecting to ~p", [Name]),
+    logger:info("Connecting to ~p", [Name]),
     connect_cluster13(LeaderA, "127.0.0.1", BPort),
     ?assertEqual(ok, wait_for_connection13(LeaderA, Name)),
     repl_util:enable_realtime(LeaderA, Name),
@@ -282,7 +282,7 @@ connect_clusters13(LeaderA, ANodes, BPort, Name) ->
     rt:wait_until_ring_converged(ANodes).
 
 disconnect_clusters13(LeaderA, ANodes, Name) ->
-    lager:info("Disconnecting from ~p", [Name]),
+    logger:info("Disconnecting from ~p", [Name]),
     disconnect_cluster13(LeaderA, Name),
     repl_util:disable_realtime(LeaderA, Name),
     rt:wait_until_ring_converged(ANodes),
@@ -294,9 +294,9 @@ disconnect_clusters13(LeaderA, ANodes, Name) ->
 start_and_wait_until_fullsync_complete13(Node) ->
     Status0 = rpc:call(Node, riak_repl_console, status, [quiet]),
     Count = proplists:get_value(server_fullsyncs, Status0) + 1,
-    lager:info("waiting for fullsync count to be ~p", [Count]),
+    logger:info("waiting for fullsync count to be ~p", [Count]),
 
-    lager:info("Starting fullsync on ~p (~p)", [Node,
+    logger:info("Starting fullsync on ~p (~p)", [Node,
             rtdev:node_version(rtdev:node_id(Node))]),
     rpc:call(Node, riak_repl_console, fullsync, [["start"]]),
     %% sleep because of the old bug where stats will crash if you call it too
@@ -315,7 +315,7 @@ start_and_wait_until_fullsync_complete13(Node) ->
         end),
     ?assertEqual(ok, Res),
 
-    lager:info("Fullsync on ~p complete", [Node]).
+    logger:info("Fullsync on ~p complete", [Node]).
 
 wait_for_connection13(Node, Name) ->
     rt:wait_until(Node,
@@ -352,7 +352,7 @@ wait_until_rtq_drained(Node) ->
                         false
                 end
         end),
-    lager:info("Realtime sync on ~p complete", [Node]).
+    logger:info("Realtime sync on ~p complete", [Node]).
 
 connect_cluster13(Node, IP, Port) ->
     Res = rpc:call(Node, riak_repl_console, connect,
