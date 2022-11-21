@@ -29,7 +29,7 @@
 %% - Execute `offline_delete.erl`
 %% - Start all nodes
 %% - Assert no blocks in `BlockKeysFileList` exist after execution
-offline_delete({RiakNodes, _CSNodes, _Stanchion} = Tussle, BlockKeysFileList) ->
+offline_delete({RiakNodes, _CSNodes} = Tussle, BlockKeysFileList) ->
     logger:info("Assert all blocks exist before deletion"),
     [assert_all_blocks_exists(RiakNodes, BlockKeysFile) ||
         BlockKeysFile <- BlockKeysFileList],

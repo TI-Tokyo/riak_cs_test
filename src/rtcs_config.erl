@@ -25,8 +25,6 @@
 -define(RIAK_PREVIOUS, <<"build_paths.riak_previous">>).
 -define(CS_CURRENT, <<"build_paths.cs_current">>).
 -define(CS_PREVIOUS, <<"build_paths.cs_previous">>).
--define(STANCHION_CURRENT, <<"build_paths.stanchion_current">>).
--define(STANCHION_PREVIOUS, <<"build_paths.stanchion_previous">>).
 
 -define(REQUEST_POOL_SIZE, 8).
 -define(BUCKET_LIST_POOL_SIZE, 2).
@@ -53,12 +51,10 @@ previous_configs(CustomConfigs) ->
 
 default_configs() ->
     [{riak, riak_config()},
-     {stanchion, stanchion_config()},
      {cs, cs_config()}].
 
 previous_default_configs() ->
     [{riak, previous_riak_config()},
-     {stanchion, previous_stanchion_config()},
      {cs, previous_cs_config()}].
 
 pb_port(N) when is_integer(N) ->
@@ -199,7 +195,7 @@ previous_cs_config(UserExtra, OtherApps) ->
            {anonymous_user_creation, true},
            {riak_pb_port, 10017},
            {stanchion_host, {"127.0.0.1", stanchion_port()}},
-           {cs_version, 010300}
+           {cs_version, 030000}
           ]
      }] ++ OtherApps.
 
@@ -225,33 +221,13 @@ cs_config(UserExtra, OtherApps) ->
            {admin_key, "admin-key"},
            {stanchion_host, {"127.0.0.1", stanchion_port()}},
            {riak_host, {"127.0.0.1", 10017}},
-           {cs_version, 030000}
+           {cs_version, 030100}
           ]
      }] ++ OtherApps.
 
 replace(Key, Value, Config0) ->
     Config1 = proplists:delete(Key, Config0),
     [proplists:property(Key, Value)|Config1].
-
-previous_stanchion_config() ->
-    [
-     {stanchion,
-      [
-       {admin_key, "admin-key"},
-       {host, {"127.0.0.1", stanchion_port()}},
-       {riak_host, {"127.0.0.1", 10017}}
-      ]
-     }].
-
-stanchion_config() ->
-    [
-     {stanchion,
-      [
-       {admin_key, "admin-key"},
-       {host, {"127.0.0.1", stanchion_port()}},
-       {riak_host, {"127.0.0.1", 10017}}
-      ]
-     }].
 
 
 riak_bitcaskroot(Prefix, N) ->
@@ -284,9 +260,6 @@ riakcscmd(Path, N, Cmd) ->
 riakcs_statuscmd(Path, N) ->
     lists:flatten(io_lib:format("~s-admin status", [riakcs_binpath(Path, N)])).
 
-riakcs_switchcmd(Path, N, Cmd) ->
-    lists:flatten(io_lib:format("~s-admin stanchion ~s", [riakcs_binpath(Path, N), Cmd])).
-
 riakcs_gccmd(Path, N, Cmd) ->
     lists:flatten(io_lib:format("~s-admin gc ~s", [riakcs_binpath(Path, N), Cmd])).
 
@@ -296,30 +269,13 @@ riakcs_accesscmd(Path, N, Cmd) ->
 riakcs_storagecmd(Path, N, Cmd) ->
     lists:flatten(io_lib:format("~s-admin storage ~s", [riakcs_binpath(Path, N), Cmd])).
 
-stanchion_binpath(Prefix) ->
-    io_lib:format("~s/dev/stanchion/bin/stanchion", [Prefix]).
-
-stanchion_etcpath(Prefix) ->
-    io_lib:format("~s/dev/stanchion/etc", [Prefix]).
-
-stanchioncmd(Path, Cmd) ->
-    lists:flatten(io_lib:format("~s ~s", [stanchion_binpath(Path), Cmd])).
-
-stanchion_statuscmd(Path) ->
-    lists:flatten(io_lib:format("~s-admin status", [stanchion_binpath(Path)])).
-
 cs_current() ->
     ?CS_CURRENT.
-
-stanchion_current() ->
-    ?STANCHION_CURRENT.
 
 devpath(riak, current) -> rt_config:get(?RIAK_CURRENT);
 devpath(riak, previous) -> rt_config:get(?RIAK_PREVIOUS);
 devpath(cs, current) -> rt_config:get(?CS_CURRENT);
-devpath(cs, previous) -> rt_config:get(?CS_PREVIOUS);
-devpath(stanchion, current) -> rt_config:get(?STANCHION_CURRENT);
-devpath(stanchion, previous) -> rt_config:get(?STANCHION_PREVIOUS).
+devpath(cs, previous) -> rt_config:get(?CS_PREVIOUS).
 
 set_configs(NumNodes, Config, Vsn) ->
     rtcs:set_conf({riak, Vsn}, riak_conf()),
@@ -330,16 +286,11 @@ set_configs(NumNodes, Config, Vsn) ->
                                      proplists:get_value(cs, Config))
             end,
             lists:seq(1, NumNodes)),
-    update_stanchion_config(devpath(stanchion, Vsn),
-                            proplists:get_value(stanchion, Config)),
     enable_zdbbl(Vsn).
 
-read_config(Vsn, N, Who) ->
-    Prefix = devpath(Who, Vsn),
-    EtcPath = case Who of
-                  cs -> riakcs_etcpath(Prefix, N);
-                  stanchion -> stanchion_etcpath(Prefix)
-              end,
+read_config(Vsn, N) ->
+    Prefix = devpath(cs, Vsn),
+    EtcPath = riakcs_etcpath(Prefix, N),
     case file:consult(EtcPath ++ "/advanced.config") of
          {ok, [Config]} ->
              Config;
@@ -371,15 +322,6 @@ update_cs_port(Config, N) ->
       [{riak_host, {"127.0.0.1", pb_port(N)}},
        {listener, {"127.0.0.1", cs_port(N)}}
       ]).
-
-update_stanchion_config(Prefix, Config, {AdminKey, _AdminSecret}) ->
-    StanchionSection = proplists:get_value(stanchion, Config),
-    UpdConfig = [{stanchion, update_admin_creds(StanchionSection, AdminKey)} |
-                 proplists:delete(stanchion, Config)],
-    update_stanchion_config(Prefix, UpdConfig).
-
-update_stanchion_config(Prefix, Config) ->
-    update_app_config(stanchion_etcpath(Prefix), Config).
 
 update_app_config(Path, Config) ->
     logger:debug("rtcs:update_app_config(~s,~p)", [Path, Config]),
@@ -426,31 +368,17 @@ upgrade_cs(N, AdminCreds) ->
 
 %% @doc update config file from `From' to `To' version.
 migrate_cs(From, To, N, AdminCreds) ->
-    migrate(From, To, N, AdminCreds, cs).
+    migrate(From, To, N, AdminCreds).
 
-migrate(From, To, N, AdminCreds, Who) when
+migrate(From, To, N, AdminCreds) when
       (From =:= current andalso To =:= previous)
       orelse ( From =:= previous andalso To =:= current) ->
-    Config0 = read_config(From, N, Who),
-    Config1 = migrate_config(From, To, Config0, Who),
-    Prefix = devpath(Who, To),
-    logger:debug("migrating ~s => ~s", [devpath(Who, From), Prefix]),
-    case Who of
-        cs -> update_cs_config(Prefix, N, Config1, AdminCreds);
-        stanchion -> update_stanchion_config(Prefix, Config1, AdminCreds)
-    end.
+    Config0 = read_config(From, N),
+    Config1 = migrate_config(From, To, Config0),
+    Prefix = devpath(cs, To),
+    logger:debug("migrating ~s => ~s", [devpath(cs, From), Prefix]),
+    update_cs_config(Prefix, N, Config1, AdminCreds).
 
-migrate_stanchion(From, To, AdminCreds) ->
-    migrate(From, To, -1, AdminCreds, stanchion).
-
-migrate_config(previous, current, Conf, stanchion) ->
-    {AddList, RemoveList} = diff_config(stanchion_config(),
-                                        previous_stanchion_config()),
-    migrate_config(Conf, AddList, RemoveList);
-migrate_config(current, previous, Conf, stanchion) ->
-    {AddList, RemoveList} = diff_config(previous_stanchion_config(),
-                                        stanchion_config()),
-    migrate_config(Conf, AddList, RemoveList);
 migrate_config(previous, current, Conf, cs) ->
     {AddList, RemoveList} = diff_config(cs_config([{anonymous_user_creation, false}]),
                                         previous_cs_config()),

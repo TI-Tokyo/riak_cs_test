@@ -32,7 +32,7 @@ confirm() ->
     prepare_current(NumNodes),
 
     PrevConfig = rtcs_config:previous_configs(),
-    {{UserConfig, _}, {RiakNodes, CSNodes, Stanchion} = Tussle} =
+    {{UserConfig, _}, {RiakNodes, CSNodes} = Tussle} =
         rtcs:setup(NumNodes, PrevConfig, previous),
 
     {ok, Data} = prepare_all_data(UserConfig),
@@ -54,7 +54,6 @@ confirm() ->
                                 [{riak_cs,
                                   [{riak_host, {"127.0.0.1", rtcs_config:pb_port(1)}}]}])
      end || RiakNode <- RiakNodes],
-    rtcs_config:migrate_stanchion(previous, current, AdminCreds),
 
     rtcs_exec:start_all_nodes(Tussle, current),
 
@@ -71,7 +70,6 @@ confirm() ->
     logger:info("Downgrading current to previous", []),
     rtcs_exec:stop_all_nodes(Tussle, current),
 
-    rtcs_config:migrate_stanchion(current, previous, AdminCreds),
     [begin
          N = rtcs_dev:node_id(RiakNode),
          ok = rt:upgrade(RiakNode, RiakPrevVsn),
@@ -84,18 +82,17 @@ confirm() ->
     ok = verify_all_data(UserConfig, Data2),
     logger:info("Downgrading to previous successfully done"),
 
-    rtcs_dev:restore_configs(RiakNodes ++ CSNodes ++ [Stanchion], previous),
+    rtcs_dev:restore_configs(RiakNodes ++ CSNodes, previous),
     rtcs_dev:pass().
 
 
 prepare_current(NumNodes) ->
     logger:info("Preparing current cluster", []),
-    {RiakNodes, CSNodes, _StanchionNode} = rtcs:flavored_setup(#{num_nodes => NumNodes,
-                                                                 flavor => rt_config:get(flavor, basic),
-                                                                 config_spec => rtcs_config:configs([]),
-                                                                 vsn => current}),
+    {RiakNodes, CSNodes} = rtcs:flavored_setup(#{num_nodes => NumNodes,
+                                                 flavor => rt_config:get(flavor, basic),
+                                                 config_spec => rtcs_config:configs([]),
+                                                 vsn => current}),
     rt:pmap(fun(N) -> rtcs_exec:stop_cs(N, current) end, CSNodes),
-    rtcs_exec:stop_stanchion(current),
     rt:pmap(fun(N) -> rtcs_dev:stop(N, current) end, RiakNodes),
     ok.
 

@@ -56,7 +56,7 @@ confirm() ->
 %% @doc Regression test for `riak_cs' <a href="https://github.com/basho/riak_cs/issues/296">
 %% issue 296</a>. The issue description is: 403 instead of 404 returned when
 %% trying to list nonexistent bucket.
-verify_cs296(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}}, BucketName) ->
+verify_cs296(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes}}, BucketName) ->
     logger:info("CS296: User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
 
@@ -77,7 +77,7 @@ verify_cs296(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}},
 %% @doc Regression test for `riak_cs' <a href="https://github.com/basho/riak_cs/issues/347">
 %% issue 347</a>. The issue description is: No response body in 404 to the
 %% bucket that have never been created once.
-verify_cs347(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}}, BucketName) ->
+verify_cs347(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes}}, BucketName) ->
 
     logger:info("CS347: User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
@@ -114,7 +114,7 @@ verify_cs347(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}},
 %% @doc Regression test for `riak_cs' <a href="https://github.com/basho/riak_cs/issues/436">
 %% issue 436</a>. The issue description is: A 500 is returned instead of a 404 when
 %% trying to put to a nonexistent bucket.
-verify_cs436(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}}, BucketName) ->
+verify_cs436(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes}}, BucketName) ->
     logger:info("CS436: User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
 

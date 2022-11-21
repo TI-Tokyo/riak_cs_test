@@ -31,7 +31,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 confirm() ->
-    {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}} = rtcs:setup(2),
+    {{UserConfig, _}, {_RiakNodes, _CSNodes}} = rtcs:setup(2),
 
     ok = verify_cs631(UserConfig, "cs-631-test-bukcet"),
     ok = verify_cs654(UserConfig),

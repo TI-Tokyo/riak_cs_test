@@ -25,7 +25,7 @@
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
 
 confirm() ->
-    {{UserConfig, _}, {RiakNodes, _CSNodes, _Stanchion}} = rtcs:setup(1),
+    {{UserConfig, _}, {RiakNodes, _CSNodes}} = rtcs:setup(1),
 
     logger:info("Confirming initial stats"),
     confirm_initial_stats(cs, UserConfig, rtcs_config:cs_port(hd(RiakNodes))),
@@ -101,14 +101,14 @@ confirm_initial_stats(stanchion, UserConfig, Port) ->
     ok.
 
 confirm_stats(cs, UserConfig, Port) ->
-    confirm_status_cmd(cs, "service_get_in_one"),
+    confirm_status_cmd("service_get_in_one"),
     Stats = query_stats(cs, UserConfig, Port),
     confirm_stat_count(Stats, <<"service_get_out_one">>, 2),
     confirm_stat_count(Stats, <<"object_get_out_one">>, 1),
     confirm_stat_count(Stats, <<"object_put_out_one">>, 1),
     confirm_stat_count(Stats, <<"object_delete_out_one">>, 1);
 confirm_stats(stanchion, UserConfig, Port) ->
-    confirm_status_cmd(stanchion, "bucket_create_one"),
+    confirm_status_cmd("bucket_create_one"),
     Stats = query_stats(stanchion, UserConfig, Port),
     confirm_stat_count(Stats, <<"user_create_one">>, 1),
     confirm_stat_count(Stats, <<"bucket_create_one">>, 2),
@@ -156,12 +156,7 @@ confirm_stat_count(StatData, StatType, ExpectedCount) ->
     logger:debug("confirm_stat_count for ~p", [StatType]),
     ?assertEqual(ExpectedCount, proplists:get_value(StatType, StatData)).
 
-confirm_status_cmd(Type, ExpectedToken) ->
-    Cmd = case Type of
-              cs ->
-                  rtcs_exec:riakcs_statuscmd(rtcs_config:devpath(cs, current), 1);
-              stanchion ->
-                  rtcs_exec:stanchion_statuscmd(rtcs_config:devpath(stanchion, current))
-          end,
+confirm_status_cmd(ExpectedToken) ->
+    Cmd = rtcs_exec:riakcs_statuscmd(rtcs_config:devpath(cs, current), 1),
     Res = os:cmd(Cmd),
     ?assert(string:str(Res, ExpectedToken) > 0).

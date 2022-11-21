@@ -38,7 +38,7 @@
 
 
 confirm() ->
-    {{UserConfig, _}, {_RiakNodes, _CSNodes, _Stanchion}} = rtcs:setup(1),
+    {{UserConfig, _}, {_RiakNodes, _CSNodes}} = rtcs:setup(1),
 
     logger:info("User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),

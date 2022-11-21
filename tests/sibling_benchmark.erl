@@ -67,7 +67,7 @@ confirm() ->
                  [{default_bucket_props,
                    [{allow_mult, true}, {dvv_enabled, DVVEnabled}]}]}
                ]}],
-    {{UserConfig, _}, {RiakNodes, CSNodes, _Stanchion}} =
+    {{UserConfig, _}, {RiakNodes, CSNodes}} =
         case proplists:get_value(version, RTConfig, current) of
             current ->
                 put(version, current),

@@ -30,7 +30,7 @@
 -define(ErrNodeId, 2).
 
 confirm() ->
-    {{UserConfig, _}, {RiakNodes, CSNodes, Stanchion}} = rtcs:setup(2),
+    {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs:setup(2),
     ErrCSNode = lists:nth(?ErrNodeId, CSNodes),
     ErrNode = lists:nth(?ErrNodeId, RiakNodes),
     ErrConfig = rtcs_admin:aws_config(UserConfig, [{port, rtcs_config:cs_port(ErrNode)}]),
@@ -52,19 +52,4 @@ confirm() ->
     ?assertError({aws_error, {socket_error, retry_later}}, erlcloud_s3:get_object(?BUCKET, ?KEY, ErrConfig)),
     rt_intercept:clean(ErrCSNode, riak_cs_block_server),
 
-    %% vefity response for timeout during get a bucket on stanchion.
-    %% FIXME: This should be http_error 503
-    rt_intercept:add(Stanchion, {riakc_pb_socket, [{{get, 5}, get_timeout}]}),
-    ?assertError({aws_error, {http_error, 500, [], _}},
-                 erlcloud_s3:create_bucket(?BUCKET2, ErrConfig)),
-    rt_intercept:clean(Stanchion, riakc_pb_socket),
-
-    %% vefity response for timeout during put a bucket on stanchion.
-    %% FIXME: This should be http_error 503
-    rt_intercept:add(Stanchion, {riakc_pb_socket, [{{put, 4}, put_timeout}]}),
-    ?assertError({aws_error, {http_error, 500, [], _}},
-                 erlcloud_s3:create_bucket(?BUCKET2, ErrConfig)),
-    rt_intercept:clean(Stanchion, riakc_pb_socket),
-
     rtcs_dev:pass().
-

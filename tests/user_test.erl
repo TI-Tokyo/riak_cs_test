@@ -31,7 +31,7 @@
 -define(XML, "application/xml").
 
 confirm() ->
-    {{AdminUserConfig, _}, {RiakNodes, _CSNodes, _Stanchion}} = rtcs:setup(1),
+    {{AdminUserConfig, _}, {RiakNodes, _CSNodes}} = rtcs:setup(1),
 
     HeadRiakNode = hd(RiakNodes),
     AdminUser = {"admin@me.com", "admin",

@@ -421,16 +421,11 @@ whats_up() ->
 
 devpaths() ->
     lists:usort([ DevPath || {Name, DevPath} <- rt_config:get(build_paths),
-                             not lists:member(Name, [root, ee_root, cs_root, stanchion_root])
+                             not lists:member(Name, [root, ee_root, cs_root])
                 ]).
 
 all_the_files(DevPath, File) ->
-    case rtdev:which_riak(DevPath) of
-        "stanchion" ->
-            filelib:wildcard(io_lib:format("~s/dev/stanchion/~s", [DevPath, File]));
-        A ->
-            filelib:wildcard(io_lib:format("~s/dev/dev?/~s/~s", [DevPath, A, File]))
-    end.
+    filelib:wildcard(io_lib:format("~s/dev/dev?/~s/~s", [DevPath, rtdev:which_riak(DevPath), File])).
 
 devpath(Name, Vsn) ->
     rtcs_config:devpath(Name, Vsn).
@@ -442,9 +437,7 @@ cluster_devpath(Node, Vsn) ->
         <<"dev", _/binary>> ->
             devpath(riak, Vsn);
         <<"rcs-dev", _/binary>> ->
-            devpath(cs, Vsn);
-        <<"stanchion", _/binary>> ->
-            devpath(stanchion, Vsn)
+            devpath(cs, Vsn)
     end.
 
 node_path(Node) ->
@@ -452,18 +445,13 @@ node_path(Node) ->
 node_path(Node, Vsn)
   when is_atom(Node) andalso (Vsn == current orelse Vsn == previous) ->
     ClusterDevpath = cluster_devpath(Node, Vsn),
-    case rtdev:which_riak(ClusterDevpath) of
-        "stanchion" ->
-            io_lib:format("~s/dev/stanchion", [ClusterDevpath]);
-        WhichRiak ->
-            io_lib:format("~s/dev/dev~b/~s", [ClusterDevpath, node_id(Node), WhichRiak])
-    end.
+    io_lib:format("~s/dev/dev~b/~s", [ClusterDevpath, node_id(Node), rtdev:which_riak(ClusterDevpath)]).
 
 versions() ->
     proplists:get_keys(rt_config:get(build_paths)) -- [root].
 
 get_node_logs() ->
-    lists:flatmap(fun get_node_logs/1, [root, ee_root, cs_root, stanchion_root]).
+    lists:flatmap(fun get_node_logs/1, [root, ee_root, cs_root]).
 
 get_node_logs(Base) ->
     Root = filename:absname(proplists:get_value(Base, ?BUILD_PATHS)),

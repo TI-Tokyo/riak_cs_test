@@ -35,7 +35,7 @@
 -define(DURATION_SECS, 11).
 
 confirm() ->
-    {{UserConfig, _}, {RiakNodes, CSNodes, _Stanchion}} = rtcs:setup(2),
+    {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs:setup(2),
     rt:setup_log_capture(hd(CSNodes)),
 
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(

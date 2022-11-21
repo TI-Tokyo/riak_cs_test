@@ -30,7 +30,6 @@
 set_conf(NumNodes, BagFlavor) ->
     BagConf = conf(NumNodes, BagFlavor),
     rtcs:set_conf(cs, BagConf),
-    rtcs:set_conf(stanchion, BagConf),
     ok.
 
 conf(NumNodes, BagFlavor) ->
@@ -43,8 +42,7 @@ conf(NumNodes, NodeOffset, BagFlavor) ->
         {BagId, IP, Port} <- Bags].
 
 configs(MultiBags) ->
-      [{cs, [{riak_cs_multibag, [{bags, MultiBags}]}]},
-       {stanchion, [{stanchion, [{bags, MultiBags}]}]}].
+      [{cs, [{riak_cs_multibag, [{bags, MultiBags}]}]}].
 
 %% BagFlavor is `disjoint' only for now
 %% TODO: Other nodes than CS node 1 have wrong riak_pb_port configuration.

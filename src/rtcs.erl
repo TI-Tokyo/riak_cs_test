@@ -125,7 +125,7 @@ setup_clusters(#{config_spec := Configs,
     application:load(sasl),
     application:set_env(sasl, sasl_error_logger, false),
 
-    Nodes = {RiakNodes, CSNodes, StanchionNode} =
+    Nodes = {RiakNodes, CSNodes} =
         configure_clusters(#{num_nodes => NumNodes,
                              initial_config => Configs,
                              vsn => Vsn}),
@@ -139,8 +139,6 @@ setup_clusters(#{config_spec := Configs,
     ok = rt:wait_until_no_pending_changes(RiakNodes),
     ok = rt:wait_until_ring_converged(RiakNodes),
 
-    rtcs_exec:start_stanchion(Vsn),
-    rt:wait_until(got_pong(StanchionNode, Vsn)),
     rt:pmap(fun(N) -> rtcs_exec:start_cs(N, Vsn), rt:wait_until(got_pong(N, Vsn)) end, CSNodes),
     logger:info("Tussle clustered"),
 
@@ -183,13 +181,12 @@ riak_id_per_cluster(NumNodes) ->
 configure_clusters(#{num_nodes := NumNodes,
                      initial_config := ConfigSpec,
                      vsn := Vsn}) ->
-    {RiakNodes, CSNodes, StanchionNode} = Nodes = {riak_nodes(NumNodes),
-                                                   cs_nodes(NumNodes),
-                                                   stanchion_node()},
+    {RiakNodes, CSNodes} = Nodes = {riak_nodes(NumNodes),
+                                    cs_nodes(NumNodes)},
 
-    NodeMap = orddict:from_list(lists:zip(RiakNodes, lists:seq(1, NumNodes)) ++
-                                    lists:zip(CSNodes, lists:seq(1, NumNodes)) ++
-                                    [{StanchionNode, 1}]),
+    NodeMap = orddict:from_list(
+                lists:zip(RiakNodes, lists:seq(1, NumNodes))
+                ++ lists:zip(CSNodes, lists:seq(1, NumNodes))),
     logger:debug("NodeMap: ~p", [NodeMap]),
     rt_config:set(rt_nodes, NodeMap),
 
@@ -201,7 +198,7 @@ configure_clusters(#{num_nodes := NumNodes,
 
     rtcs_dev:create_snmp_dirs(RiakNodes),
 
-    rtcs_dev:create_or_restore_config_backups(RiakNodes ++ CSNodes ++ [StanchionNode], Vsn),
+    rtcs_dev:create_or_restore_config_backups(RiakNodes ++ CSNodes, Vsn),
 
     if is_function(ConfigSpec) ->
             rtcs_config:set_configs(NumNodes,
@@ -233,7 +230,6 @@ setup_admin_user(NumNodes, Vsn)
     rt:pmap(fun(N) ->
                     set_advanced_conf({cs, Vsn, N}, [{riak_cs, AdminConf}])
             end, lists:seq(1, NumNodes)),
-    set_advanced_conf({stanchion, Vsn}, [{stanchion, AdminConf}]),
 
     UpdateFun = fun({Node, App}) ->
                         ok = rpc:call(Node, application, set_env,
@@ -241,8 +237,7 @@ setup_admin_user(NumNodes, Vsn)
                         ok = rpc:call(Node, application, set_env,
                                       [App, admin_secret, KeySecret])
                 end,
-    ZippedNodes = [{stanchion_node(), stanchion} |
-                  [{CSNode, riak_cs} || CSNode <- cs_nodes(NumNodes) ]],
+    ZippedNodes = [{CSNode, riak_cs} || CSNode <- cs_nodes(NumNodes) ],
     lists:foreach(UpdateFun, ZippedNodes),
 
     {AdminCreds, AdminUId}.
@@ -278,8 +273,7 @@ set_advanced_conf(all, NameValuePairs) ->
     [ set_advanced_conf(DevPath, NameValuePairs) || DevPath <- rtcs_dev:devpaths()],
     ok;
 set_advanced_conf(Name, NameValuePairs) when Name =:= riak orelse
-                                             Name =:= cs orelse
-                                             Name =:= stanchion ->
+                                             Name =:= cs ->
     set_advanced_conf({Name, current}, NameValuePairs),
     ok;
 set_advanced_conf({Name, Vsn}, NameValuePairs) ->
@@ -288,7 +282,9 @@ set_advanced_conf({Name, Vsn}, NameValuePairs) ->
     ok;
 set_advanced_conf({Name, Vsn, N}, NameValuePairs) ->
     logger:debug("rtcs:set_advanced_conf({~p, ~p, ~p}, ~p)", [Name, Vsn, N, NameValuePairs]),
-    rtcs_dev:update_app_config_file(rtcs_dev:get_app_config(rtcs_dev:devpath(Name, Vsn), N), NameValuePairs),
+    rtcs_dev:update_app_config_file(
+      rtcs_dev:get_app_config(
+        rtcs_dev:devpath(Name, Vsn), N), NameValuePairs),
     ok;
 set_advanced_conf(Node, NameValuePairs) when is_atom(Node) ->
     rtcs_dev:update_app_config_file(rtcs_dev:get_app_config(Node), NameValuePairs),
@@ -417,9 +413,6 @@ riak_node(N) ->
 cs_node(N) ->
     ?CSDEV(N).
 
-stanchion_node() ->
-    'stanchion@127.0.0.1'.
-
 maybe_load_intercepts(Node) ->
     case rt_intercept:are_intercepts_loaded(Node) of
         false ->
@@ -440,4 +433,4 @@ node_list(NumNodes) ->
     NL0 = lists:zip(cs_nodes(NumNodes),
                     riak_nodes(NumNodes)),
     {CS1, R1} = hd(NL0),
-    [{CS1, R1, stanchion_node()} | tl(NL0)].
+    [{CS1, R1} | tl(NL0)].

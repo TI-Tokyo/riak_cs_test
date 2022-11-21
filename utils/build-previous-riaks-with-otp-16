@@ -1,0 +1,17 @@
+#!/bin/sh
+
+set -e
+
+(cd /usr/local/stow && stow -D otp-22 &&  stow otp_R16B02-basho10)
+
+cd ~/X/titokyo/g/previous/riak
+
+rm -rf dev
+make devrel DEVNODES=3
+for n in 1 2; do (cd dev/dev$n; ln -s . riak); done
+
+cd ../riak_cs
+rm -rf dev; make devrel DEVNODES=3
+for n in 1 2; do (cd dev/dev$n; ln -s . riak-cs); done
+
+(cd /usr/local/stow && stow -D otp_R16B02-basho10 && stow otp-22)

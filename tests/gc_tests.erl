@@ -36,7 +36,7 @@
 
 confirm() ->
     NumNodes = 1,
-    {{UserConfig, _}, {RiakNodes, CSNodes, _Stanchion}} = rtcs:setup(NumNodes),
+    {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs:setup(NumNodes),
     %% Set up to grep logs to verify messages
     rt:setup_log_capture(hd(CSNodes)),
 

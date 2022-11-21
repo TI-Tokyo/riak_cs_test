@@ -27,7 +27,7 @@ config() ->
     [{riak_cs, [{admin_auth_enabled, false}]}].
 
 confirm() ->
-    {{UserConfig, _}, {RiakNodes, _CSNodes, _Stanchion}} =
+    {{UserConfig, _}, {RiakNodes, _CSNodes}} =
         rtcs:setup(1, [{cs, config()}]),
     KeyId = UserConfig#aws_config.access_key_id,
     Port = rtcs_config:cs_port(hd(RiakNodes)),

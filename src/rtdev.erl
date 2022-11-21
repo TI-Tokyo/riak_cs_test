@@ -40,12 +40,7 @@ riakcmd(Path, Node, Cmd) ->
     N = node_id(Node),
     WhichRiak = which_riak(Path),
     ExecName = rt_config:get(exec_name, WhichRiak),
-    case WhichRiak of
-        "stanchion" ->
-            io_lib:format("~s/dev/stanchion/bin/stanchion ~s", [Path, Cmd]);
-        _ ->
-            io_lib:format("~s/dev/dev~b/~s/bin/~s ~s", [Path, N, WhichRiak, ExecName, Cmd])
-    end.
+    io_lib:format("~s/dev/dev~b/~s/bin/~s ~s", [Path, N, WhichRiak, ExecName, Cmd]).
 
 riakreplcmd(Path, N, Cmd) ->
     io_lib:format("~s/dev/dev~b/riak/bin/riak-repl ~s", [Path, N, Cmd]).
@@ -121,8 +116,6 @@ which_riak(S) ->
         ["riak" | _] -> "riak";
         ["", "riak_cs" | _] -> "riak-cs";
         ["riak_cs" | _] -> "riak-cs";
-        ["", "stanchion" | _] -> "stanchion";
-        ["stanchion" | _] -> "stanchion";
         _ -> ""
     end.
 

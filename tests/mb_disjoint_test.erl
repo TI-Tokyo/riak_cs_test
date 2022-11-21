@@ -20,7 +20,7 @@ confirm() ->
     NodesOfMasterBag = 1,
     BagFlavor = disjoint,
 
-    {RiakNodes, CSNodes, _Stanchion} =
+    {RiakNodes, CSNodes} =
         rtcs:setupNxMsingles(NodesOfMasterBag, NumNodes,
                              fun(_Nodes) -> rtcs_bag:set_conf(NodesOfMasterBag, BagFlavor) end,
                              current),

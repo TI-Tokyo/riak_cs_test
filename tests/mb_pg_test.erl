@@ -124,7 +124,6 @@ setup_clusters() ->
     ConfigFun = fun(_Nodes) ->
                         WBagConf = rtcs_bag:conf(2, 1, shared),
                         EBagConf = rtcs_bag:conf(2, 5, shared),
-                        rtcs:set_conf(stanchion, WBagConf),
                         rt:pmap(fun(N) ->
                                         rtcs:set_conf({cs, current, N}, WBagConf)
                                 end, lists:seq(1, 4)),
@@ -132,7 +131,7 @@ setup_clusters() ->
                                         rtcs:set_conf({cs, current, N}, EBagConf)
                                 end, lists:seq(5, 8))
                 end,
-    {RiakNodes, _CSs, _Stanchion} =
+    {RiakNodes, _CSs} =
         rtcs:setup_clusters(#{config_spec => ConfigFun,
                               join_fun => JoinFun,
                               num_nodes => 8,

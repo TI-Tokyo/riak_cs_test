@@ -31,7 +31,7 @@
 -define(TEST_BUCKET, "riak-test-bucket").
 
 confirm() ->
-    {{UserConfig, _}, {RiakNodes, [CSNode|_] = CSNodes, _Stanchion}} =
+    {{UserConfig, _}, {RiakNodes, [CSNode|_] = CSNodes}} =
         rtcs:setup(2, [{cs, [{riak_cs, [{storage_calc_timeout, 1}]}]}]),
 
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(

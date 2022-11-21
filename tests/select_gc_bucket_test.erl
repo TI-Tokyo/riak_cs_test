@@ -44,7 +44,7 @@ confirm() ->
     end.
 
 confirm1() ->
-    {{UserConfig, _}, {RiakNodes, CSNodes, Stanchion}} = rtcs:setup(1),
+    {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs:setup(1),
 
     BlockKeysFile = "/tmp/select_gc.txt",
     os:cmd("rm -f " ++ BlockKeysFile),
@@ -67,7 +67,7 @@ confirm1() ->
     logger:debug("select_gc_bucket.erl log:\n~s", [Res1]),
     logger:debug("select_gc_bucket.erl log:============= END"),
 
-    tools_helper:offline_delete({RiakNodes, CSNodes, Stanchion}, [BlockKeysFile]),
+    tools_helper:offline_delete({RiakNodes, CSNodes}, [BlockKeysFile]),
     rtcs_dev:pass().
 
 upload_object(UserConfig, Bucket, normal, Key) ->

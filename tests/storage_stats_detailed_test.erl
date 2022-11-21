@@ -37,7 +37,7 @@
 
 confirm() ->
     ExtraConf = [{cs, [{riak_cs, [{detailed_storage_calc, true}]}]}],
-    SetupRes = {{AdminConfig, _}, {[RiakNode|_], [CSNode|_], _Stanchion}} = rtcs:setup(1, ExtraConf),
+    SetupRes = {{AdminConfig, _}, {[RiakNode|_], [CSNode|_]}} = rtcs:setup(1, ExtraConf),
 
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
       CSNode, [RiakNode], [riak_cs_utils,
