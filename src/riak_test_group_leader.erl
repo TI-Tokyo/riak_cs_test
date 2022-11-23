@@ -21,8 +21,6 @@
 
 -export([new_group_leader/1, group_leader_loop/1, tidy_up/1]).
 
--include("stacktrace.hrl").
-
 % @doc spawns the new group leader
 new_group_leader(Runner) ->
     spawn_link(?MODULE, group_leader_loop, [Runner]).
@@ -37,7 +35,7 @@ group_leader_loop(Runner) ->
         process_flag(priority, P),
         group_leader_loop(Runner);
     stab ->
-        kthxbye;
+        kthxbai;
     _ ->
         %% discard any other messages
         group_leader_loop(Runner)
@@ -68,11 +66,11 @@ io_request({put_chars, Chars}) ->
 io_request({put_chars, M, F, As}) ->
     try apply(M, F, As) of
     Chars ->
-        log_chars(Chars), 
+        log_chars(Chars),
         ok
     catch
-        ?_exception_(C, T, StackToken) ->
-            {error, {C,T,?_get_stacktrace_(StackToken)}}
+        C:T:ST ->
+            {error, {C,T,ST}}
     end;
 io_request({put_chars, _Enc, Chars}) ->
     io_request({put_chars, Chars});
