@@ -43,7 +43,7 @@ setup(NumNodes, Configs, Vsn) ->
     logger:info("Flavor: ~p", [Flavor]),
     application:ensure_all_started(erlcloud),
 
-    {_, [CSNode0|_], _} = Nodes =
+    {_, [CSNode0|_]} = Nodes =
         flavored_setup(#{num_nodes => NumNodes,
                          flavor => Flavor,
                          config_spec => Configs,
