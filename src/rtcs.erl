@@ -197,6 +197,7 @@ configure_clusters(#{num_nodes := NumNodes,
     rt_config:set(rt_versions, VersionMap),
 
     rtcs_dev:create_snmp_dirs(RiakNodes),
+    rtcs_dev:clean_data_dir(RiakNodes, "*"),
 
     rtcs_dev:create_or_restore_config_backups(RiakNodes ++ CSNodes, Vsn),
 

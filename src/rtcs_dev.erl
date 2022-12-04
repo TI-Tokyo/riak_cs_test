@@ -33,10 +33,6 @@ get_deps() ->
     lists:flatten(io_lib:format("~s/dev/dev1/riak-cs/lib", [relpath(cs_current)])).
 
 setup_harness(_Test, _Args) ->
-
-    lists:map(fun(X) -> clean_data_dir_all(X) end,
-              devpaths()),
-
     logger:info("Cleaning up lingering pipe directories"),
     rt:pmap(fun(Dir) ->
                     %% when joining two absolute paths, filename:join intentionally
@@ -180,9 +176,9 @@ create_snmp_dirs(Nodes) ->
 
 clean_data_dir(Nodes, SubDir) when is_list(Nodes) ->
     DataDirs = [node_path(Node) ++ "/data/" ++ SubDir || Node <- Nodes],
-    lists:foreach(fun rm_dir/1, DataDirs).
+    lists:foreach(fun rm_rf/1, DataDirs).
 
-rm_dir(Dir) ->
+rm_rf(Dir) ->
     logger:debug("Removing directory ~s", [Dir]),
     ?assertCmd("rm -rf " ++ Dir),
     ?assertEqual(false, filelib:is_dir(Dir)).
@@ -203,7 +199,7 @@ add_default_node_config(Nodes) ->
 clean_data_dir_all(DevPath) ->
     Devs = filelib:wildcard(DevPath ++ "/dev/*"),
     Clean = fun(C) ->
-                    rm_dir(C ++ "/" ++ rtdev:which_riak(DevPath) ++ "/data")
+                    rm_rf(C ++ "/" ++ rtdev:which_riak(DevPath) ++ "/data")
             end,
     [Clean(D) || D <- Devs],
     ok.
