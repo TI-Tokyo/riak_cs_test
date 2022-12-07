@@ -46,7 +46,7 @@
 -define(REPLACE_KEY, "replace-target").
 
 confirm() ->
-    {{UserConfig, _}, {RiakNodes, _CSNodes, _}} = rtcs:setup(1),
+    {{UserConfig, _}, {RiakNodes, _CSNodes}} = rtcs:setup(1),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET, UserConfig)),
     Data = ?DATA0,
     ?assertEqual([{version_id, "null"}],
