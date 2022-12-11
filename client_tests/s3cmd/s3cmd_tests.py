@@ -24,7 +24,6 @@ import httplib2, json
 import uuid, hashlib, base64
 import os, time, tempfile, pathlib, subprocess, re
 
-
 class S3CmdException(Exception):
     pass
 
@@ -253,7 +252,7 @@ def mineCoins(size = 1024):
 
 class BasicTests(S3ApiVerificationTestBase):
     # def test_auth(self):
-    #     bad_user = json.loads('{"email":"baduser@example.me","display_name":"baduser","name":"user1","key_id":"bad_key","key_secret":"BadSecret","id":"bad_canonical_id"}')
+    #     bad_user = json.loads('{"email":"baduser@example.me","name":"baduser","name":"user1","key_id":"bad_key","key_secret":"BadSecret","id":"bad_canonical_id"}')
     #     bad_client = self.make_client(bad_user)
     #     self.assertRaises(botocore.exceptions.ClientError, bad_client.list_buckets)
 
@@ -288,8 +287,8 @@ class BasicTests(S3ApiVerificationTestBase):
         with self.assertRaises(S3CmdException) as e:
             self.getObject(bucket = bucket, key = key)
         ee, = e.exception.args
-        self.assertEqual(ee.returncode, 12)
-        self.assertIn('404 (NoSuchKey): The specified key does not exist', ee.stderr)
+        self.assertEqual(ee.returncode, 64)
+        self.assertIn('does not exist', ee.stderr)
         if not reuse_bucket:
             self.deleteBucket(bucket = bucket)
 
@@ -312,7 +311,7 @@ class BasicTests(S3ApiVerificationTestBase):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
         res = self.getBucketAcl(bucket = bucket)
-        self.assertEqual(res, {self.user1["display_name"]: 'FULL_CONTROL'})
+        self.assertEqual(res, {self.user1["name"]: 'FULL_CONTROL'})
         self.deleteBucket(bucket = bucket)
 
     def test_set_bucket_acl(self):
@@ -321,7 +320,7 @@ class BasicTests(S3ApiVerificationTestBase):
         self.setBucketAcl(bucket = bucket,
                           acl_spec = 'public-read')
         res = self.getBucketAcl(bucket = bucket)
-        self.assertEqual(res, {self.user1["display_name"]: 'FULL_CONTROL',
+        self.assertEqual(res, {self.user1["name"]: 'FULL_CONTROL',
                                "anon": 'READ'})
         self.deleteBucket(bucket = bucket)
 
@@ -329,7 +328,7 @@ class BasicTests(S3ApiVerificationTestBase):
         self.createBucket()
         self.putObject()
         res = self.getObjectAcl()
-        self.assertEqual(res, {self.user1['display_name']: 'FULL_CONTROL'})
+        self.assertEqual(res, {self.user1['name']: 'FULL_CONTROL'})
         self.deleteObject()
         self.deleteBucket()
 
@@ -338,7 +337,7 @@ class BasicTests(S3ApiVerificationTestBase):
         self.putObject()
         self.setObjectAcl(acl_spec = 'public-read')
         res = self.getObjectAcl()
-        self.assertEqual(res, {self.user1["display_name"]: 'FULL_CONTROL',
+        self.assertEqual(res, {self.user1["name"]: 'FULL_CONTROL',
                                "anon": 'READ'})
         self.deleteObject()
         self.deleteBucket()
@@ -397,8 +396,8 @@ class MultiPartUploadTests(S3ApiVerificationTestBase):
         with self.assertRaises(S3CmdException) as e:
             self.getObject(bucket = bucket, key = key)
         ee, = e.exception.args
-        self.assertEqual(ee.returncode, 12)
-        self.assertIn('404 (NoSuchKey): The specified key does not exist', ee.stderr)
+        self.assertEqual(ee.returncode, 64)
+        self.assertIn('does not exist', ee.stderr)
 
         self.deleteObject(bucket = bucket, key = key)
         self.deleteBucket(bucket = bucket)
@@ -417,13 +416,13 @@ class MultiPartUploadTests(S3ApiVerificationTestBase):
                        extra_args = ["--multipart-chunk-size-mb=5"])
 
         res = self.getObjectAcl(bucket = bucket, key = key)
-        self.assertEqual(res, {self.user1['display_name']: 'FULL_CONTROL'})
+        self.assertEqual(res, {self.user1['name']: 'FULL_CONTROL'})
 
         self.setObjectAcl(bucket = bucket,
                           key = key,
                           acl_spec = 'public-read')
         res = self.getObjectAcl(bucket = bucket, key = key)
-        self.assertEqual(res, {self.user1["display_name"]: 'FULL_CONTROL',
+        self.assertEqual(res, {self.user1["name"]: 'FULL_CONTROL',
                                "anon": 'READ'})
 
         self.deleteObject(bucket = bucket, key = key)
@@ -548,7 +547,7 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
         with self.assertRaises(S3CmdException) as e:
             self.getObject(bucket = bucket, key = key)
         ee, = e.exception.args
-        self.assertEqual(ee.returncode, 12)
+        self.assertEqual(ee.returncode, 64)
 
         policy = {
             "Version":"2008-10-17",
