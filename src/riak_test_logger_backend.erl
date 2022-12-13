@@ -25,19 +25,25 @@
 
 -behavior(gen_server).
 
+-export([start_link/0]).
+-export([log/2,
+         get_logs/0,
+         clear/0]).
 -export([init/1,
          handle_call/3,
          handle_info/2,
          handle_cast/2,
          terminate/2,
          code_change/3]).
--export([log/2,
-         get_logs/0,
-         clear/0]).
+
+-spec start_link() -> {ok, pid()} | {error, term()}.
+start_link() ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+
 
 -record(state, {level :: logger:level(),
                 verbose :: boolean(),
-                log = [unicode:chardata()]
+                log = [] :: [unicode:chardata()]
                }).
 
 -spec get_logs() -> [iolist()] | {error, term()}.
@@ -53,32 +59,33 @@ log(Event, Config) ->
     gen_server:call(?MODULE, {log, Event, Config}).
 
 
--spec(init(integer()|atom()|[term()]) -> {ok, #state{}} | {error, atom()}).
-%% @private
-%% @doc Initializes the event handler
-init(Level) when is_atom(Level) ->
+-spec(init([term()]) -> {ok, #state{}} | {error, atom()}).
+init([]) ->
+    init([info, false]);
+init([Level]) when is_atom(Level) ->
     init([Level, false]);
 init([Level, Verbose]) ->
     {ok, #state{level = Level, verbose = Verbose}}.
 
 -spec(handle_call(term(), pid(), #state{}) -> {ok, #state{}}).
 handle_call({log,
-             #{level := Level, msg := Msg, meta := #{file := File, line := Line}},
+             #{level := Level, msg := Msg, meta := Meta},
              Config},
             _From,
             #state{level=ThresholdLevel, verbose=Verbose, log = Logs} = State) ->
+    #{file := File, line := Line, gl := _, mfa := {Mfa_M, Mfa_F, _}, pid := _Pid, time := _} = Meta,
     case logger:compare_levels(Level, ThresholdLevel) of
         A when A == gt; A == eq ->
             FormattedMsg = logger_formatter:format(Msg, Config),
             Log = case Verbose of
                 true ->
-                    io_lib:format("~s | ~s:~s", [FormattedMsg, File, Line]);
+                    io_lib:format("~s | ~s@~s:~s:~s", [FormattedMsg, File, Mfa_M, Mfa_F, Line]);
                 _ ->
                     FormattedMsg
             end,
-            {ok, State#state{log=[Log|Logs]}};
+            {reply, ok, State#state{log=[Log|Logs]}};
         lt ->
-            {ok, State}
+            {reply, ok, State}
     end;
 handle_call(clear, _From, State) ->
     {reply, ok, State#state{log = []}};

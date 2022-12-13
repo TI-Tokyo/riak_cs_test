@@ -2070,10 +2070,13 @@ wait_until_bucket_props(Nodes, Bucket, Props) ->
 %% @doc Set up in memory log capture to check contents in a test.
 setup_log_capture(Nodes) when is_list(Nodes) ->
     rt:load_modules_on_nodes([riak_test_logger_backend], Nodes),
-    [rpc:call(Node,
-              logger,
-              add_handler,
-              [capture_those_logs, riak_test_logger_backend, #{}]) || Node <- Nodes];
+    [begin
+         {ok, _Pid} = rpc:call(Node, riak_test_logger_backend, start_link, []),
+         ok = rpc:call(Node,
+                       logger,
+                       add_handler,
+                       [capture_those_logs, riak_test_logger_backend, #{}])
+     end || Node <- Nodes];
 setup_log_capture(Node) when not is_list(Node) ->
     setup_log_capture([Node]).
 
