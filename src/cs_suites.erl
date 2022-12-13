@@ -63,7 +63,6 @@
           riak_vsn     = current :: current,
           riak_nodes             :: list(),
           cs_nodes               :: list(),
-          stanchion_nodes        :: list(),
           admin_config           :: term(),
           prefix = "t-"          :: string(),
           circles = []           :: [circle()]
@@ -116,7 +115,7 @@ new(Setup) ->
     new(Setup, ops()).
 
 -spec new(term(), [op()]) -> {ok, state()}.
-new({{AdminConfig, _}, {RiakNodes, CSNodes, StanchionNode}}, Ops) ->
+new({{AdminConfig, _}, {RiakNodes, CSNodes}}, Ops) ->
     rt:setup_log_capture(hd(CSNodes)),
     rtcs_exec:gc(1, "set-interval infinity"),
     Begin = rtcs:datetime(),
@@ -127,7 +126,6 @@ new({{AdminConfig, _}, {RiakNodes, CSNodes, StanchionNode}}, Ops) ->
                 ops = Ops,
                 riak_nodes = RiakNodes,
                 cs_nodes = CSNodes,
-                stanchion_nodes = [StanchionNode],
                 admin_config = AdminConfig}}.
 
 %% Utility functions to avoid many `StateN''s by appplying MFA lists sequentially
@@ -162,9 +160,8 @@ admin_credential(#state{admin_config=AdminConfig}) ->
     {AdminConfig#aws_config.access_key_id,
      AdminConfig#aws_config.secret_access_key}.
 
--spec nodes_of(riak | stanchion | riak, state()) -> [node()].
+-spec nodes_of(riak | riak, state()) -> [node()].
 nodes_of(riak,      State) -> State#state.riak_nodes;
-nodes_of(stanchion, State) -> State#state.stanchion_nodes;
 nodes_of(cs,        State) -> State#state.cs_nodes.
 
 init_circle(Tag, #state{admin_config=AdminConfig, riak_nodes = [RiakNode|_]} = _State) ->
