@@ -69,14 +69,16 @@ init([Level, Verbose]) ->
 
 -spec(handle_call(term(), pid(), #state{}) -> {ok, #state{}}).
 handle_call({log,
-             #{level := Level, msg := Msg, meta := Meta},
+             #{level := Level, meta := Meta} = LogEvent,
              Config},
             _From,
             #state{level=ThresholdLevel, verbose=Verbose, log = Logs} = State) ->
-    #{file := File, line := Line, gl := _, mfa := {Mfa_M, Mfa_F, _}, pid := _Pid, time := _} = Meta,
+    File = maps:get(file, Meta, ""),
+    Line = maps:get(line, Meta, ""),
+    {Mfa_M, Mfa_F, _} = maps:get(mfa, Meta, {"", "", []}),
     case logger:compare_levels(Level, ThresholdLevel) of
         A when A == gt; A == eq ->
-            FormattedMsg = logger_formatter:format(Msg, Config),
+            FormattedMsg = logger_formatter:format(LogEvent, Config),
             Log = case Verbose of
                 true ->
                     io_lib:format("~s | ~s@~s:~s:~s", [FormattedMsg, File, Mfa_M, Mfa_F, Line]);
