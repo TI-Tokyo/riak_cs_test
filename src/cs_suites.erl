@@ -219,7 +219,7 @@ apply_operation(delete_bucket_old, CurrentCircle, #state{circles=Circles} = Stat
 apply_operation(stats_access, Circle, State) ->
     Res = rtcs_exec:flush_access(1),
     logger:info("riak-cs-access flush result: ~s", [Res]),
-    ExpectRegexp = "All access logs were flushed.\n$",
+    ExpectRegexp = "All access logs were flushed",
     ?assertMatch({match, _}, re:run(Res, ExpectRegexp)),
     %% TODO
     %% - Get access stats and assert them with real access generated so far
@@ -229,7 +229,7 @@ apply_operation(stats_storage, CurrentCircle,
                        cs_nodes=[CSNode|_], circles=Circles} = State) ->
     Res = rtcs_exec:calculate_storage(1),
     logger:info("riak-cs-admin storage batch result: ~s", [Res]),
-    ExpectRegexp = "Batch storage calculation started.\n$",
+    ExpectRegexp = "Batch storage calculation started",
     ?assertMatch({match, _}, re:run(Res, ExpectRegexp)),
     true = rt:expect_in_log(CSNode, "Finished storage calculation"),
     %% FIXME: workaround for riak_cs#766
