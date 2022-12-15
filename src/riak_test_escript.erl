@@ -167,7 +167,7 @@ main(Args) ->
                     TestB ++ TestA
             end,
 
-    logger:info("Tests to run: ~p", [[[T || {T, _} <- Tests]]]),
+    logger:info("Tests to run: ~s", [lists:join(", ", [atom_to_list(T) || {T, _} <- Tests])]),
     %% Two hard-coded deps...
     add_deps(?HARNESS:get_deps()),
     add_deps("_build/test/lib/riak_test/tests"),
