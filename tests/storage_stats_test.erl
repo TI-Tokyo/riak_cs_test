@@ -55,7 +55,7 @@ confirm_1(Use2iForStorageCalc) when is_boolean(Use2iForStorageCalc) ->
     Conf = [{riak, [{riak_kv, [{delete_mode, keep}]}]},
             {cs, [{riak_cs,
                    [{use_2i_for_storage_calc, Use2iForStorageCalc}]}]}],
-    SetupRes = {_, {[RiakNode], [CSNode], _}} = rtcs:setup(1, Conf),
+    SetupRes = {_, {[RiakNode], [CSNode]}} = rtcs:setup(1, Conf),
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
       CSNode, [RiakNode], [riak_cs_utils,
                            rcs_common_manifest_utils,
@@ -64,7 +64,7 @@ confirm_1(Use2iForStorageCalc) when is_boolean(Use2iForStorageCalc) ->
                            riak_cs_storage_mr]),
     confirm_2(SetupRes).
 
-confirm_2({{UserConfig, _}, {[RiakNode], [CSNode], _}}) ->
+confirm_2({{UserConfig, _}, {[RiakNode], [CSNode]}}) ->
     UserConfig2 = rtcs_admin:create_user(RiakNode, 1),
 
     TestSpecs = [store_object(?BUCKET1, UserConfig),
@@ -111,7 +111,7 @@ verify_cs840_regression(UserConfig, RiakNodes) ->
             {?BUCKET6, ?KEY, writing, [{multipart, pocketburgerking}]}]),
 
     %% state=active, .props=undefined in {?BUCKET7, ?KEY}
-    ok = mess_with_active_undefined(RiakNodes), 
+    ok = mess_with_active_undefined(RiakNodes),
     %% tombstone in siblings in {?BUCKET8, ?KEY}
     ok = mess_with_tombstone(RiakNodes, UserConfig),
     ok.

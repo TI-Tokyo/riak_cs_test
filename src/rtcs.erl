@@ -130,7 +130,7 @@ setup_clusters(#{config_spec := Configs,
                              initial_config => Configs,
                              vsn => Vsn}),
 
-    rt:pmap(fun(N) -> rtcs_dev:start(N, Vsn) end, RiakNodes),
+    lists:map(fun(N) -> rtcs_dev:start(N, Vsn) end, RiakNodes),
     rt:wait_for_service(RiakNodes, riak_kv),
 
     logger:info("Make clusters"),
