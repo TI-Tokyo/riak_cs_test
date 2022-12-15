@@ -65,7 +65,7 @@ make_admin(Configs, NumNodes, Vsn, CSNode0) ->
     end.
 
 setup2x2(Configs) ->
-    {_, [CSNode0|_], _} = Nodes = setup2x2_2(Configs),
+    {_, [CSNode0|_]} = Nodes = setup2x2_2(Configs),
     AdminConfig = make_admin(Configs, 4, current, CSNode0),
     {AdminConfig, Nodes}.
 
