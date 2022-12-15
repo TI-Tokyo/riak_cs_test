@@ -159,7 +159,7 @@ put_and_get(UserConfig, BucketName, Data) ->
     Props = erlcloud_s3:get_object(BucketName, ?KEY, UserConfig),
     ?assertEqual(proplists:get_value(content, Props), Data).
 
-verify_cs770({{UserConfig, _}, {RiakNodes, _, _}}, BucketName) ->
+verify_cs770({{UserConfig, _}, {RiakNodes, _}}, BucketName) ->
     %% put object and cancel it;
     ?assertEqual(ok, erlcloud_s3:create_bucket(BucketName, UserConfig)),
     Key = "foobar",
@@ -231,7 +231,7 @@ get_manifests(RiakNodes, BucketName, Key) ->
     [binary_to_term(V) || {_, V} <- riakc_obj:get_contents(Obj),
                           V =/= <<>>].
 
-verify_cs756({{UserConfig, _}, {RiakNodes, _, _}}, BucketName) ->
+verify_cs756({{UserConfig, _}, {RiakNodes, _}}, BucketName) ->
     %% Making sure API call to CS failed Riak KV underneath, all fails in 500
     %% This could be done with eqc
     logger:info("CS756 regression"),
