@@ -139,7 +139,11 @@ setup_clusters(#{config_spec := Configs,
     ok = rt:wait_until_no_pending_changes(RiakNodes),
     ok = rt:wait_until_ring_converged(RiakNodes),
 
-    rt:pmap(fun(N) -> rtcs_exec:start_cs(N, Vsn), rt:wait_until(got_pong(N, Vsn)) end, CSNodes),
+    rt:pmap(fun(N) ->
+                    timer:sleep(100 + 100 * rand:uniform(4)),
+                    rtcs_exec:start_cs(N, Vsn),
+                    rt:wait_until(got_pong(N, Vsn))
+            end, CSNodes),
     logger:info("Tussle clustered"),
 
     Nodes.
