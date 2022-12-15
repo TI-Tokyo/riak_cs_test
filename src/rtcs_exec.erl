@@ -117,9 +117,8 @@ exec_priv_escript(N, Command, ScriptOptions, #{by := ByWhom}) ->
                   riakcmd(ExecuterPrefix, N, "escript " ++ EscriptPath ++ " " ++ ScriptOptions)
           end,
 
-    ERL_LIBS = lists:flatten(lists:join(":", filelib:wildcard(rtcs_dev:node_path(rtcs:cs_node(N)) ++ "/lib/*"))),
     logger:info("Running ~s", [Cmd]),
-    os:cmd(io_lib:format("ERL_LIBS=~s ~s", [ERL_LIBS, Cmd])).
+    os:cmd(Cmd).
 
 show_stanchion_cs(N) -> show_stanchion_cs(N, current).
 
