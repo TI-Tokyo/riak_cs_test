@@ -121,16 +121,12 @@ setup_clusters(#{config_spec := Configs,
                  join_fun := JoinFun,
                  num_nodes := NumNodes,
                  vsn := Vsn}) ->
-    %% STFU sasl
-    application:load(sasl),
-    application:set_env(sasl, sasl_error_logger, false),
-
     Nodes = {RiakNodes, CSNodes} =
         configure_clusters(#{num_nodes => NumNodes,
                              initial_config => Configs,
                              vsn => Vsn}),
 
-    lists:map(fun(N) -> rtcs_dev:start(N, Vsn) end, RiakNodes),
+    rt:pmap(fun(N) -> rtcs_dev:start(N, Vsn) end, RiakNodes),
     rt:wait_for_service(RiakNodes, riak_kv),
 
     logger:info("Make clusters"),
