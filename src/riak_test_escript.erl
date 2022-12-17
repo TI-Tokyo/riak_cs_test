@@ -105,7 +105,7 @@ main(Args) ->
     end,
 
     %% Fileoutput
-    Outdir = proplists:get_value(outdir, ParsedArgs),
+    Outdir = proplists:get_value(outdir, ParsedArgs, "log"),
 
     logger:set_primary_config(level, rt_config:get(logger_level, info)),
     logger:update_handler_config(
