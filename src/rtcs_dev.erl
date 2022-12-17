@@ -215,17 +215,12 @@ clean_log_dir_all(DevPath) ->
 stop(Node) ->
     stop(Node, current).
 stop(Node, Vsn) ->
-    Pid = rpc:call(Node, os, getpid, []),
-    N = node_id(Node),
-    logger:debug("Stopping ~s (id ~p, pid ~s, devpath ~p)", [Node, N, Pid, cluster_devpath(Node, Vsn)]),
-    rtdev:run_riak(Node, cluster_devpath(Node, Vsn), "stop"),
-    ok = rt:wait_until_unpingable(Node).
+    rtdev:run_riak(Node, cluster_devpath(Node, Vsn), "stop").
 
 start(Node) ->
     start(Node, current).
 start(Node, Vsn) ->
-    rtdev:run_riak(Node, cluster_devpath(Node, Vsn), "start"),
-    ok.
+    rtdev:run_riak(Node, cluster_devpath(Node, Vsn), "start").
 
 attach(Node, Expected) ->
     interactive(Node, "attach", Expected).

@@ -21,37 +21,6 @@
 -compile(export_all).
 -compile(nowarn_export_all).
 
-start_all_nodes({RiakNodes, CSNodes}, Vsn) ->
-    rt:pmap(fun(N) -> rtcs_dev:start(N, Vsn), rt:wait_for_service(N, [riak_kv, riak_pipe]) end, RiakNodes),
-    ok = rt:wait_until_nodes_ready(RiakNodes),
-    ok = rt:wait_until_no_pending_changes(RiakNodes),
-    ok = rt:wait_until_ring_converged(RiakNodes),
-    rt:pmap(fun(N) ->
-                    timer:sleep(100 + 100*rand:uniform(4)),
-                    rtcs_exec:start_cs(N, Vsn),
-                    rt:wait_until(rtcs:got_pong(N, Vsn))
-            end, CSNodes).
-
-stop_all_nodes({RiakNodes, CSNodes}, Vsn) ->
-    rt:pmap(fun(N) -> rtcs_exec:stop_cs(N, Vsn) end, CSNodes),
-    rt:pmap(fun(N) -> rtcs_dev:stop(N, Vsn) end, RiakNodes).
-
-start_cs(N) -> start_cs(N, current).
-
-start_cs(N, Vsn) ->
-    Exec = node_executable(N, Vsn),
-    logger:info("Running ~s start", [Exec]),
-    R = os:cmd(Exec ++ " start"),
-    rtcs:maybe_load_intercepts(N),
-    R.
-
-stop_cs(N) -> stop_cs(N, current).
-
-stop_cs(N, Vsn) ->
-    Exec = node_executable(N, Vsn),
-    logger:info("Running ~s stop", [Exec]),
-    os:cmd(Exec ++ " stop").
-
 
 node_executable(Node) ->
     node_executable(Node, current).

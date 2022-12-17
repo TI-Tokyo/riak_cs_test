@@ -35,7 +35,7 @@ offline_delete({RiakNodes, _CSNodes} = Tussle, BlockKeysFileList) ->
         BlockKeysFile <- BlockKeysFileList],
 
     logger:info("Stop nodes and execute offline_delete script..."),
-    rtcs_exec:stop_all_nodes(Tussle, current),
+    stop_all_nodes(Tussle),
 
     [begin
          Res = rtcs_exec:exec_priv_escript(
@@ -48,7 +48,7 @@ offline_delete({RiakNodes, _CSNodes} = Tussle, BlockKeysFileList) ->
      end || BlockKeysFile <- BlockKeysFileList],
 
     logger:info("Assert all blocks are non-existent now"),
-    rtcs_exec:start_all_nodes(Tussle, current),
+    start_all_nodes(Tussle, current),
     [assert_any_blocks_not_exists(RiakNodes, BlockKeysFile) ||
         BlockKeysFile <- BlockKeysFileList],
     logger:info("All cleaned up!"),
@@ -84,7 +84,7 @@ assert_block_exists(RiakNodes, {CsBucket, CsKey, UUID, Seq}) ->
     ok = case rc_helper:get_riakc_obj(RiakNodes, blocks, CsBucket, {CsKey, UUID, Seq}) of
              {ok, _Obj} -> ok;
              Other ->
-                 logger:error("block not found: ~p for ~p~n",
+                 logger:error("block not found: ~p for ~p",
                               [Other, {CsBucket, CsKey, UUID, Seq}]),
                  {error, block_notfound}
          end.
@@ -97,3 +97,24 @@ assert_block_not_exists(RiakNodes, {CsBucket, CsKey, UUID, Seq}) ->
                  logger:error("block found: ~p", [{CsBucket, CsKey, UUID, Seq}]),
                  {error, block_found}
          end.
+
+start_all_nodes({RiakNodes, CSNodes}, Vsn) ->
+    rt:pmap(fun(N) ->
+                    rtcs_dev:start(N, Vsn)
+            end, RiakNodes),
+    ok = rt:wait_until_nodes_ready(RiakNodes),
+    ok = rt:wait_until_no_pending_changes(RiakNodes),
+    ok = rt:wait_until_ring_converged(RiakNodes),
+
+    [N1|Nn] = CSNodes,
+    %% let this node start stanchion
+    rtcs_dev:start(N1, Vsn),
+    rt:wait_until_pingable(N1),
+    rt:pmap(fun(N) ->
+                    rtcs_dev:start(N, Vsn),
+                    rt:wait_until_pingable(N)
+            end, Nn).
+
+stop_all_nodes({RiakNodes, CSNodes}) ->
+    rt:pmap(fun(N) -> rtcs_dev:stop(N) end, CSNodes),
+    rt:pmap(fun(N) -> rtcs_dev:stop(N) end, RiakNodes).

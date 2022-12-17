@@ -97,7 +97,7 @@ rand_content() ->
 
 transition_to_multibag_configuration(NodesInMaster, NodeList) ->
     BagConf = rtcs_bag:conf(NodesInMaster, disjoint),
-    rt:pmap(fun({CSNode, _RiakNode}) -> rtcs_exec:stop_cs(CSNode, current) end, NodeList),
+    rt:pmap(fun({CSNode, _RiakNode}) -> rtcs_dev:stop(CSNode) end, NodeList),
     %% Because there are noises from poolboy shutdown at stopping riak-cs,
     %% truncate error log here and re-assert emptiness of error.log file later.
     rtcs:truncate_error_log(1),
