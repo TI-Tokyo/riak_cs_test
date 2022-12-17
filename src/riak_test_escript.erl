@@ -199,7 +199,7 @@ maybe_teardown(true, TestResults, Coverage, Verbose, Batch) ->
     case {length(TestResults), proplists:get_value(status, hd(TestResults)), Batch} of
         {1, fail, false} ->
             print_summary(TestResults, Coverage, Verbose),
-            so_kill_riak_maybe();
+            rt:whats_up();
         _ ->
             logger:info("Multiple tests run or no failure"),
             rt:teardown(),
@@ -459,17 +459,4 @@ load_tests_folder(SkipTests) ->
                 false ->
                     [Test | Acc]
             end
-    end.
-
-so_kill_riak_maybe() ->
-    io:format("~n~nSo, we find ourselves in a tricky situation here. ~n"),
-    io:format("You've run a single test, and it has failed.~n"),
-    io:format("Would you like to leave Riak running in order to debug?~n"),
-    Input = io:get_chars("[Y/n] ", 1),
-    case Input of
-        "n" -> rt:teardown();
-        "N" -> rt:teardown();
-        _ ->
-            io:format("Leaving Riak Up... "),
-            rt:whats_up()
     end.

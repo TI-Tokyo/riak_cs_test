@@ -405,10 +405,13 @@ ensure_riak_last(DevPaths) ->
 
 
 whats_up() ->
-    io:format("Here's what's running...~n"),
-
-    Up = [rpc:call(Node, os, cmd, ["pwd"]) || Node <- nodes()],
-    [io:format("  ~s~n",[string:substr(Dir, 1, length(Dir)-1)]) || Dir <- Up].
+    case [rpc:call(Node, os, cmd, ["pwd"]) || Node <- nodes()] of
+        [] ->
+            print_nothing;
+        Up ->
+            io:format("Here's what's running:\n"),
+            [io:format("  ~s~n",[string:substr(Dir, 1, length(Dir)-1)]) || Dir <- Up]
+    end.
 
 devpaths() ->
     lists:usort([ DevPath || {Name, DevPath} <- rt_config:get(build_paths),
