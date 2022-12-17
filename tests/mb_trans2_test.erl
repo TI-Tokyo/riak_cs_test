@@ -48,25 +48,27 @@ setup_single_bag(NodesInMaster) ->
 transition_to_mb(NodesInMaster, State) ->
     RiakNodes = cs_suites:nodes_of(riak, State),
     CSNodes = cs_suites:nodes_of(cs, State),
-    NodeList = lists:zip(CSNodes, RiakNodes),
     BagConf = rtcs_bag:conf(NodesInMaster, disjoint),
-    rt:pmap(fun({CSNode, _RiakNode}) -> rtcs_exec:stop_cs(CSNode, current) end, NodeList),
+
+    rt:pmap(fun(N) -> rtcs_dev:stop(N) end, CSNodes),
     %% Because there are noises from poolboy shutdown at stopping riak-cs,
     %% truncate error log here and re-assert emptiness of error.log file later.
     rtcs:truncate_error_log(1),
 
-    rt:pmap(fun({CSNode, RiakNode}) ->
+    rt:pmap(fun(RiakNode) ->
                     N = rtcs_dev:node_id(RiakNode),
                     rtcs:set_conf({cs, current, N}, BagConf),
                     %% dev1 is the master cluster, so all CS nodes are configured as that
                     %% Also could be dev2, but not dev3 or later.
                     rtcs:set_advanced_conf({cs, current, N},
                                            [{riak_cs,
-                                             [{riak_host, {"127.0.0.1", rtcs_config:pb_port(1)}}]}]),
-                    rtcs_exec:start_cs(CSNode)
-            end, NodeList),
-    [ok = rt:wait_until_pingable(N) || N <- CSNodes],
-    rt:setup_log_capture(hd(cs_suites:nodes_of(cs, State))),
+                                             [{riak_host, {"127.0.0.1", rtcs_config:pb_port(1)}}]}])
+            end, RiakNodes),
+    [N1|Nn] = CSNodes,
+    rtcs_dev:start(N1), rt:wait_until_pingable(N1),
+    rt:pmap(fun(N) -> rtcs_dev:start(N), rt:wait_until_pingable(N) end, Nn),
+
+    rt:setup_log_capture(hd(CSNodes)),
     rtcs_bag:set_weights(rtcs_bag:weights(disjoint)),
     {0, ListWeightRes} = rtcs_bag:list_weight(),
     logger:info("Weight disjoint: ~s", [ListWeightRes]),

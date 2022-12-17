@@ -129,17 +129,20 @@ setup_clusters(#{config_spec := Configs,
     rt:pmap(fun(N) -> rtcs_dev:start(N, Vsn) end, RiakNodes),
     rt:wait_for_service(RiakNodes, riak_kv),
 
-    logger:info("Make clusters"),
+    logger:info("Preparing tussle ~p", [erlang:get_cookie()]),
     JoinFun(RiakNodes),
     ok = rt:wait_until_nodes_ready(RiakNodes),
     ok = rt:wait_until_no_pending_changes(RiakNodes),
     ok = rt:wait_until_ring_converged(RiakNodes),
 
+    [N1|Nn] = CSNodes,
+    %% let this node start stanchion
+    rtcs_dev:start(N1, Vsn),
+    rt:wait_until_pingable(N1),
     rt:pmap(fun(N) ->
-                    timer:sleep(100 + 100 * rand:uniform(4)),
-                    rtcs_exec:start_cs(N, Vsn),
-                    rt:wait_until(got_pong(N, Vsn))
-            end, CSNodes),
+                    rtcs_dev:start(N, Vsn),
+                    rt:wait_until_pingable(N)
+            end, Nn),
     logger:info("Tussle clustered"),
 
     Nodes.
