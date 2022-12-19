@@ -410,7 +410,7 @@ whats_up() ->
             print_nothing;
         Up ->
             io:format("Here's what's running:\n"),
-            [io:format("  ~s~n",[string:substr(Dir, 1, length(Dir)-1)]) || Dir <- Up]
+            [io:format("  ~s~n",[string:substr(Dir, 1, length(Dir)-1)]) || Dir <- Up, is_list(Dir)]
     end.
 
 devpaths() ->
