@@ -97,7 +97,6 @@ confirm_initial_stats(stanchion, UserConfig, Port) ->
     ?assert(proplists:is_defined(<<"waiting_time_99">>, Stats)),
     ?assert(proplists:is_defined(<<"waiting_time_100">>, Stats)),
     ?assert(proplists:is_defined(<<"sys_process_count">>, Stats)),
-    ?assert(proplists:is_defined(<<"webmachine_mochiweb_active_sockets">>, Stats)),
     ok.
 
 confirm_stats(cs, UserConfig, Port) ->
