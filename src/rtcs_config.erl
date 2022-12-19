@@ -67,7 +67,7 @@ cs_port(N) when is_integer(N) ->
 cs_port(Node) ->
     cs_port(rtcs_dev:node_id(Node)).
 
-stanchion_port() -> 9095.
+stanchion_port() -> 8085.
 
 riak_conf() ->
     [{"ring_size", "8"},
