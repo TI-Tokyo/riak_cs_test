@@ -112,11 +112,11 @@ confirm_stats(stanchion, UserConfig, Port) ->
     confirm_stat_count(Stats, <<"user_create_one">>, 1),
     confirm_stat_count(Stats, <<"bucket_create_one">>, 2),
     confirm_stat_count(Stats, <<"bucket_delete_one">>, 1),
-    confirm_stat_count(Stats, <<"riakc_put_cs_user_one">>, 1),
+    confirm_stat_count(Stats, <<"riakc_put_cs_user_one">>, 4),
     confirm_stat_count(Stats, <<"riakc_put_cs_bucket_one">>, 3),
     %% this heavy list/gets can be reduced to ONE per delete-bucket (/-o-)/ ⌒ ┤
     confirm_stat_count(Stats, <<"riakc_list_all_manifest_keys_one">>, 2),
-    confirm_stat_count(Stats, <<"riakc_get_user_by_index_one">>, 1).
+    confirm_stat_count(Stats, <<"riakc_get_user_by_index_one">>, 0).
 
 do_some_api_calls(UserConfig, Bucket1, Bucket2) ->
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket1, UserConfig)),
