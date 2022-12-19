@@ -109,7 +109,7 @@ transition_to_multibag_configuration(NodesInMaster, NodeList) ->
                     rtcs:set_advanced_conf({cs, current, N},
                                            [{riak_cs,
                                              [{riak_host, {"127.0.0.1", rtcs_config:pb_port(1)}}]}]),
-                    rtcs_exec:start_cs(CSNode)
+                    rtcs_dev:start(CSNode)
             end, NodeList),
     [ok = rt:wait_until_pingable(CSNode) || {CSNode, _RiakNode} <- NodeList],
     rtcs_bag:set_weights(rtcs_bag:weights(disjoint)),
