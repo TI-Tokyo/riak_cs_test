@@ -49,6 +49,7 @@ confirm_auth_bypass_for_stats(Bucket, Key, UserConfig, Port) ->
 
 remove_volatile(Lists) ->
     lists:filter(fun({<<"memory_", _/binary>>, _V}) -> false;
+                    ({<<"connected_nodes">>, _V}) -> false;
                     (_) -> true
                  end, Lists).
 
