@@ -173,6 +173,5 @@ minimum_necessary_files_after_boot()  ->
      "logs/platform_log_dir/console.log",
      "logs/platform_log_dir/run_erl.log",
      "logs/platform_log_dir/erlang.log.1",
-     "logs/platform_log_dir/crash.log",
-     "logs/platform_log_dir/error.log"
+     "logs/platform_log_dir/reports.log"
     ].
