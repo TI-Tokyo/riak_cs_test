@@ -123,6 +123,7 @@ move_generated_configs_as_appconfigs() ->
 exec_cs_debug() ->
     DevPath = rtcs_config:devpath(cs, current),
     Cmd = rtcs_exec:riakcs_debugcmd(DevPath, 1, []),
+    _ = os:cmd("rm " ++ DevPath ++ "/dev/dev1/riak-cs/*-riak-cs-debug.tar.gz"),
     Output = os:cmd("cd " ++ DevPath ++ " && " ++ Cmd),
     [_Results, File] = string:tokens(Output, " \n"),
     File.
