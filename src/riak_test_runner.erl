@@ -165,7 +165,7 @@ check_prereqs(Module) ->
         Attrs ->
             Prereqs = proplists:get_all_values(prereq, Attrs),
             P2 = [ {Prereq, rt_local:which(Prereq)} || Prereq <- Prereqs],
-            logger:info("~s prereqs: ~p", [Module, P2]),
+            logger:debug("~s prereqs: ~p", [Module, P2]),
             [ logger:warning("~s prereq '~s' not installed.", [Module, P]) || {P, false} <- P2],
             lists:all(fun({_, Present}) -> Present end, P2)
     catch
