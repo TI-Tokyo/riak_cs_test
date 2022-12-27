@@ -43,7 +43,8 @@ offline_delete({RiakNodes, _CSNodes} = Tussle, BlockKeysFileList) ->
                  "-r 8 --yes " ++
                      rtcs_config:riak_bitcaskroot(rtcs_config:devpath(riak, current), 1) ++
                      " " ++ BlockKeysFile),
-         logger:info("offline_delete.erl log:\n~s", [Res]),
+         logger:info("offline_delete.erl log:", []),
+         [ logger:info("~s", [L]) || L <- string:tokens(Res, "\n") ],
          logger:info("offline_delete.erl log:============= END")
      end || BlockKeysFile <- BlockKeysFileList],
 

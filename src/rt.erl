@@ -449,7 +449,7 @@ join_retry({error, node_still_starting}, _Fun, 0, _Delay) ->
     logger:warning("Too many retries, join failed"),
     {error, too_many_retries};
 join_retry({error, node_still_starting}, Fun, RetryCount, Delay) ->
-    logger:warning("Join error because node is not yet ready, retrying after ~Bms", [Delay]),
+    logger:info("Join error because node is not yet ready, retrying after ~Bms", [Delay]),
     timer:sleep(Delay),
     join_retry(Fun(), Fun, RetryCount - 1, Delay);
 join_retry(Error, _Fun, _Retry, _Delay) ->

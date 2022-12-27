@@ -468,7 +468,7 @@ create_or_restore_config_backups(Nodes, Vsn) ->
               [begin
                    case filelib:is_regular(F ++ ".backup") of
                        true ->
-                           logger:info("found existing backup of ~s; restoring it", [F]),
+                           logger:debug("found existing backup of ~s; restoring it", [F]),
                            [] = os:cmd(io_lib:format("cp -a \"~s.backup\" \"~s\"", [F, F]));
                        false ->
                            logger:debug("backing up ~s", [F]),
@@ -512,7 +512,7 @@ restore_configs(Nodes, Vsn) ->
               [begin
                    case filelib:is_regular(F ++ ".backup") of
                        false ->
-                           logger:info("backup of ~s not found", [F]);
+                           logger:debug("backup of ~s not found", [F]);
                        true ->
                            logger:debug("restoring ~s", [F]),
                            [] = os:cmd(io_lib:format("mv -f \"~s.backup\" \"~s\"", [F, F]))

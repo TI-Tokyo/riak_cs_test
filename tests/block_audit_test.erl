@@ -62,13 +62,15 @@ confirm1() ->
     Res1 = rtcs_exec:exec_priv_escript(
              1, "internal/block_audit.erl",
              "-h 127.0.0.1 -p 10017 -dd", #{by => cs}),
-    logger:debug("block_audit.erl log:\n~s", [Res1]),
+    logger:debug("block_audit.erl log:", []),
+    [ logger:debug("~s", [L]) || L <- string:tokens(Res1, "\n") ],
     logger:debug("block_audit.erl log:============= END"),
     fake_false_orphans(RiakNodes, FalseOrphans1 ++ FalseOrphans2),
     Res2 = rtcs_exec:exec_priv_escript(
              1, "internal/ensure_orphan_blocks.erl",
              "-h 127.0.0.1 -p 10017 -dd", #{by => cs}),
-    logger:debug("ensure_orphan_blocks.erl log:\n~s", [Res2]),
+    logger:debug("ensure_orphan_blocks.erl log:", []),
+    [ logger:debug("~s", [L]) || L <- string:tokens(Res2, "\n") ],
     logger:debug("ensure_orphan_blocks.erl log:============= END"),
     assert_result(?BUCKET1),
     assert_result(?BUCKET2),
