@@ -645,9 +645,9 @@ load_modules_on_nodes([Module | MoreModules], Nodes)
     case code:get_object_code(Module) of
         {Module, Bin, File} ->
             {ResList, []} = rpc:multicall(Nodes, code, load_binary, [Module, File, Bin]),
-            logger:info("Loading modules on Nodes ~p, results were ~p", [Nodes, ResList]);
+            logger:info("Loading module on ~p: ~p", [Nodes, ResList]);
         error ->
-            error(lists:flatten(io_lib:format("unable to get_object_code(~s)", [Module])))
+            logger:critical("unable to get_object_code(~s)", [Module])
     end,
     load_modules_on_nodes(MoreModules, Nodes).
 
