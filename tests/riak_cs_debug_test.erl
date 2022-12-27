@@ -95,7 +95,6 @@ confirm() ->
 restart_cs_node() ->
     N = rtcs:cs_node(1),
     rtcs_dev:stop(N),
-    rt:wait_until_unpingable(N),
     rtcs_dev:start(N),
     ok.
 
