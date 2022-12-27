@@ -43,7 +43,6 @@ cli_options() ->
  {skip,               $x, "skip",     string,     "list of tests to skip in a directory"},
  {verbose,            $v, "verbose",  undefined,  "verbose output"},
  {outdir,             $o, "outdir",   string,     "output directory"},
- {backend,            $b, "backend",  atom,       "backend to test [memory | bitcask | eleveldb | leveldb]"},
  {upgrade_version,    $u, "upgrade",  atom,       "which version to upgrade from [ previous | legacy ]"},
  {keep,        undefined, "keep",     boolean,    "do not teardown cluster"},
  {batch,       undefined, "batch",    undefined,  "running a batch, always teardown, even on failure"},
@@ -204,10 +203,6 @@ maybe_teardown(true, TestResults, Coverage, Verbose, Batch) ->
     ok.
 
 parse_command_line_tests(ParsedArgs) ->
-    Backends = case proplists:get_all_values(backend, ParsedArgs) of
-        [] -> [undefined];
-        Other -> Other
-    end,
     Upgrades = case proplists:get_all_values(upgrade_version, ParsedArgs) of
                    [] -> [undefined];
                    UpgradeList -> UpgradeList
@@ -234,10 +229,8 @@ parse_command_line_tests(ParsedArgs) ->
                   {version, rt:get_version()},
                   {project, list_to_binary(rt_config:get(rt_project, "undefined"))}
               ] ++
-              [ {backend, Backend} || Backend =/= undefined ] ++
               [ {upgrade_version, Upgrade} || Upgrade =/= undefined ]}
-             || Backend <- Backends,
-                Upgrade <- Upgrades ] ++ Tests
+             || Upgrade <- Upgrades ] ++ Tests
         end, [], lists:usort(DirTests ++ SpecificTests)).
 
 extract_test_names(Test, {CodePaths, TestNames}) ->
@@ -375,11 +368,10 @@ parse_webhook(Props) ->
     end.
 
 print_summary(TestResults, CoverResult, Verbose) ->
-    io:format("~nTest Results:~n"),
+    io:format("\nTest Results (backend: ~p):\n", [rt_config:get(backend)]),
 
     Results = [
-                [ atom_to_list(proplists:get_value(test, SingleTestResult)) ++ "-" ++
-                      backend_list(proplists:get_value(backend, SingleTestResult)),
+                [ atom_to_list(proplists:get_value(test, SingleTestResult)),
                   proplists:get_value(status, SingleTestResult),
                   proplists:get_value(reason, SingleTestResult)]
                 || SingleTestResult <- TestResults],
@@ -416,16 +408,6 @@ print_summary(TestResults, CoverResult, Verbose) ->
 
 test_name_width(Results) ->
     lists:max([ length(X) || [X | _T] <- Results ]).
-
-backend_list(Backend) when is_atom(Backend) ->
-    atom_to_list(Backend);
-backend_list(Backends) when is_list(Backends) ->
-    FoldFun = fun(X, []) ->
-                      atom_to_list(X);
-                 (X, Acc) ->
-                      Acc ++ "," ++ atom_to_list(X)
-              end,
-    lists:foldl(FoldFun, [], Backends).
 
 results_filter(Result) ->
     case proplists:get_value(status, Result) of
