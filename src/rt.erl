@@ -1321,8 +1321,6 @@ teardown() ->
     logger:info("Tearing down", []),
     rt_cover:maybe_stop_on_nodes(),
 
-    %% stop all connected nodes, 'cause it'll be faster that
-    logger:info("RPC stopping these nodes ~p", [nodes()]),
     rt:pmap(fun stop/1, nodes()),
 
     %% Then do the more exhaustive harness thing, in case something was up

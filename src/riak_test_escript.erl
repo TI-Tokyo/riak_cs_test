@@ -105,7 +105,8 @@ main(Args) ->
     logger:set_primary_config(level, rt_config:get(logger_level, info)),
     logger:update_handler_config(
       default,
-      #{config => #{type => standard_io},
+      #{config => #{type => standard_io,
+                    sync_mode_qlen => 1},
         formatter => {logger_formatter, #{template => [time," [",level,"] ",msg,"\n"],
                                           time_designator => $ }
                      }
@@ -127,7 +128,8 @@ main(Args) ->
     Suites = proplists:get_all_values(suites, ParsedArgs),
     case Suites of
         [] -> ok;
-        _ -> io:format("Suites are not currently supported.")
+        _ ->
+            logger:warning("Suites are not currently supported.")
     end,
 
     CommandLineTests = parse_command_line_tests(ParsedArgs),
@@ -197,7 +199,6 @@ maybe_teardown(true, TestResults, Coverage, Verbose, Batch) ->
             rt:whats_up();
         _ ->
             logger:info("Multiple tests run or no failure"),
-            rt:teardown(),
             print_summary(TestResults, Coverage, Verbose)
     end,
     ok.
@@ -330,7 +331,7 @@ run_test(Test, Outdir, TestMetaData, Report, HarnessArgs, _NumTests, Teardown) -
     end,
 
     rt_cover:stop(),
-    case Teardown of
+    case Teardown orelse SingleTestResult == pass of
         true ->
             rt:teardown();
         false ->
@@ -368,7 +369,7 @@ parse_webhook(Props) ->
     end.
 
 print_summary(TestResults, CoverResult, Verbose) ->
-    io:format("\nTest Results (backend: ~p):\n", [rt_config:get(backend)]),
+    logger:notice("\nTest Results (backend: ~p):", [rt_config:get(backend)]),
 
     Results = [
                 [ atom_to_list(proplists:get_value(test, SingleTestResult)),
@@ -379,31 +380,32 @@ print_summary(TestResults, CoverResult, Verbose) ->
 
     Print = fun(Test, Status, Reason) ->
         case {Status, Verbose} of
-            {fail, true} -> io:format("~s: ~s ~p~n", [string:left(Test, Width), Status, Reason]);
-            _ -> io:format("~s: ~s~n", [string:left(Test, Width), Status])
+            {fail, true} -> logger:notice("~s: ~s ~p", [string:left(Test, Width), Status, Reason]);
+            _ -> logger:notice("~s: ~s", [string:left(Test, Width), Status])
         end
     end,
     [ Print(Test, Status, Reason) || [Test, Status, Reason] <- Results],
 
     PassCount = length(lists:filter(fun(X) -> proplists:get_value(status, X) =:= pass end, TestResults)),
     FailCount = length(lists:filter(fun(X) -> proplists:get_value(status, X) =:= fail end, TestResults)),
-    io:format("---------------------------------------------~n"),
-    io:format("~w Tests Failed~n", [FailCount]),
-    io:format("~w Tests Passed~n", [PassCount]),
+    logger:notice("---------------------------------------------"),
+    logger:notice("~b Tests Failed", [FailCount]),
+    logger:notice("~b Tests Passed", [PassCount]),
     Percentage = case PassCount == 0 andalso FailCount == 0 of
         true -> 0;
         false -> (PassCount / (PassCount + FailCount)) * 100
     end,
-    io:format("That's ~w% for those keeping score~n", [Percentage]),
+    logger:notice("That's ~w% for those keeping score", [Percentage]),
 
     case CoverResult of
         cover_disabled ->
             ok;
         {Coverage, AppCov} ->
-            io:format("Coverage : ~.1f%~n", [Coverage]),
-            [io:format("    ~s : ~.1f%~n", [App, Cov])
+            logger:notice("Coverage : ~.1f%", [Coverage]),
+            [logger:notice("    ~s : ~.1f%", [App, Cov])
              || {App, Cov, _} <- AppCov]
     end,
+    logger_std_h:filesync(default),
     ok.
 
 test_name_width(Results) ->
@@ -425,7 +427,8 @@ load_tests_in_dir(Dir, SkipTests) ->
               lists:foldl(load_tests_folder(SkipTests),
                           [],
                           filelib:wildcard("*.beam", Dir)));
-        _ -> io:format("~s is not a dir!~n", [Dir])
+        _ ->
+            logger:warning("~s is not a dir!~n", [Dir])
     end.
 
 load_tests_folder(SkipTests) ->
