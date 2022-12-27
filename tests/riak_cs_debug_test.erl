@@ -57,6 +57,8 @@ confirm() ->
 
     _ = rtcs:setup(1),
 
+    logger:info("sleeping 3 sec to allow riak_cs to create reports.log..."),
+    timer:sleep(3000),
     %% Run riak-cs-debug after cuttlefish generates configs.
     TarGz2 = exec_cs_debug(),
     List2 = trim_dir_prefix(list_files(TarGz2)),
