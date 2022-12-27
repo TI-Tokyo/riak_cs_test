@@ -80,10 +80,6 @@ main(Args) ->
         _ -> ok
     end,
 
-    %% ibrowse
-    application:load(ibrowse),
-    application:start(ibrowse),
-
     Config = proplists:get_value(config, ParsedArgs),
     ConfigFile = proplists:get_value(file, ParsedArgs),
 

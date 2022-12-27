@@ -46,6 +46,10 @@
 -define(REPLACE_KEY, "replace-target").
 
 confirm() ->
+    %% ibrowse
+    application:load(ibrowse),
+    application:start(ibrowse),
+
     {{UserConfig, _}, {RiakNodes, _CSNodes}} = rtcs:setup(1),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET, UserConfig)),
     Data = ?DATA0,
