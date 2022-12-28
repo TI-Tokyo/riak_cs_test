@@ -45,7 +45,7 @@ metadata(Pid) ->
 confirm(TestModule, Outdir, TestMetaData, HarnessArgs) ->
     rt:setup_harness(TestModule, HarnessArgs),
     {Mod, Fun} = function_name(TestModule),
-    ThisModLog = filename:join([Outdir, atom_to_list(TestModule) ++ "-test.log"]),
+    ThisModLog = filename:join([Outdir, atom_to_list(TestModule) ++ ".log"]),
     logger:add_handler(
       tested_mod_capture,
       logger_std_h,

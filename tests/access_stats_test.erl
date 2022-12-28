@@ -108,7 +108,8 @@ generate_some_accesses(UserConfig, UntilGregSecs, R0) ->
 
 flush_access_stats() ->
     Res = rtcs_exec:flush_access(1),
-    logger:info("riak-cs-access flush result: ~s", [Res]),
+    logger:info("riak-cs-access flush result:", []),
+    [logger:info("** ~s", [L]) || L <- string:tokens(Res, "\n")],
     ExpectRegexp = "All access logs were flushed\.",
     ?assertMatch({match, _}, re:run(Res, ExpectRegexp)).
 
