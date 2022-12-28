@@ -791,9 +791,8 @@ no_pending_changes(Nodes) ->
             NodesWithChanges =
                 [Node ||
                     {Node, false} <- lists:zip(Nodes -- BadNodes, Changes)],
-            logger:info("Changes not yet complete, or bad nodes. "
-                        "BadNodes=~p, Nodes with Pending Changes=~p",
-                        [BadNodes, NodesWithChanges]),
+            logger:info("Changes not yet complete, nodes with pending changes: ~p",
+                        [NodesWithChanges]),
             false
     end.
 
