@@ -147,19 +147,6 @@ setup_clusters(#{config_spec := Configs,
 
     Nodes.
 
-got_pong(Node, Vsn) ->
-    timer:sleep(300),
-    Exec = rtcs_exec:node_executable(Node, Vsn),
-    fun() ->
-            case os:cmd(Exec ++ " ping") of
-                "pong\n" ->
-                    true;
-                _ ->
-                    os:cmd(Exec ++ " start"),
-                    false
-            end
-    end.
-
 ssl_options(Config) ->
     case proplists:get_value(cs, Config) of
         undefined -> [];
