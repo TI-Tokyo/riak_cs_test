@@ -83,7 +83,7 @@ confirm() ->
     logger:info("Downgrading to previous successfully done"),
 
     rtcs_dev:restore_configs(RiakNodes ++ CSNodes, previous),
-    rtcs_dev:pass().
+    pass.
 
 
 prepare_current(NumNodes) ->

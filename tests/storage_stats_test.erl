@@ -92,7 +92,7 @@ confirm_2({{UserConfig, _}, {[RiakNode], [CSNode]}}) ->
                           assert_storage_xml_stats(Spec, XmlStat)
                   end, TestSpecs),
 
-    rtcs_dev:pass().
+    pass.
 
 
 %% @doc garbage data to check #840 regression,

@@ -51,7 +51,7 @@ confirm() ->
     %% nodes.
     ok = verify_cs756(SetupInfo, "test-bucket-cs756"),
 
-    rtcs_dev:pass().
+    pass.
 
 %% @doc Regression test for `riak_cs' <a href="https://github.com/basho/riak_cs/issues/296">
 %% issue 296</a>. The issue description is: 403 instead of 404 returned when

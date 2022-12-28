@@ -42,7 +42,7 @@ confirm() ->
                                   ?TEST_BUCKET, ?KEY_NORMAL),
     assert_object_in_expected_bag(RiakNodes, UserConfig, multipart,
                                   ?TEST_BUCKET, ?KEY_MULTIPART),
-    rtcs_dev:pass().
+    pass.
 
 
 assert_bucket_create_delete_twice(UserConfig) ->

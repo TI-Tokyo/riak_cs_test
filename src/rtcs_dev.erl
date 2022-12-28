@@ -49,12 +49,6 @@ setup_harness(_Test, _Args) ->
             end, devpaths()),
     ok.
 
-pass() ->
-    {Nodes, _} = lists:unzip(rt_config:get(rt_nodes)),
-    restore_configs(Nodes, current),
-    pass.
-
-
 relpath(Vsn) ->
     Path = ?BUILD_PATHS,
     path(Vsn, Path).

@@ -34,7 +34,7 @@ confirm() ->
 
     ok = list_to_non_existent_bucket_many_times(RiakNodes),
 
-    rtcs_dev:pass().
+    pass.
 
 assert_v2_is_default(CSNodes) ->
     true = rpc:call(hd(CSNodes), riak_cs_list_objects_utils, fold_objects_for_list_keys, []),

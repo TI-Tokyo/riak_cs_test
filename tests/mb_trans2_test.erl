@@ -16,7 +16,7 @@ confirm() ->
     {ok, InitialState} = cs_suites:new(SetupRes),
     {ok, EvolvedState} = cs_suites:fold_with_state(InitialState, history(NodesInMaster)),
     {ok, _FinalState}  = cs_suites:cleanup(EvolvedState),
-    rtcs_dev:pass().
+    pass.
 
 custom_configs() ->
     %% This branch is only for debugging this module

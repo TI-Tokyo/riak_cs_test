@@ -58,7 +58,7 @@ confirm() ->
         {{WLeader, _WNodes, _WName}, {_ELeader, _ENodes, EName}} <- Pairs],
     upload_and_assert_proxy_get(UserWest, UserEast),
 
-    rtcs_dev:pass().
+    pass.
 
 upload_and_assert_proxy_get(UserWest, UserEast) ->
     Objects = upload_objects(UserWest, UserEast),

@@ -40,7 +40,7 @@ confirm() ->
         {multibag, _} ->
             logger:info("Block audit script does not support multibag env."),
             logger:info("Skip the test."),
-            rtcs_dev:pass();
+            pass;
         _ -> confirm1()
     end.
 
@@ -78,7 +78,7 @@ confirm1() ->
     BlockKeysFileList = [filename:join([Home, "riak-cs", "actual-orphaned-blocks", B]) ||
                         B <- [?BUCKET1, ?BUCKET2]],
     tools_helper:offline_delete(Tussle, BlockKeysFileList),
-    rtcs_dev:pass().
+    pass.
 
 setup_objects(RiakNodes, UserConfig, Bucket, Type,
               KeyAlive, KeyOrphaned, KeyFalseOrphaned) ->

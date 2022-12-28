@@ -39,7 +39,7 @@ confirm() ->
         {multibag, _} ->
             logger:info("select_gc_bucket script does not support multibag env."),
             logger:info("Skip the test."),
-            rtcs_dev:pass();
+            pass;
         _ -> confirm1()
     end.
 
@@ -68,7 +68,7 @@ confirm1() ->
     logger:debug("select_gc_bucket.erl log:============= END"),
 
     tools_helper:offline_delete({RiakNodes, CSNodes}, [BlockKeysFile]),
-    rtcs_dev:pass().
+    pass.
 
 upload_object(UserConfig, Bucket, normal, Key) ->
     SingleBlock = crypto:strong_rand_bytes(400),

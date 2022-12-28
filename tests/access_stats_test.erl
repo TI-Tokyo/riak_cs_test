@@ -52,7 +52,7 @@ confirm() ->
     assert_access_stats(xml, UserConfig, Results),
     verify_stats_lost_logging(UserConfig, RiakNodes, CSNodes),
 
-    rtcs_dev:pass().
+    pass.
 
 generate_some_accesses(UserConfig) ->
     generate_some_accesses(UserConfig, ?DURATION_SECS).
@@ -150,7 +150,7 @@ assert_access_stats(Format, UserConfig, {Begin, End, ClientStats}) ->
             sum_samples(Format, "KeyDelete",    "Count",        Samples)),
     ?assertEqual(client_result({"BucketDelete", "Count"},       ClientStats),
             sum_samples(Format, "BucketDelete", "Count",        Samples)),
-    rtcs_dev:pass().
+    pass.
 
 verify_stats_lost_logging(UserConfig, RiakNodes, CSNodes) ->
     KeyId = UserConfig#aws_config.access_key_id,
@@ -167,7 +167,7 @@ verify_stats_lost_logging(UserConfig, RiakNodes, CSNodes) ->
     ExpectLine = io_lib:format("lost access stat: User=~s, Slice=", [KeyId]),
     logger:debug("expected log line: ~s", [ExpectLine]),
     true = rt:expect_in_log(CSNode, ExpectLine),
-    rtcs_dev:pass().
+    pass.
 
 client_result(Key, ResultSet) ->
     proplists:get_value(Key, ResultSet, 0).

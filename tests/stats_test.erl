@@ -36,7 +36,7 @@ confirm() ->
     logger:info("Confirming stats after some operations"),
     confirm_stats(cs, UserConfig, rtcs_config:cs_port(hd(RiakNodes))),
     confirm_stats(stanchion, UserConfig, rtcs_config:stanchion_port()),
-    rtcs_dev:pass().
+    pass.
 
 confirm_initial_stats(cs, UserConfig, Port) ->
     StatData = query_stats(cs, UserConfig, Port),

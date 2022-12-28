@@ -293,7 +293,7 @@ confirm() ->
     Obj16 = erlcloud_s3:get_object(?TEST_BUCKET, "object_six", U1C2Config),
     ?assertEqual(Object6, proplists:get_value(content, Obj16)),
 
-    rtcs_dev:pass().
+    pass.
 
 enable_pg(SourceLeader, SinkName, ANodes, BNodes, BPort) ->
     repl_helpers:connect_clusters13(SourceLeader, ANodes, BPort, SinkName),

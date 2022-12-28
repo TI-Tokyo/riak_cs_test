@@ -56,7 +56,7 @@ confirm() ->
     End = rtcs:datetime(),
 
     assert_storage_stats(UserConfig, Begin, End),
-    rtcs_dev:pass().
+    pass.
 
 assert_storage_stats(UserConfig, Begin, End) ->
     KeyId = UserConfig#aws_config.access_key_id,

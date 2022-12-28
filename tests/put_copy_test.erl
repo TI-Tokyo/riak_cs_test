@@ -82,7 +82,7 @@ confirm() ->
     ?assertEqual([{delete_marker, false}, {version_id, "null"}],
                  erlcloud_s3:delete_object(?BUCKET3, ?KEY, UserConfig2)),
 
-    rtcs_dev:pass().
+    pass.
 
 
 verify_simple_copy(UserConfig) ->

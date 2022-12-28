@@ -52,4 +52,4 @@ confirm() ->
     ?assertError({aws_error, {socket_error, retry_later}}, erlcloud_s3:get_object(?BUCKET, ?KEY, ErrConfig)),
     rt_intercept:clean(ErrCSNode, riak_cs_block_server),
 
-    rtcs_dev:pass().
+    pass.

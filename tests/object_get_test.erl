@@ -53,7 +53,7 @@ confirm() ->
     mp_get_cases(UserConfig),
     timestamp_skew_cases(UserConfig),
     long_key_cases(UserConfig),
-    rtcs_dev:pass().
+    pass.
 
 non_mp_get_cases(UserConfig) ->
     %% setup objects

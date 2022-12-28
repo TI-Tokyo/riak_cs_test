@@ -66,9 +66,12 @@ confirm(TestModule, Outdir, TestMetaData, HarnessArgs) ->
             _ ->
                 {fail, all_prereqs_not_present}
         end,
+    logger:notice("------------------ END TEST ~s (~p) -------", [TestModule, Status]),
+
     logger:remove_handler(tested_mod_capture),
 
-    logger:notice("------------------ END TEST ~s (~p) -------", [TestModule, Status]),
+    {Nodes, _} = lists:unzip(rt_config:get(rt_nodes)),
+    rtcs_dev:restore_configs(Nodes, current),
 
     RetList = [{test, TestModule}, {status, Status},
                {logs, get_test_logs(ThisModLog)} | proplists:delete(backend, TestMetaData)],

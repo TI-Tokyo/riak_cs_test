@@ -90,7 +90,7 @@ confirm() ->
     ok = file:delete(ConfPath ++ "app.config"),
     ok = file:delete(ConfPath ++ "vm.args"),
 
-    rtcs_dev:pass().
+    pass.
 
 restart_cs_node() ->
     N = rtcs:cs_node(1),

@@ -75,7 +75,7 @@ confirm() ->
                    {?OLD_BUCKET, MNewInOld},
                    {?NEW_BUCKET, MNewInNew}]],
     rtcs:assert_error_log_empty(1),
-    rtcs_dev:pass().
+    pass.
 
 assert_block_bag(Bucket, Key, Manifest, RiakNodes, [BagD, BagE]) ->
     BlockBag = case rtcs_bag:high_low({Bucket, Key, Manifest}) of

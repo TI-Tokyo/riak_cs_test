@@ -25,7 +25,7 @@ confirm() ->
     WaitTime = 5 * rt_config:get(rt_max_wait_time),
     case rtcs_exec:cmd(Cmd, [{cd, "client_tests"}, {env, Env}, {args, Args}], WaitTime) of
         ok ->
-            rtcs_dev:pass();
+            pass;
         {error, Reason} ->
             logger:error("Error : ~p", [Reason]),
             error({external_client_tests, Reason})
