@@ -7,20 +7,15 @@ test-python:
 	@cd python && ${MAKE} CS_HTTP_PORT=$(CS_HTTP_PORT) AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
 
 test-boto:
-	@cd python && ${MAKE} boto_tests CS_HTTP_PORT=$(CS_HTTP_PORT) AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
+	@cd python && ${MAKE} boto_tests
 
 test-ceph:
-	@cd python && ${MAKE} ceph_tests CS_HTTP_PORT=$(CS_HTTP_PORT) AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
+	@cd python && ${MAKE} ceph_tests
 
 test-ruby:
 	@bundle config set --local path 'vendor'
 	@bundle --gemfile ruby/Gemfile
 	@cd ruby && bundle exec rake spec
-
-test-clojure:
-	@command -v lein >/dev/null 2>&1 || { echo >&2 "I require lein but it's not installed. \
-	Please read client_tests/clojure/clj-s3/README."; exit 1; }
-	@cd clojure/clj-s3 && lein do deps, midje
 
 test-php:
 	@cd php && ${MAKE}
@@ -29,4 +24,10 @@ test-go:
 	@cd go && ${MAKE}
 
 test-s3cmd:
-	@cd s3cmd && ${MAKE} CS_HTTP_PORT=$(CS_HTTP_PORT) AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY)
+	@cd s3cmd && ${MAKE}
+
+test-clojure:
+	@command -v lein >/dev/null 2>&1 || { echo >&2 "I require lein but it's not installed. \
+	Please read client_tests/clojure/clj-s3/README."; exit 1; }
+	@cd clojure/clj-s3 && lein do deps, midje
+
