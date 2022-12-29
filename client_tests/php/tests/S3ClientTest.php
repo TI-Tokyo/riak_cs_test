@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 /*
 ---------------------------------------------------------------------
 
@@ -20,21 +20,25 @@ under the License.
 
 ---------------------------------------------------------------------
 */
-use Guzzle\Plugin\Backoff\BackoffPlugin;
+use Aws\S3\S3Client;
 
 // http://docs.amazonwebservices.com/aws-sdk-php-2/latest/class-Aws.S3.S3Client.html
-class S3ClientTest extends \Guzzle\Tests\GuzzleTestCase
+class S3ClientTest extends \PHPUnit\Framework\TestCase
 {
     const ALL_USER_URL = "http://acs.amazonaws.com/groups/global/AllUsers";
 
-    public function setUp()
+    public function setUp(): void
     {
-        $this->client = $this->getServiceBuilder()->get('s3');
-        $this->client->getEventDispatcher()->removeSubscriber(BackoffPlugin::getExponentialBackoff()); // disable retry
+        $this->client = new S3Client([
+            'version' => 'latest',
+            'region' => 'us-east-2',
+            'scheme' => 'http',
+            'http' => ['proxy' => 'http://127.0.0.1:' . cs_port()]
+        ]);
         $this->bucket = randBucket();
     }
 
-    public function tearDown()
+    public function tearDown(): void
     {
         if ( ! $this->client->doesBucketExist($this->bucket)) { return; }
 
@@ -43,6 +47,7 @@ class S3ClientTest extends \Guzzle\Tests\GuzzleTestCase
             $this->client->deleteObject(array('Bucket' => $this->bucket, 'Key' => $object['Key']));
         }
         $this->client->deleteBucket(array('Bucket' => $this->bucket));
+        $this->client = null;
     }
 
     public function testBucketNotExists()
