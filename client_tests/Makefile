@@ -10,9 +10,9 @@ test-ceph:
 	@cd python && ${MAKE} ceph_tests
 
 test-ruby:
-	@bundle config set --local path 'vendor'
-	@bundle --gemfile ruby/Gemfile
-	@cd ruby && bundle exec rake spec
+	@cd ruby && bundle config set --local path 'vendor' && \
+	 bundle --gemfile Gemfile && \
+	 bundle exec rake spec
 
 test-php:
 	@cd php && ${MAKE}
