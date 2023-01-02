@@ -246,11 +246,11 @@ verify_partial_gc_run(CSNode, RiakNodes,
          %% We have to clear log as the message 'Finished garbage
          %% col...' has been output many times before, during this
          %% test.
-         rtcs:reset_log(CSNode),
+         reset_log(CSNode),
 
          logger:debug("GC: (start, end) = (~p, ~p)", [S0, E0]),
-         S = rtcs:iso8601(S0),
-         E = rtcs:iso8601(E0),
+         S = iso8601(S0),
+         E = iso8601(E0),
          BatchCmd = "batch -s " ++ S ++ " -e " ++ E,
          rtcs_exec:gc(1, BatchCmd),
 
@@ -278,3 +278,15 @@ verify_partial_gc_run(CSNode, RiakNodes,
     ?assertEqual(3, length(lists:filter(StartKeyLPF, Keys))),
     ?assertEqual([], lists:filter(BPF, Keys)),
     ok.
+
+%% Copy from rts:iso8601/1
+iso8601(Timestamp) when is_integer(Timestamp) ->
+    GregSec = Timestamp + 719528 * 86400,
+    Datetime = calendar:gregorian_seconds_to_datetime(GregSec),
+    {{Y,M,D},{H,I,S}} = Datetime,
+    io_lib:format("~4..0b~2..0b~2..0bT~2..0b~2..0b~2..0bZ",
+                  [Y, M, D, H, I, S]).
+
+reset_log(Node) ->
+    ok = rpc:call(Node, riak_test_logger_backend, clear, []).
+

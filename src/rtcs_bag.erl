@@ -144,7 +144,7 @@ sha_int(Seed) ->
 
 sha_int2(Seed) ->
     SeedBin = term_to_binary(Seed),
-    <<SHA:160>> = rtcs:sha(SeedBin),
+    <<SHA:160>> = crypto:hash(sha, SeedBin),
     SHA.
 
 ensure_binary(V) when is_list(V) ->
@@ -190,7 +190,7 @@ bag_refresh(N) ->
 %% should be calculated by multibag configuration and weights.
 assert_manifest_in_single_bag(Bucket, Key, AllBags, ExpectedBag) ->
     NotExistingBags = AllBags -- [ExpectedBag],
-    RiakBucket = <<"0o:", (rtcs:md5(Bucket))/binary>>,
+    RiakBucket = <<"0o:", (crypto:hash(md5, Bucket))/binary>>,
     case assert_only_in_single_bag(ExpectedBag, NotExistingBags, RiakBucket, Key) of
         {error, Reason} ->
             logger:error("assert_manifest_in_single_bag for ~w/~w error: ~p",
@@ -206,7 +206,7 @@ assert_manifest_in_single_bag(Bucket, Key, AllBags, ExpectedBag) ->
 %% should be calculated by multibag configuration and weights.
 assert_block_in_single_bag(Bucket, Manifest, AllBags, ExpectedBag) ->
     NotExistingBags = AllBags -- [ExpectedBag],
-    RiakBucket = <<"0b:", (rtcs:md5(Bucket))/binary>>,
+    RiakBucket = <<"0b:", (crypto:hash(md5, Bucket))/binary>>,
     UUIDForBlock = block_uuid(Manifest),
     RiakKey = <<UUIDForBlock/binary, 0:32>>,
     case assert_only_in_single_bag(ExpectedBag, NotExistingBags, RiakBucket, RiakKey) of
@@ -222,7 +222,7 @@ assert_block_in_single_bag(Bucket, Manifest, AllBags, ExpectedBag) ->
 %% Assert manifest riak object of given bkey does not exist in any
 %% bag.
 assert_no_manifest_in_any_bag(Bucket, Key, AllBags) ->
-    RiakBucket = <<"0o:", (rtcs:md5(Bucket))/binary>>,
+    RiakBucket = <<"0o:", (crypto:hash(md5, Bucket))/binary>>,
     case assert_not_in_other_bags(AllBags, RiakBucket, Key) of
         ok -> ok;
         {error, Reason} ->
@@ -234,7 +234,7 @@ assert_no_manifest_in_any_bag(Bucket, Key, AllBags) ->
 %% Assert block riak object of given manifest with seq=0 does not
 %% exist in any bag.
 assert_no_block_in_any_bag(Bucket, Manifest, AllBags) ->
-    RiakBucket = <<"0b:", (rtcs:md5(Bucket))/binary>>,
+    RiakBucket = <<"0b:", (crypto:hash(md5, Bucket))/binary>>,
     UUIDForBlock = block_uuid(Manifest),
     RiakKey = <<UUIDForBlock/binary, 0:32>>,
     case assert_not_in_other_bags(AllBags, RiakBucket, RiakKey) of

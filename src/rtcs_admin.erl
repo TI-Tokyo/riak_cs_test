@@ -68,9 +68,9 @@ create_admin_user(Node) ->
 
     {UserConfig, Id} = create_user(rtcs_config:cs_port(Node), Email, User),
     logger:info("Riak CS Admin account created with ~p", [Email]),
-    logger:info("KeyId = ~p",[UserConfig#aws_config.access_key_id]),
-    logger:info("KeySecret = ~p",[UserConfig#aws_config.secret_access_key]),
-    logger:info("Id = ~p",[Id]),
+    logger:info("KeyId    : ~s", [UserConfig#aws_config.access_key_id]),
+    logger:info("KeySecret: ~s", [UserConfig#aws_config.secret_access_key]),
+    logger:info("UserId   : ~s", [Id]),
     {UserConfig, Id}.
 
 -spec create_user(atom(), non_neg_integer()) -> #aws_config{}.
@@ -107,7 +107,7 @@ create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
                    ({_ResHeader, _ResBody}) ->
                         true
                 end,
-    {_ResHeader, ResBody} = rtcs:wait_until(OutputFun, Condition, Retries, Delay),
+    {_ResHeader, ResBody} = rt:wait_until(OutputFun, Condition, Retries, Delay),
     logger:debug("ResBody: ~s", [ResBody]),
     JsonData = mochijson2:decode(ResBody),
     [KeyId, KeySecret, Id] = [binary_to_list(rtcs:json_get([K], JsonData)) ||
@@ -157,7 +157,7 @@ make_authorization(Type, Method, Resource, ContentType, Config, Date, AmzHeaders
                     StsAmzHeaderPart, Resource],
     logger:debug("StringToSign: ~s", [StringToSign]),
     Signature =
-        base64:encode_to_string(rtcs:sha_mac(Config#aws_config.secret_access_key, StringToSign)),
+        base64:encode_to_string(crypto:hash(sha, Config#aws_config.secret_access_key, StringToSign)),
     lists:flatten([Prefix, " ", Config#aws_config.access_key_id, $:, Signature]).
 
 -spec aws_config(string(), string(), non_neg_integer()) -> #aws_config{}.

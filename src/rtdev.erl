@@ -54,7 +54,7 @@ run_riak(Node, Path, Cmd) ->
             rt_cover:maybe_start_on_node(Node, node_version(Node)),
             %% Intercepts may load code on top of the cover compiled
             %% modules. We'll just get no coverage info then.
-            rtcs:maybe_load_intercepts(Node),
+            maybe_load_intercepts(Node),
             R;
         "stop" ->
             rt_cover:maybe_stop_on_node(Node),
@@ -62,6 +62,15 @@ run_riak(Node, Path, Cmd) ->
         _ ->
             R
     end.
+
+maybe_load_intercepts(Node) ->
+    case rt_intercept:are_intercepts_loaded(Node) of
+        false ->
+            ok = rt_intercept:load_intercepts([Node]);
+        true ->
+            ok
+    end.
+
 
 run_riak_repl(Node, Path, Cmd) ->
     logger:info("Running: ~s", [riakcmd(Path, Node, Cmd)]),

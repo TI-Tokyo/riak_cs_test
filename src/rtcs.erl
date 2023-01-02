@@ -20,17 +20,36 @@
 
 -module(rtcs).
 
--compile(export_all).
--compile(nowarn_export_all).
+-export([riak_node/1,
+         cs_node/1,
+         setup/1, setup/2, setup/3,
+         setup2x2/1,
+         setupNxMsingles/2, setupNxMsingles/4,
+         riak_id_per_cluster/1,
+         set_conf/2,
+         set_advanced_conf/2,
+         assert_error_log_empty/1, assert_error_log_empty/2,
+         truncate_error_log/1,
+         pbc/3, pbc/4,
+         json_get/2,
+         datetime/0, datetime/1
+        ]).
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
--include_lib("xmerl/include/xmerl.hrl").
 
 -define(DEVS(N), lists:concat(["dev", N, "@127.0.0.1"])).
 -define(DEV(N), list_to_atom(?DEVS(N))).
 -define(CSDEVS(N), lists:concat(["rcs-dev", N, "@127.0.0.1"])).
 -define(CSDEV(N), list_to_atom(?CSDEVS(N))).
+
+
+riak_node(N) ->
+    ?DEV(N).
+
+cs_node(N) ->
+    ?CSDEV(N).
+
 
 setup(NumNodes) ->
     setup(NumNodes, [], current).
@@ -53,16 +72,6 @@ setup(NumNodes, Configs, Vsn) ->
 
     {AdminConfig, Nodes}.
 
-
-make_admin(ConfigFun, NumNodes, Vsn, CSNode0) when is_function(ConfigFun) ->
-    make_admin([], NumNodes, Vsn, CSNode0);
-make_admin(Configs, NumNodes, Vsn, CSNode0) ->
-    case ssl_options(Configs) of
-        [] ->
-            setup_admin_user(NumNodes, Vsn);
-        _SSLOpts ->
-            rtcs_admin:create_user_rpc(CSNode0, "admin-key", "admin-secret")
-    end.
 
 setup2x2(Configs) ->
     {_, [CSNode0|_]} = Nodes = setup2x2_2(Configs),
@@ -126,10 +135,13 @@ setup_clusters(#{config_spec := Configs,
                              initial_config => Configs,
                              vsn => Vsn}),
 
+    rtcs_dev:create_snmp_dirs(RiakNodes),
+    rtcs_dev:clean_data_dir(RiakNodes, "*"),
+
     rt:pmap(fun(N) -> rtcs_dev:start(N, Vsn) end, RiakNodes),
     rt:wait_for_service(RiakNodes, riak_kv),
 
-    logger:info("Preparing tussle ~p", [erlang:get_cookie()]),
+    logger:info("Preparing a tussle of ~b riak and ~b cs nodes", [length(RiakNodes), length(CSNodes)]),
     JoinFun(RiakNodes),
     ok = rt:wait_until_nodes_ready(RiakNodes),
     ok = rt:wait_until_no_pending_changes(RiakNodes),
@@ -143,20 +155,9 @@ setup_clusters(#{config_spec := Configs,
                     rtcs_dev:start(N, Vsn),
                     rt:wait_until_pingable(N)
             end, Nn),
-    logger:info("Tussle clustered"),
+    logger:info("Tussle ready", []),
 
     Nodes.
-
-ssl_options(Config) ->
-    case proplists:get_value(cs, Config) of
-        undefined -> [];
-        RiakCS ->
-           case proplists:get_value(riak_cs, RiakCS) of
-               undefined -> [];
-               CSConfig ->
-                   proplists:get_value(ssl, CSConfig, [])
-           end
-    end.
 
 
 %% Return Riak node IDs, one per cluster.
@@ -186,9 +187,6 @@ configure_clusters(#{num_nodes := NumNodes,
     logger:debug("VersionMap: ~p", [VersionMap]),
     rt_config:set(rt_versions, VersionMap),
 
-    rtcs_dev:create_snmp_dirs(RiakNodes),
-    rtcs_dev:clean_data_dir(RiakNodes, "*"),
-
     rtcs_dev:create_or_restore_config_backups(RiakNodes ++ CSNodes, Vsn),
 
     if is_function(ConfigSpec) ->
@@ -203,6 +201,28 @@ configure_clusters(#{num_nodes := NumNodes,
     end,
     Nodes.
 
+
+
+make_admin(ConfigFun, NumNodes, Vsn, CSNode0) when is_function(ConfigFun) ->
+    make_admin([], NumNodes, Vsn, CSNode0);
+make_admin(Configs, NumNodes, Vsn, CSNode0) ->
+    case ssl_options(Configs) of
+        [] ->
+            setup_admin_user(NumNodes, Vsn);
+        _SSLOpts ->
+            rtcs_admin:create_user_rpc(CSNode0, "admin-key", "admin-secret")
+    end.
+
+ssl_options(Config) ->
+    case proplists:get_value(cs, Config) of
+        undefined -> [];
+        RiakCS ->
+           case proplists:get_value(riak_cs, RiakCS) of
+               undefined -> [];
+               CSConfig ->
+                   proplists:get_value(ssl, CSConfig, [])
+           end
+    end.
 
 setup_admin_user(NumNodes, Vsn)
   when Vsn =:= current orelse Vsn =:= previous ->
@@ -228,10 +248,11 @@ setup_admin_user(NumNodes, Vsn)
                         ok = rpc:call(Node, application, set_env,
                                       [App, admin_secret, KeySecret])
                 end,
-    ZippedNodes = [{CSNode, riak_cs} || CSNode <- cs_nodes(NumNodes) ],
+    ZippedNodes = [{N, riak_cs} || N <- cs_nodes(NumNodes) ],
     lists:foreach(UpdateFun, ZippedNodes),
 
     {AdminCreds, AdminUId}.
+
 
 -spec set_conf(atom() | {atom(), atom()} | string(), [{string(), string()}]) -> ok.
 set_conf(all, NameValuePairs) ->
@@ -286,6 +307,7 @@ set_advanced_conf(DevPath, NameValuePairs) ->
     [rtcs_dev:update_app_config_file(RiakConf, NameValuePairs) || RiakConf <- Confs],
     ok.
 
+
 assert_error_log_empty(N) ->
     assert_error_log_empty(current, N).
 
@@ -309,18 +331,6 @@ truncate_error_log(N) ->
     logger:info("truncating ~s", [ErrorLog]),
     ok = rtcs_exec:cmd(Cmd, [{args, ["-f", ErrorLog]}]).
 
-wait_until(_, _, 0, _) ->
-    fail;
-wait_until(Fun, Condition, Retries, Delay) ->
-    Result = Fun(),
-    case Condition(Result) of
-        true ->
-            Result;
-        false ->
-            timer:sleep(Delay),
-            wait_until(Fun, Condition, Retries-1, Delay)
-    end.
-
 %% Kind = objects | blocks | users | buckets ...
 pbc(RiakNodes, ObjectKind, Opts) ->
     pbc(rt_config:get(flavor, basic), ObjectKind, RiakNodes, Opts).
@@ -329,10 +339,6 @@ pbc(basic, _ObjectKind, RiakNodes, _Opts) ->
     rt:pbc(hd(RiakNodes));
 pbc({multibag, _} = Flavor, ObjectKind, RiakNodes, Opts) ->
     rtcs_bag:pbc(Flavor, ObjectKind, RiakNodes, Opts).
-
-sha_mac(Key,STS) -> crypto:mac(hmac, sha, Key,STS).
-sha(Bin) -> crypto:hash(sha, Bin).
-md5(Bin) -> crypto:hash(md5, Bin).
 
 datetime() ->
     datetime(calendar:universal_time()).
@@ -353,65 +359,6 @@ json_get([Key | Keys], {struct, JsonProps}) ->
             json_get(Keys, Value)
     end.
 
-check_no_such_bucket(Response, Resource) ->
-    check_error_response(Response,
-                         404,
-                         "NoSuchBucket",
-                         "The specified bucket does not exist.",
-                         Resource).
-
-check_error_response({_, Status, _, RespStr} = _Response,
-                     Status,
-                     Code, Message, Resource) ->
-    {RespXml, _} = xmerl_scan:string(RespStr),
-    lists:all(error_child_element_verifier(Code, Message, Resource),
-              RespXml#xmlElement.content).
-
-error_child_element_verifier(Code, Message, Resource) ->
-    fun(#xmlElement{name='Code', content=[Content]}) ->
-            Content#xmlText.value =:= Code;
-       (#xmlElement{name='Message', content=[Content]}) ->
-            Content#xmlText.value =:= Message;
-       (#xmlElement{name='Resource', content=[Content]}) ->
-            Content#xmlText.value =:= Resource;
-       (_) ->
-            true
-    end.
-
-assert_versions(App, Nodes, Regexp) ->
-    [begin
-         {ok, Vsn} = rpc:call(N, application, get_key, [App, vsn]),
-         logger:debug("~s's vsn at ~s: ~s", [App, N, Vsn]),
-         {match, _} = re:run(Vsn, Regexp)
-     end ||
-        N <- Nodes].
-
-
-%% Copy from rts:iso8601/1
-iso8601(Timestamp) when is_integer(Timestamp) ->
-    GregSec = Timestamp + 719528 * 86400,
-    Datetime = calendar:gregorian_seconds_to_datetime(GregSec),
-    {{Y,M,D},{H,I,S}} = Datetime,
-    io_lib:format("~4..0b~2..0b~2..0bT~2..0b~2..0b~2..0bZ",
-                  [Y, M, D, H, I, S]).
-
-reset_log(Node) ->
-    ok = rpc:call(Node, riak_test_logger_backend, clear, []).
-
-riak_node(N) ->
-    ?DEV(N).
-
-cs_node(N) ->
-    ?CSDEV(N).
-
-maybe_load_intercepts(Node) ->
-    case rt_intercept:are_intercepts_loaded(Node) of
-        false ->
-            ok = rt_intercept:load_intercepts([Node]);
-        true ->
-            ok
-    end.
-
 %% private
 
 riak_nodes(NumNodes) ->
@@ -420,8 +367,3 @@ riak_nodes(NumNodes) ->
 cs_nodes(NumNodes) ->
     [?CSDEV(N) || N <- lists:seq(1, NumNodes)].
 
-node_list(NumNodes) ->
-    NL0 = lists:zip(cs_nodes(NumNodes),
-                    riak_nodes(NumNodes)),
-    {CS1, R1} = hd(NL0),
-    [{CS1, R1} | tl(NL0)].

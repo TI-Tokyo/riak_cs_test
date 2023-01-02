@@ -27,9 +27,11 @@
 %% module like cs743_regression_test.
 
 -export([confirm/0]).
+
+-include_lib("xmerl/include/xmerl.hrl").
 -include_lib("eunit/include/eunit.hrl").
--include("riak_cs.hrl").
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
+-include("riak_cs.hrl").
 
 -define(TEST_BUCKET_CS347, "test-bucket-cs347").
 
@@ -89,7 +91,7 @@ verify_cs347(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes}}, BucketName)
             Result ->
                 Result
         end,
-    ?assert(rtcs:check_no_such_bucket(ListObjectRes1, "/" ++ ?TEST_BUCKET_CS347 ++ "/")),
+    ?assert(check_no_such_bucket(ListObjectRes1, "/" ++ ?TEST_BUCKET_CS347 ++ "/")),
 
     logger:info("creating bucket ~p", [BucketName]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(BucketName, UserConfig)),
@@ -107,8 +109,33 @@ verify_cs347(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes}}, BucketName)
             Result2 ->
                 Result2
         end,
-    ?assert(rtcs:check_no_such_bucket(ListObjectRes2, "/" ++ ?TEST_BUCKET_CS347 ++ "/")),
+    ?assert(check_no_such_bucket(ListObjectRes2, "/" ++ ?TEST_BUCKET_CS347 ++ "/")),
     ok.
+
+check_no_such_bucket(Response, Resource) ->
+    check_error_response(Response,
+                         404,
+                         "NoSuchBucket",
+                         "The specified bucket does not exist.",
+                         Resource).
+
+check_error_response({_, Status, _, RespStr} = _Response,
+                     Status,
+                     Code, Message, Resource) ->
+    {RespXml, _} = xmerl_scan:string(RespStr),
+    lists:all(error_child_element_verifier(Code, Message, Resource),
+              RespXml#xmlElement.content).
+
+error_child_element_verifier(Code, Message, Resource) ->
+    fun(#xmlElement{name='Code', content=[Content]}) ->
+            Content#xmlText.value =:= Code;
+       (#xmlElement{name='Message', content=[Content]}) ->
+            Content#xmlText.value =:= Message;
+       (#xmlElement{name='Resource', content=[Content]}) ->
+            Content#xmlText.value =:= Resource;
+       (_) ->
+            true
+    end.
 
 
 %% @doc Regression test for `riak_cs' <a href="https://github.com/basho/riak_cs/issues/436">

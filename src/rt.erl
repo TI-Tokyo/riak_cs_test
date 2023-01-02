@@ -159,6 +159,7 @@
          wait_for_service/2,
          wait_for_control/1,
          wait_for_control/2,
+         wait_until/4,
          wait_until/3,
          wait_until/2,
          wait_until/1,
@@ -730,6 +731,18 @@ wait_until(Fun, Retry, Delay) when Retry > 0 ->
         _ ->
             timer:sleep(Delay),
             wait_until(Fun, Retry-1, Delay)
+    end.
+
+wait_until(_, _, 0, _) ->
+    fail;
+wait_until(Fun, Condition, Retries, Delay) ->
+    Result = Fun(),
+    case Condition(Result) of
+        true ->
+            Result;
+        false ->
+            timer:sleep(Delay),
+            wait_until(Fun, Condition, Retries-1, Delay)
     end.
 
 %% @doc Wait until the specified node is considered ready by `riak_core'.
