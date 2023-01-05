@@ -259,9 +259,8 @@ set_conf(all, NameValuePairs) ->
     logger:info("rtcs:set_conf(all, ~p)", [NameValuePairs]),
     [ set_conf(DevPath, NameValuePairs) || DevPath <- rtcs_dev:devpaths()],
     ok;
-set_conf(Name, NameValuePairs) when Name =:= riak orelse
-                                    Name =:= cs orelse
-                                    Name =:= stanchion ->
+set_conf(Name, NameValuePairs) when Name =:= riak;
+                                    Name =:= cs ->
     set_conf({Name, current}, NameValuePairs),
     ok;
 set_conf({Name, Vsn}, NameValuePairs) ->

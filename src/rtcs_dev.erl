@@ -110,22 +110,21 @@ get_conf(DevPath, N) ->
     Conf.
 
 get_app_config(Node) ->
-    N = node_id(Node),
-    Path = relpath(node_version(N)),
-    get_conf(Path, N).
-
+    get_app_config(Node, current).
+get_app_config(Node, Vsn) when is_atom(Node) ->
+    Path = node_path(Node, Vsn),
+    io_lib:format("~s/etc/advanced.config", [Path]);
 get_app_config(DevPath, N) ->
     io_lib:format("~s/dev/dev~b/~s/etc/advanced.config", [DevPath, N, rtdev:which_riak(DevPath)]).
 
 update_app_config(all, Config) ->
     [ update_app_config(DevPath, Config) || DevPath <- devpaths()];
 update_app_config(Node, Config) when is_atom(Node) ->
-    N = node_id(Node),
-    Path = relpath(node_version(N)),
-    FileFormatString = "~s/dev/dev~b/~s/etc/~s.config",
+    Path = node_path(Node, current),
+    FileFormatString = "~s/etc/~s.config",
 
-    AppConfigFile = io_lib:format(FileFormatString, [Path, N, rtdev:which_riak(Path), "app"]),
-    AdvConfigFile = io_lib:format(FileFormatString, [Path, N, rtdev:which_riak(Path), "advanced"]),
+    AppConfigFile = io_lib:format(FileFormatString, [Path, "app"]),
+    AdvConfigFile = io_lib:format(FileFormatString, [Path, "advanced"]),
     %% If there's an app.config, do it old style
     %% if not, use cuttlefish's adavnced.config
     case filelib:is_file(AppConfigFile) of
