@@ -27,7 +27,6 @@
 -include("rt.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--compile([export_all, nowarn_export_all]).
 -export([
          admin/2,
          admin/3,
@@ -58,7 +57,6 @@
          console/2,
          copy_conf/3,
          count_calls/2,
-         create_and_activate_bucket_type/3,
          del_dir/1,
          deploy_nodes/1,
          deploy_nodes/2,
@@ -67,9 +65,11 @@
          down/2,
          enable_search_hook/2,
          expect_in_log/2,
+         get_backend/1,
          get_call_count/2,
          get_deps/0,
          get_ip/1,
+         get_node_debug_logs/0,
          get_node_logs/0,
          get_preflist/3,
          get_preflist/4,
@@ -99,13 +99,7 @@
          partitions_for_node/1,
          pbc/1,
          pbc/2,
-         pbc_read/3,
-         pbc_read/4,
-         pbc_read_check/4,
-         pbc_read_check/5,
          pbc_set_bucket_prop/3,
-         pbc_write/4,
-         pbc_write/6,
          pbc_put_dir/3,
          pbc_put_file/4,
          pbc_really_deleted/3,
@@ -132,6 +126,7 @@
          spawn_cmd/1,
          spawn_cmd/2,
          search_cmd/2,
+         search_logs/2,
          start/1,
          start_and_wait/1,
          status_of_according_to/2,
@@ -166,8 +161,6 @@
          wait_until_aae_trees_built/1,
          wait_until_all_members/1,
          wait_until_all_members/2,
-         wait_until_bucket_props/3,
-         wait_until_bucket_type_visible/2,
          wait_until_capability/3,
          wait_until_capability/4,
          wait_until_connected/1,
@@ -183,7 +176,6 @@
          wait_until_status_ready/1,
          wait_until_transfers_complete/1,
          wait_until_unpingable/1,
-         wait_until_bucket_type_status/3,
          whats_up/0
         ]).
 -export_type([interfaces/0,
@@ -236,7 +228,7 @@ set_conf(all, NameValuePairs) ->
     ?HARNESS:set_conf(all, NameValuePairs);
 set_conf(Node, NameValuePairs) when is_atom(Node) ->
     stop(Node),
-    ?assertEqual(ok, rt:wait_until_unpingable(Node)),
+    ?assertEqual(ok, wait_until_unpingable(Node)),
     ?HARNESS:set_conf(Node, NameValuePairs),
     start(Node).
 
@@ -245,7 +237,7 @@ set_advanced_conf(all, NameValuePairs) ->
     ?HARNESS:set_advanced_conf(all, NameValuePairs);
 set_advanced_conf(Node, NameValuePairs) when is_atom(Node) ->
     stop(Node),
-    ?assertEqual(ok, rt:wait_until_unpingable(Node)),
+    ?assertEqual(ok, wait_until_unpingable(Node)),
     ?HARNESS:set_advanced_conf(Node, NameValuePairs),
     start(Node).
 
@@ -255,7 +247,7 @@ update_app_config(all, Config) ->
     ?HARNESS:update_app_config(all, Config);
 update_app_config(Node, Config) ->
     stop(Node),
-    ?assertEqual(ok, rt:wait_until_unpingable(Node)),
+    ?assertEqual(ok, wait_until_unpingable(Node)),
     ?HARNESS:update_app_config(Node, Config),
     start(Node).
 
@@ -425,7 +417,7 @@ slow_upgrade(Node, NewVersion, Nodes) ->
     logger:info("Perform leave/upgrade/join upgrade on ~p", [Node]),
     logger:info("Leaving ~p", [Node]),
     leave(Node),
-    ?assertEqual(ok, rt:wait_until_unpingable(Node)),
+    ?assertEqual(ok, wait_until_unpingable(Node)),
     upgrade(Node, NewVersion),
     logger:info("Rejoin ~p", [Node]),
     join(Node, hd(Nodes -- [Node])),
@@ -556,20 +548,6 @@ heal({_NewCookie, OldCookie, P1, P2}) ->
     wait_until_connected(Cluster),
     {_GN, []} = rpc:sbcast(Cluster, riak_core_node_watcher, broadcast),
     ok.
-
-%% @doc heal the partition created by call to partition/2, but if some
-%% node in P1 is down, just skip it, rather than failing. Returns {ok,
-%% list(node())} where the list is those nodes down and therefore not
-%% healed/reconnected.
-heal_upnodes({_NewCookie, OldCookie, P1, P2}) ->
-    %% set OldCookie on UP P1 Nodes
-    Res = [{N, rpc:call(N, erlang, set_cookie, [N, OldCookie])} || N <- P1],
-    UpForReconnect = [N || {N, true} <- Res],
-    DownForReconnect = [N || {N, RPC} <- Res, RPC /= true],
-    Cluster = UpForReconnect ++ P2,
-    wait_until_connected(Cluster),
-    {_GN, []} = rpc:sbcast(Cluster, riak_core_node_watcher, broadcast),
-    {ok, DownForReconnect}.
 
 %% @doc Spawn `Cmd' on the machine running the test harness
 spawn_cmd(Cmd) ->
@@ -822,17 +800,6 @@ wait_until_transfers_complete([Node0|_]) ->
     ?assertEqual(ok, wait_until(Node0, F)),
     ok.
 
-%% @doc Waits until hinted handoffs from `Node0' are complete
-wait_until_node_handoffs_complete(Node0) ->
-    logger:info("Wait until Node's transfers complete ~p", [Node0]),
-    F = fun(Node) ->
-                Handoffs = rpc:call(Node, riak_core_handoff_manager, status, [{direction, outbound}]),
-                logger:info("Handoffs: ~p", [Handoffs]),
-                Handoffs =:= []
-        end,
-    ?assertEqual(ok, wait_until(Node0, F)),
-    ok.
-
 wait_for_service(Node, Services) when is_list(Services) ->
     F = fun(N) ->
                 case rpc:call(N, riak_core_node_watcher, services, [N]) of
@@ -1019,22 +986,10 @@ wait_until_capability(Node, Capability, Value, Default) ->
                           cap_equal(Value, Cap)
                   end).
 
--spec wait_until_capability_contains(node(), atom() | {atom(), atom()}, list()) -> ok.
-wait_until_capability_contains(Node, Capability, Value) ->
-    rt:wait_until(Node,
-                fun(_) ->
-                    Cap = capability(Node, Capability),
-                    logger:info("Capability on node ~p is ~p~n",[Node, Cap]),
-                    cap_subset(Value, Cap)
-                end).
-
 cap_equal(Val, Cap) when is_list(Cap) ->
     lists:sort(Cap) == lists:sort(Val);
 cap_equal(Val, Cap) ->
     Val == Cap.
-
-cap_subset(Val, Cap) when is_list(Cap) ->
-    sets:is_subset(sets:from_list(Val), sets:from_list(Cap)).
 
 wait_until_owners_according_to(Node, Nodes) ->
     SortedNodes = lists:usort(Nodes),
@@ -1345,63 +1300,6 @@ versions() ->
 %%% Basic Read/Write Functions
 %%%===================================================================
 
-systest_delete(Node, Size) ->
-    systest_delete(Node, Size, 2).
-
-systest_delete(Node, Size, W) ->
-    systest_delete(Node, 1, Size, <<"systest">>, W).
-
-%% @doc Delete `(End-Start)+1' objects on `Node'. Keys deleted will be
-%% `Start', `Start+1' ... `End', each key being encoded as a 32-bit binary
-%% (`<<Key:32/integer>>').
-%%
-%% The return value of this function is a list of errors
-%% encountered. If all deletes were successful, return value is an
-%% empty list. Each error has the form `{N :: integer(), Error :: term()}',
-%% where `N' is the unencoded key of the object that failed to store.
-systest_delete(Node, Start, End, Bucket, W) ->
-    rt:wait_for_service(Node, riak_kv),
-    {ok, C} = riak:client_connect(Node),
-    F = fun(N, Acc) ->
-                Key = <<N:32/integer>>,
-                try riak_client:delete(Bucket, Key, W, C) of
-                    ok ->
-                        Acc;
-                    Other ->
-                        [{N, Other} | Acc]
-                catch
-                    What:Why ->
-                        [{N, {What, Why}} | Acc]
-                end
-        end,
-    lists:foldl(F, [], lists:seq(Start, End)).
-
-systest_verify_delete(Node, Size) ->
-    systest_verify_delete(Node, Size, 2).
-
-systest_verify_delete(Node, Size, R) ->
-    systest_verify_delete(Node, 1, Size, <<"systest">>, R).
-
-%% @doc Read a series of keys on `Node' and verify that the objects
-%% do not exist. This could, for instance, be used as a followup to
-%% `systest_delete' to ensure that the objects were actually deleted.
-systest_verify_delete(Node, Start, End, Bucket, R) ->
-    rt:wait_for_service(Node, riak_kv),
-    {ok, C} = riak:client_connect(Node),
-    F = fun(N, Acc) ->
-                Key = <<N:32/integer>>,
-                try riak_client:get(Bucket, Key, R, C) of
-                    {error, notfound} ->
-                        [];
-                    Other ->
-                        [{N, Other} | Acc]
-                catch
-                    What:Why ->
-                        [{N, {What, Why}} | Acc]
-                end
-        end,
-    lists:foldl(F, [], lists:seq(Start, End)).
-
 systest_write(Node, Size) ->
     systest_write(Node, Size, 2).
 
@@ -1557,54 +1455,6 @@ get_replica(Node, Bucket, Key, I, N) ->
 
 %%%===================================================================
 
-%% @doc PBC-based version of {@link systest_write/1}
-pbc_systest_write(Node, Size) ->
-    pbc_systest_write(Node, Size, 2).
-
-pbc_systest_write(Node, Size, W) ->
-    pbc_systest_write(Node, 1, Size, <<"systest">>, W).
-
-pbc_systest_write(Node, Start, End, Bucket, W) ->
-    rt:wait_for_service(Node, riak_kv),
-    Pid = pbc(Node),
-    F = fun(N, Acc) ->
-                Obj = riakc_obj:new(Bucket, <<N:32/integer>>, <<N:32/integer>>),
-                try riakc_pb_socket:put(Pid, Obj, W) of
-                    ok ->
-                        Acc;
-                    Other ->
-                        [{N, Other} | Acc]
-                catch
-                    What:Why ->
-                        [{N, {What, Why}} | Acc]
-                end
-        end,
-    lists:foldl(F, [], lists:seq(Start, End)).
-
-pbc_systest_read(Node, Size) ->
-    pbc_systest_read(Node, Size, 2).
-
-pbc_systest_read(Node, Size, R) ->
-    pbc_systest_read(Node, 1, Size, <<"systest">>, R).
-
-pbc_systest_read(Node, Start, End, Bucket, R) ->
-    rt:wait_for_service(Node, riak_kv),
-    Pid = pbc(Node),
-    F = fun(N, Acc) ->
-                case riakc_pb_socket:get(Pid, Bucket, <<N:32/integer>>, R) of
-                    {ok, Obj} ->
-                        case riakc_obj:get_value(Obj) of
-                            <<N:32/integer>> ->
-                                Acc;
-                            WrongVal ->
-                                [{N, {wrong_val, WrongVal}} | Acc]
-                        end;
-                    Other ->
-                        [{N, Other} | Acc]
-                end
-        end,
-    lists:foldl(F, [], lists:seq(Start, End)).
-
 %%%===================================================================
 %%% PBC & HTTPC Functions
 %%%===================================================================
@@ -1621,47 +1471,6 @@ pbc(Node, Options) ->
     {IP, PBPort} = proplists:get_value(pb, ConnInfo),
     {ok, Pid} = riakc_pb_socket:start_link(IP, PBPort, Options),
     Pid.
-
-%% @doc does a read via the erlang protobuf client
--spec pbc_read(pid(), binary(), binary()) -> binary().
-pbc_read(Pid, Bucket, Key) ->
-    pbc_read(Pid, Bucket, Key, []).
-
--spec pbc_read(pid(), binary(), binary(), [any()]) -> binary().
-pbc_read(Pid, Bucket, Key, Options) ->
-    {ok, Value} = riakc_pb_socket:get(Pid, Bucket, Key, Options),
-    Value.
-
--spec pbc_read_check(pid(), binary(), binary(), [any()]) -> boolean().
-pbc_read_check(Pid, Bucket, Key, Allowed) ->
-    pbc_read_check(Pid, Bucket, Key, Allowed, []).
-
--spec pbc_read_check(pid(), binary(), binary(), [any()], [any()]) -> boolean().
-pbc_read_check(Pid, Bucket, Key, Allowed, Options) ->
-    case riakc_pb_socket:get(Pid, Bucket, Key, Options) of
-        {ok, _} ->
-            true = lists:member(ok, Allowed);
-        Other ->
-            lists:member(Other, Allowed) orelse throw({failed, Other, Allowed})
-    end.
-
-%% @doc does a write via the erlang protobuf client
--spec pbc_write(pid(), binary(), binary(), binary()) -> atom().
-pbc_write(Pid, Bucket, Key, Value) ->
-    Object = riakc_obj:new(Bucket, Key, Value),
-    riakc_pb_socket:put(Pid, Object).
-
-%% @doc does a write via the erlang protobuf client plus content-type
--spec pbc_write(pid(), binary(), binary(), binary(), list()) -> atom().
-pbc_write(Pid, Bucket, Key, Value, CT) ->
-    Object = riakc_obj:new(Bucket, Key, Value, CT),
-    riakc_pb_socket:put(Pid, Object).
-
-%% @doc does a write via the erlang protobuf client plus content-type
--spec pbc_write(pid(), binary(), binary(), binary(), list(), list()) -> atom().
-pbc_write(Pid, Bucket, Key, Value, CT, Opts) ->
-    Object = riakc_obj:new(Bucket, Key, Value, CT),
-    riakc_pb_socket:put(Pid, Object, Opts).
 
 %% @doc sets a bucket property/properties via the erlang protobuf client
 -spec pbc_set_bucket_prop(pid(), binary(), [proplists:property()]) -> atom().
@@ -2010,73 +1819,6 @@ post_result(TestResult, #rt_webhook{url=URL, headers=HookHeaders, name=Name}) ->
             error
     end.
 
-%%%===================================================================
-%%% Bucket Types Functions
-%%%===================================================================
-
-%% @doc create and immediately activate a bucket type
-create_and_activate_bucket_type(Node, Type, Props) ->
-    ok = rpc:call(Node, riak_core_bucket_type, create, [Type, Props]),
-    wait_until_bucket_type_status(Type, ready, Node),
-    ok = rpc:call(Node, riak_core_bucket_type, activate, [Type]),
-    wait_until_bucket_type_status(Type, active, Node).
-
-create_activate_and_wait_for_bucket_type([Node|_Rest]=Cluster, Type, Props) ->
-    create_and_activate_bucket_type(Node, Type, Props),
-    wait_until_bucket_type_visible(Cluster, Type).
-
-wait_until_bucket_type_status(Type, ExpectedStatus, Nodes) when is_list(Nodes) ->
-    [wait_until_bucket_type_status(Type, ExpectedStatus, Node) || Node <- Nodes];
-wait_until_bucket_type_status(Type, ExpectedStatus, Node) ->
-    F = fun() ->
-                ActualStatus = rpc:call(Node, riak_core_bucket_type, status, [Type]),
-                ExpectedStatus =:= ActualStatus
-        end,
-    ?assertEqual(ok, rt:wait_until(F)).
-
--spec bucket_type_visible([atom()], binary()|{binary(), binary()}) -> boolean().
-bucket_type_visible(Nodes, Type) ->
-    MaxTime = rt_config:get(rt_max_wait_time),
-    IsVisible = fun erlang:is_list/1,
-    {Res, NodesDown} = rpc:multicall(Nodes, riak_core_bucket_type, get, [Type], MaxTime),
-    NodesDown == [] andalso lists:all(IsVisible, Res).
-
-wait_until_bucket_type_visible(Nodes, Type) ->
-    F = fun() -> bucket_type_visible(Nodes, Type) end,
-    ?assertEqual(ok, rt:wait_until(F)).
-
--spec see_bucket_props([atom()], binary()|{binary(), binary()},
-                       proplists:proplist()) -> boolean().
-see_bucket_props(Nodes, Bucket, ExpectProps) ->
-    MaxTime = rt_config:get(rt_max_wait_time),
-    IsBad = fun({badrpc, _}) -> true;
-               ({error, _}) -> true;
-               (Res) when is_list(Res) -> false
-            end,
-    HasProps = fun(ResProps) ->
-                       lists:all(fun(P) -> lists:member(P, ResProps) end,
-                                 ExpectProps)
-               end,
-    case rpc:multicall(Nodes, riak_core_bucket, get_bucket, [Bucket], MaxTime) of
-        {Res, []} ->
-            % No nodes down, check no errors
-            case lists:any(IsBad, Res) of
-                true  ->
-                    false;
-                false ->
-                    lists:all(HasProps, Res)
-            end;
-        {_, _NodesDown} ->
-            false
-    end.
-
-wait_until_bucket_props(Nodes, Bucket, Props) ->
-    F = fun() ->
-                see_bucket_props(Nodes, Bucket, Props)
-        end,
-    ?assertEqual(ok, rt:wait_until(F)).
-
-
 %% @doc Set up in memory log capture to check contents in a test.
 setup_log_capture(Nodes) when is_list(Nodes) ->
     rt:load_modules_on_nodes([riak_test_logger_backend], Nodes),
@@ -2112,17 +1854,6 @@ expect_in_log(Node, Pattern, Retry, Delay) ->
         ok ->
             true;
         _ ->
-            false
-    end.
-
-%% @doc Returns `true' if Pattern is _not_ found in the logs for `Node',
-%% `false' if it _is_ found.
--spec expect_not_in_logs(Node::node(), Pattern::iodata()) -> boolean().
-expect_not_in_logs(Node, Pattern) ->
-    case search_logs(Node, Pattern) of
-        [] ->
-            true;
-        _Matches ->
             false
     end.
 
@@ -2278,11 +2009,6 @@ stop_tracing() ->
     logger:info("stop all dbg tracing"),
     dbg:stop_clear(),
     ok.
-
-get_primary_preflist(Node, Bucket, Key, NVal) ->
-    DocIdx = rpc:call(Node, riak_core_util, chash_std_keyfun, [{Bucket, Key}]),
-    PL = rpc:call(Node, riak_core_apl, get_primary_apl, [DocIdx, NVal, riak_kv]),
-    {ok, PL}.
 
 %% @doc Trace fun calls and store their count state into an ETS table.
 -spec trace_count({trace, pid(), call|return_from,
