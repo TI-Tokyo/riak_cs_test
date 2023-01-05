@@ -67,21 +67,21 @@ create_admin_user(Node) ->
     %% must match the values in client_tests/python/boto_test.py
 
     {UserConfig, Id} = create_user(rtcs_config:cs_port(Node), Email, User),
-    logger:info("Riak CS Admin account created with ~p", [Email]),
-    logger:info("KeyId    : ~s", [UserConfig#aws_config.access_key_id]),
-    logger:info("KeySecret: ~s", [UserConfig#aws_config.secret_access_key]),
-    logger:info("UserId   : ~s", [Id]),
+    logger:info("Created Riak CS Admin account with:", []),
+    logger:info("KeyId     : ~s", [UserConfig#aws_config.access_key_id]),
+    logger:info("KeySecret : ~s", [UserConfig#aws_config.secret_access_key]),
+    logger:info("UserId    : ~s", [Id]),
     {UserConfig, Id}.
 
 -spec create_user(atom(), non_neg_integer()) -> #aws_config{}.
 create_user(Node, UserIndex) ->
-    {A, B, C} = erlang:timestamp(),
     User = "Test User" ++ integer_to_list(UserIndex),
-    Email = lists:flatten(io_lib:format("~p~p~p@basho.com", [A, B, C])),
-    {UserConfig, _Id} = create_user(rtcs_config:cs_port(Node), Email, User),
-    logger:info("Created user ~p with keys ~p ~p", [Email,
-                                                    UserConfig#aws_config.access_key_id,
-                                                    UserConfig#aws_config.secret_access_key]),
+    Email = lists:flatten(io_lib:format("test_user_~b@basho.com", [UserIndex])),
+    {UserConfig, Id} = create_user(rtcs_config:cs_port(Node), Email, User),
+    logger:info("Created user ~s (~s):", [User, Email]),
+    logger:info("KeyId     : ~s", [UserConfig#aws_config.access_key_id]),
+    logger:info("KeySecret : ~s", [UserConfig#aws_config.secret_access_key]),
+    logger:info("UserId    : ~s", [Id]),
     UserConfig.
 
 -spec create_user(non_neg_integer(), string(), string()) -> {#aws_config{}, string()}.
