@@ -1,10 +1,6 @@
-ebin
-log
-riak_test
-smoke_test
-.eunit
-coverage
 _build/
+ebin/
+log/
 *.beam
-
 rebar.lock
+rcst
