@@ -39,10 +39,6 @@
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
--define(S3_HOST, "s3.amazonaws.com").
--define(DEFAULT_PROTO, "http").
--define(PROXY_HOST, "localhost").
-
 -spec storage_stats_json_request(#aws_config{}, #aws_config{}, string(), string()) ->
                                         [{string(), {non_neg_integer(), non_neg_integer()}}].
 storage_stats_json_request(AdminConfig, UserConfig, Begin, End) ->
@@ -96,7 +92,7 @@ create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
     ReqBody = "{\"email\":\"" ++ EmailAddr ++  "\", \"name\":\"" ++ Name ++"\"}",
     Delay = rt_config:get(rt_retry_delay),
     Retries = rt_config:get(rt_max_wait_time) div Delay,
-    OutputFun = fun() -> erlcloud_s3:s3_request(
+    OutputFun = fun() -> s3_request(
                            UserConfig,
                            post, "", Resource, [], "",
                            {ReqBody, "application/json"}, [])
@@ -116,7 +112,7 @@ create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
 
 -spec update_user(#aws_config{}, non_neg_integer(), string(), string(), string()) -> string().
 update_user(UserConfig, _Port, Resource, ContentType, UpdateDoc) ->
-    {_ResHeader, ResBody} = erlcloud_s3:s3_request(
+    {_ResHeader, ResBody} = s3_request(
                               UserConfig, put, "", Resource, [], "",
                               {UpdateDoc, ContentType}, []),
     logger:debug("ResBody: ~s", [ResBody]),
@@ -126,7 +122,7 @@ update_user(UserConfig, _Port, Resource, ContentType, UpdateDoc) ->
 get_user(UserConfig, _Port, Resource, AcceptContentType) ->
     logger:debug("Retreiving user record"),
     Headers = [{"Accept", AcceptContentType}],
-    {_ResHeader, ResBody} = erlcloud_s3:s3_request(
+    {_ResHeader, ResBody} = s3_request(
                               UserConfig, get, "", Resource, [], "", "", Headers),
     logger:debug("ResBody: ~s", [ResBody]),
     ResBody.
@@ -134,9 +130,112 @@ get_user(UserConfig, _Port, Resource, AcceptContentType) ->
 -spec list_users(#aws_config{}, non_neg_integer(), string(), string()) -> string().
 list_users(UserConfig, _Port, Resource, AcceptContentType) ->
     Headers = [{"Accept", AcceptContentType}],
-    {_ResHeader, ResBody} = erlcloud_s3:s3_request(
+    {_ResHeader, ResBody} = s3_request(
                               UserConfig, get, "", Resource, [], "", "", Headers),
     ResBody.
+
+s3_request(#aws_config{s3_host = S3Host,
+                       s3_scheme = S3Scheme,
+                       hackney_client_options = #hackney_client_options{proxy = {ProxyHost, ProxyPort}}} = Config,
+           Method, Host, Path, Subresources, Params, POSTData, Headers) ->
+    {ContentMD5, ContentType, Body} =
+        case POSTData of
+            {PD, CT} -> {base64:encode(crypto:hash(md5, PD)), CT, PD}; PD -> {"", "", PD}
+        end,
+    AmzHeaders = lists:filter(fun ({"x-amz-" ++ _, V}) when V =/= undefined -> true; (_) -> false end, Headers),
+    Date = httpd_util:rfc1123_date(erlang:localtime()),
+    EscapedPath = url_encode_loose(Path),
+    Authorization = make_authorization(Config, Method, ContentMD5, ContentType,
+                                       Date, AmzHeaders, Host, EscapedPath, Subresources),
+    FHeaders = [Header || {_, Value} = Header <- Headers, Value =/= undefined],
+    RequestHeaders = [{"date", Date}, {"authorization", Authorization}|FHeaders] ++
+        case ContentMD5 of
+            "" -> [];
+            _ -> [{"content-md5", binary_to_list(ContentMD5)}]
+        end,
+    RequestURI = lists:flatten([
+                                S3Scheme,
+                                case Host of "" -> ""; _ -> [Host, $.] end,
+                                S3Host, ":", integer_to_list(ProxyPort),
+                                EscapedPath,
+                                format_subresources(Subresources),
+                                if
+                                    Params =:= [] -> "";
+                                    Subresources =:= [] -> [$?, uri_string:compose_query(Params)];
+                                    true -> [$&, uri_string:compose_query(Params)]
+                                end
+                               ]),
+    Timeout = 240000,
+    Options = [{proxy_host, ProxyHost}, {proxy_port, ProxyPort}],
+    Response =
+        ibrowse:send_req(RequestURI, [{"content-type", ContentType} | RequestHeaders],
+                         Method, Body,
+                         Options, Timeout),
+    case Response of
+        {ok, Status, ResponseHeaders, ResponseBody} ->
+             S = list_to_integer(Status),
+             case S >= 200 andalso S =< 299 of
+                 true ->
+                     {ResponseHeaders, ResponseBody};
+                 false ->
+                     erlang:error({aws_error, {http_error, S, "", ResponseBody}})
+             end;
+        {error, Error} ->
+            erlang:error({aws_error, {socket_error, Error}})
+    end.
+
+url_encode_loose(Binary) when is_binary(Binary) ->
+    url_encode_loose(binary_to_list(Binary));
+url_encode_loose(String) ->
+    url_encode_loose(String, []).
+url_encode_loose([], Accum) ->
+    lists:reverse(Accum);
+url_encode_loose([Char|String], Accum)
+  when Char >= $A, Char =< $Z;
+       Char >= $a, Char =< $z;
+       Char >= $0, Char =< $9;
+       Char =:= $-; Char =:= $_;
+       Char =:= $.; Char =:= $~;
+       Char =:= $/; Char =:= $: ->
+    url_encode_loose(String, [Char|Accum]);
+url_encode_loose([Char|String], Accum)
+  when Char >=0, Char =< 255 ->
+    url_encode_loose(String, [hex_char(Char rem 16), hex_char(Char div 16),$%|Accum]).
+
+hex_char(C) when C >= 0, C =< 9 -> $0 + C;
+hex_char(C) when C >= 10, C =< 15 -> $A + C - 10.
+
+format_subresources([]) ->
+    [];
+format_subresources(Subresources) ->
+    [$? | string:join(lists:sort([format_subresource(Subresource) ||
+                                     Subresource <- Subresources]),
+                      "&")].
+
+format_subresource({Subresource, Value}) when is_list(Value) ->
+    Subresource ++ "=" ++ Value;
+format_subresource({Subresource, Value}) when is_integer(Value) ->
+    Subresource ++ "=" ++ integer_to_list(Value);
+format_subresource(Subresource) ->
+    Subresource.
+
+make_authorization(#aws_config{access_key_id = KeyId,
+                               secret_access_key = SecretKey},
+                   Method, ContentMD5, ContentType, Date, AmzHeaders,
+                   Host, Resource, Subresources) ->
+    CanonizedAmzHeaders =
+        [[Name, $:, Value, $\n] || {Name, Value} <- lists:sort(AmzHeaders)],
+    StringToSign = [string:to_upper(atom_to_list(Method)), $\n,
+                    ContentMD5, $\n,
+                    ContentType, $\n,
+                    Date, $\n,
+                    CanonizedAmzHeaders,
+                    case Host of "" -> ""; _ -> [$/, Host] end,
+                    Resource,
+                    format_subresources(Subresources)
+                   ],
+    Signature = base64:encode(crypto:mac(hmac, sha, SecretKey, StringToSign)),
+    ["AWS ", KeyId, $:, Signature].
 
 -spec(make_authorization(string(), string(), string(), #aws_config{}, string()) -> string()).
 make_authorization(Method, Resource, ContentType, Config, Date) ->
@@ -162,48 +261,23 @@ make_authorization(Type, Method, Resource, ContentType, Config, Date, AmzHeaders
 
 -spec aws_config(string(), string(), non_neg_integer()) -> #aws_config{}.
 aws_config(Key, Secret, Port) ->
-    erlcloud_s3:new(Key,
-                Secret,
-                ?S3_HOST,
-                Port, % inets issue precludes using ?S3_PORT
-                ?DEFAULT_PROTO,
-                ?PROXY_HOST,
-                Port,
-                []).
+    #aws_config{access_key_id = Key,
+                secret_access_key = Secret,
+                s3_scheme = "http://",
+                hackney_client_options = #hackney_client_options{proxy = {"localhost", Port}}}.
 
 -spec aws_config(#aws_config{}, [{atom(), term()}]) -> #aws_config{}.
 aws_config(UserConfig, []) ->
     UserConfig;
 aws_config(UserConfig, [{port, Port}|Props]) ->
-    UpdConfig = erlcloud_s3:new(UserConfig#aws_config.access_key_id,
-                                UserConfig#aws_config.secret_access_key,
-                                ?S3_HOST,
-                                Port, % inets issue precludes using ?S3_PORT
-                                ?DEFAULT_PROTO,
-                                ?PROXY_HOST,
-                                Port,
-                                []),
-    aws_config(UpdConfig, Props);
+    aws_config(UserConfig#aws_config{hackney_client_options = #hackney_client_options{proxy = {"localhost", Port}}},
+               Props);
 aws_config(UserConfig, [{key, KeyId}|Props]) ->
-    UpdConfig = erlcloud_s3:new(KeyId,
-                                UserConfig#aws_config.secret_access_key,
-                                ?S3_HOST,
-                                UserConfig#aws_config.s3_port, % inets issue precludes using ?S3_PORT
-                                ?DEFAULT_PROTO,
-                                ?PROXY_HOST,
-                                UserConfig#aws_config.s3_port,
-                                []),
-    aws_config(UpdConfig, Props);
+    aws_config(UserConfig#aws_config{access_key_id = KeyId},
+               Props);
 aws_config(UserConfig, [{secret, Secret}|Props]) ->
-    UpdConfig = erlcloud_s3:new(UserConfig#aws_config.access_key_id,
-                                Secret,
-                                ?S3_HOST,
-                                UserConfig#aws_config.s3_port, % inets issue precludes using ?S3_PORT
-                                ?DEFAULT_PROTO,
-                                ?PROXY_HOST,
-                                UserConfig#aws_config.s3_port,
-                                []),
-    aws_config(UpdConfig, Props).
+    aws_config(UserConfig#aws_config{secret_access_key = Secret},
+               Props).
 
 
 latest([], {_, Candidate}) ->

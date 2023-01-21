@@ -99,9 +99,8 @@ send_ssl_request(Config, Payload) ->
     ssl:close(Sock),
     ok.
 
-get_config_target_address(#aws_config{s3_port = Port, http_options = Opts}) ->
-    {proplists:get_value(proxy_host, Opts, "localhost"),
-     proplists:get_value(proxy_port, Opts, Port)}.
+get_config_target_address(#aws_config{hackney_client_options = #hackney_client_options{proxy = HP}}) ->
+    HP.
 
 base_header(B, K, CL, MD5, UserConfig, MetaTags) ->
     Host = io_lib:format("~s.s3.amazonaws.com", [B]),

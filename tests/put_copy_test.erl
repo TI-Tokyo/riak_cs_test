@@ -245,8 +245,11 @@ verify_security(Alice, Bob, Charlie) ->
                                        CSPort, AlicesObject])),
     Headers = [{"x-amz-copy-source", string:join([AlicesBucket, AlicesObject], "/")},
                {"Content-Length", 0}],
-    {ok, Status, Hdr, _Msg} = ibrowse:send_req(URL, Headers, put, [],
-                                               Charlie#aws_config.http_options),
+    #hackney_client_options{proxy = {ProxyHost, ProxyPort}} =
+        Charlie#aws_config.hackney_client_options,
+    {ok, Status, Hdr, _Msg} =
+        ibrowse:send_req(URL, Headers, put, [], [{proxy_host, ProxyHost},
+                                                 {proxy_port, ProxyPort}]),
     logger:debug("request ~p ~p => ~p ~p", [URL, Headers, Status, Hdr]),
     ?assertEqual("403", Status),
 
