@@ -90,20 +90,10 @@ create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
     logger:debug("Trying to create user ~p", [EmailAddr]),
     Resource = "/riak-cs/user",
     ReqBody = "{\"email\":\"" ++ EmailAddr ++  "\", \"name\":\"" ++ Name ++"\"}",
-    Delay = rt_config:get(rt_retry_delay),
-    Retries = rt_config:get(rt_max_wait_time) div Delay,
-    OutputFun = fun() -> s3_request(
-                           UserConfig,
-                           post, "", Resource, [], "",
-                           {ReqBody, "application/json"}, [])
-                end,
-    Condition = fun({'EXIT', Res}) ->
-                        logger:error("create_user failing, Res: ~p", [Res]),
-                        false;
-                   ({_ResHeader, _ResBody}) ->
-                        true
-                end,
-    {_ResHeader, ResBody} = rt:wait_until(OutputFun, Condition, Retries, Delay),
+    {_ResHeader, ResBody} =
+        s3_request(UserConfig,
+                   post, "", Resource, [], "",
+                   {ReqBody, "application/json"}, []),
     logger:debug("ResBody: ~s", [ResBody]),
     JsonData = mochijson2:decode(ResBody),
     [KeyId, KeySecret, Id] = [binary_to_list(rtcs:json_get([K], JsonData)) ||
@@ -136,7 +126,7 @@ list_users(UserConfig, _Port, Resource, AcceptContentType) ->
 
 s3_request(#aws_config{s3_host = S3Host,
                        s3_scheme = S3Scheme,
-                       hackney_client_options = #hackney_client_options{proxy = {ProxyHost, ProxyPort}}} = Config,
+                       hackney_client_options = #hackney_client_options{proxy = {_ProxyHost, ProxyPort}}} = Config,
            Method, Host, Path, Subresources, Params, POSTData, Headers) ->
     {ContentMD5, ContentType, Body} =
         case POSTData of
@@ -153,36 +143,23 @@ s3_request(#aws_config{s3_host = S3Host,
             "" -> [];
             _ -> [{"content-md5", binary_to_list(ContentMD5)}]
         end,
-    RequestURI = lists:flatten([
-                                S3Scheme,
-                                case Host of "" -> ""; _ -> [Host, $.] end,
-                                S3Host, ":", integer_to_list(ProxyPort),
-                                EscapedPath,
-                                format_subresources(Subresources),
-                                if
-                                    Params =:= [] -> "";
-                                    Subresources =:= [] -> [$?, uri_string:compose_query(Params)];
-                                    true -> [$&, uri_string:compose_query(Params)]
-                                end
-                               ]),
-    Timeout = 240000,
-    Options = [{proxy_host, ProxyHost}, {proxy_port, ProxyPort}],
-    Response =
+    RequestURI =
+        lists:flatten([S3Scheme,
+                       case Host of "" -> ""; _ -> [Host, $.] end,
+                       S3Host, ":", integer_to_list(ProxyPort),
+                       EscapedPath,
+                       format_subresources(Subresources),
+                       if
+                           Params =:= [] -> "";
+                           Subresources =:= [] -> [$?, uri_string:compose_query(Params)];
+                           true -> [$&, uri_string:compose_query(Params)]
+                       end
+                      ]),
+    Options = [{proxy_host, "127.0.0.1"}, {proxy_port, ProxyPort}],
+    {ok, _Status, ResponseHeaders, ResponseBody} =
         ibrowse:send_req(RequestURI, [{"content-type", ContentType} | RequestHeaders],
-                         Method, Body,
-                         Options, Timeout),
-    case Response of
-        {ok, Status, ResponseHeaders, ResponseBody} ->
-             S = list_to_integer(Status),
-             case S >= 200 andalso S =< 299 of
-                 true ->
-                     {ResponseHeaders, ResponseBody};
-                 false ->
-                     erlang:error({aws_error, {http_error, S, "", ResponseBody}})
-             end;
-        {error, Error} ->
-            erlang:error({aws_error, {socket_error, Error}})
-    end.
+                         Method, Body, Options),
+    {ResponseHeaders, ResponseBody}.
 
 url_encode_loose(Binary) when is_binary(Binary) ->
     url_encode_loose(binary_to_list(Binary));
@@ -264,7 +241,7 @@ aws_config(Key, Secret, Port) ->
     #aws_config{access_key_id = Key,
                 secret_access_key = Secret,
                 s3_scheme = "http://",
-                hackney_client_options = #hackney_client_options{proxy = {"localhost", Port}}}.
+                hackney_client_options = #hackney_client_options{proxy = {"http://127.0.0.1", Port}}}.
 
 -spec aws_config(#aws_config{}, [{atom(), term()}]) -> #aws_config{}.
 aws_config(UserConfig, []) ->
