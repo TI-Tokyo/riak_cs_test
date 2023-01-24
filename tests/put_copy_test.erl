@@ -26,9 +26,9 @@
 
 -define(assert403(X),
         ?assertError({aws_error, {http_error, 403, _, _}}, (X))).
--define(assertHeader(Key, Expected, Props),
+-define(assertProp(Key, Expected, Props),
         ?assertEqual(Expected,
-                     proplists:get_value(Key, proplists:get_value(headers, Props)))).
+                     proplists:get_value(Key, Props))).
 
 -define(BUCKET, "put-copy-bucket-test").
 -define(KEY, "pocket").
@@ -47,15 +47,14 @@
 
 confirm() ->
     %% ibrowse
-    application:load(ibrowse),
-    application:start(ibrowse),
+    application:ensure_all_started(ibrowse),
 
     {{UserConfig, _}, {RiakNodes, _CSNodes}} = rtcs:setup(1),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET, UserConfig)),
     Data = ?DATA0,
-    ?assertEqual([{version_id, "null"}],
+    ?assertMatch([{version_id, "null"}|_],
                  erlcloud_s3:put_object(?BUCKET, ?KEY, Data, UserConfig)),
-    ?assertEqual([{version_id, "null"}],
+    ?assertMatch([{version_id, "null"}|_],
                  erlcloud_s3:put_object(?BUCKET, ?KEY2, Data, UserConfig)),
 
     RiakNode = hd(RiakNodes),
@@ -103,9 +102,9 @@ verify_others_copy(UserConfig, OtherUserConfig) ->
 
     %% set key public
     Acl = [{acl, public_read}],
-    ?assertEqual([{version_id,"null"}],
+    ?assertMatch([{version_id,"null"}|_],
                  erlcloud_s3:put_object(?BUCKET, ?KEY, ?DATA0,
-                                    Acl, [], UserConfig)),
+                                        Acl, [], UserConfig)),
 
     %% make sure observable from Other
     Props = erlcloud_s3:get_object(?BUCKET, ?KEY, OtherUserConfig),
@@ -120,48 +119,11 @@ verify_others_copy(UserConfig, OtherUserConfig) ->
     ?assertEqual(?DATA0, proplists:get_value(content, Props2)),
     ok.
 
-verify_multipart_copy(UserConfig) ->
-    %% ~6MB iolist
-    MillionPockets = binary:copy(<<"pocket">>, 1000000),
-    MillionBurgers = binary:copy(<<"burger">>, 1000000),
-
-    ?assertEqual([{version_id,"null"}],
-                 erlcloud_s3:put_object(?BUCKET, ?KEY, MillionPockets, UserConfig)),
-    ?assertEqual([{version_id,"null"}],
-                 erlcloud_s3:put_object(?BUCKET, ?KEY2, MillionBurgers, UserConfig)),
-
-    InitUploadRes=erlcloud_s3_multipart:initiate_upload(?BUCKET2, ?KEY3, "text/plain", [], UserConfig),
-    UploadId = erlcloud_s3_multipart:upload_id(InitUploadRes),
-    logger:info("~p ~p", [InitUploadRes, UploadId]),
-
-    {RespHeaders1, _} = rtcs_multipart:upload_part_copy(?BUCKET2, ?KEY3, UploadId, 1,
-                                                        ?BUCKET, ?KEY, UserConfig),
-    logger:debug("RespHeaders1: ~p", [RespHeaders1]),
-    Etag1 = rtcs_multipart:assert_part(?BUCKET2, ?KEY3, UploadId, 1, UserConfig, RespHeaders1),
-
-    {RespHeaders2, _} = rtcs_multipart:upload_part_copy(?BUCKET2, ?KEY3, UploadId, 2,
-                                                        ?BUCKET, ?KEY2, UserConfig),
-    logger:debug("RespHeaders2: ~p", [RespHeaders2]),
-    Etag2 = rtcs_multipart:assert_part(?BUCKET2, ?KEY3, UploadId, 2, UserConfig, RespHeaders2),
-
-    List = erlcloud_s3_multipart:list_uploads(?BUCKET2, [], UserConfig),
-    logger:debug("List: ~p", [List]),
-
-    EtagList = [ {1, Etag1}, {2, Etag2} ],
-    ?assertEqual(ok, erlcloud_s3_multipart:complete_upload(?BUCKET2,
-                                                       ?KEY3,
-                                                       UploadId,
-                                                       EtagList,
-                                                       UserConfig)),
-
-    UploadsList2 = erlcloud_s3_multipart:list_uploads(?BUCKET2, [], UserConfig),
-    Uploads2 = proplists:get_value(uploads, UploadsList2, []),
-    ?assertNot(mp_upload_test:upload_id_present(UploadId, Uploads2)),
-
-    MillionPocketBurgers = iolist_to_binary([MillionPockets, MillionBurgers]),
-    Props = erlcloud_s3:get_object(?BUCKET2, ?KEY3, UserConfig),
-    %% logger:debug("~p> Props => ~p", [?LINE, Props]),
-    ?assertEqual(MillionPocketBurgers, proplists:get_value(content, Props)),
+verify_multipart_copy(_UserConfig) ->
+    %% erlcloud-3.6.7 does not have mutipart copy methods (even though
+    %% 0.4.7 had them), so we skip these tests here. This
+    %% functionality is covered in boto_tests (see
+    %% SimpleCopyTest.test_put_copy_object_from_mp)
     ok.
 
 verify_security(Alice, Bob, Charlie) ->
@@ -179,21 +141,21 @@ verify_security(Alice, Bob, Charlie) ->
     ?assertEqual(ok, erlcloud_s3:create_bucket(AlicesBucket, Alice)),
     ?assertEqual(ok, erlcloud_s3:create_bucket(AlicesPublicBucket, public_read_write, Alice)),
 
-    ?assertEqual([{version_id, "null"}],
+    ?assertMatch([{version_id, "null"}|_],
                  erlcloud_s3:put_object(AlicesBucket, AlicesObject,
-                                    <<"I'm here!!">>, Alice)),
-    ?assertEqual([{version_id, "null"}],
+                                        <<"I'm here!!">>, Alice)),
+    ?assertMatch([{version_id, "null"}|_],
                  erlcloud_s3:put_object(AlicesBucket, AlicesPublicObject,
-                                    <<"deadbeef">>, [{acl, public_read}], Alice)),
-    ?assertEqual([{version_id, "null"}],
+                                        <<"deadbeef">>, [{acl, public_read}], Alice)),
+    ?assertMatch([{version_id, "null"}|_],
                  erlcloud_s3:put_object(AlicesPublicBucket, AlicesObject,
-                                    <<"deadly public beef">>, Alice)),
+                                        <<"deadly public beef">>, Alice)),
 
     %% setup Bob's box
     ?assertEqual(ok, erlcloud_s3:create_bucket(BobsBucket, Bob)),
-    ?assertEqual([{version_id, "null"}],
+    ?assertMatch([{version_id, "null"}|_],
                  erlcloud_s3:put_object(BobsBucket, BobsObject,
-                                    <<"bobfat">>, Bob)),
+                                        <<"bobfat">>, Bob)),
 
     %% >> setup Charlie's box
     ?assertEqual(ok, erlcloud_s3:create_bucket(CharliesBucket, Charlie)),
@@ -201,11 +163,11 @@ verify_security(Alice, Bob, Charlie) ->
     %% >> Bob can do it right
     %% Bring Alice's objects to Bob's bucket
     ?assert403(erlcloud_s3:copy_object(BobsBucket, AlicesObject,
-                                   AlicesBucket, AlicesObject, Bob)),
+                                       AlicesBucket, AlicesObject, Bob)),
 
     ?assertEqual([{copy_source_version_id, "false"}, {version_id, "null"}],
                  erlcloud_s3:copy_object(BobsBucket, AlicesPublicObject,
-                                     AlicesBucket, AlicesPublicObject, Bob)),
+                                         AlicesBucket, AlicesPublicObject, Bob)),
 
     %% TODO: put to public bucket is degrated for now
     %% ?assertEqual([{copy_source_version_id, "false"}, {version_id, "null"}],
@@ -227,16 +189,16 @@ verify_security(Alice, Bob, Charlie) ->
     %% >> Charlie can't do it
     %% try copying Alice's private object to Charlie's
     ?assert403(erlcloud_s3:copy_object(CharliesBucket, AlicesObject,
-                                   AlicesBucket, AlicesObject, Charlie)),
+                                       AlicesBucket, AlicesObject, Charlie)),
 
     ?assert403(erlcloud_s3:copy_object(AlicesPublicBucket, AlicesObject,
-                                   AlicesBucket, AlicesObject, Charlie)),
+                                       AlicesBucket, AlicesObject, Charlie)),
 
     %% try copy Alice's public object to Bob's
     ?assert403(erlcloud_s3:copy_object(BobsBucket, AlicesPublicObject,
-                                   AlicesBucket, AlicesPublicObject, Charlie)),
+                                       AlicesBucket, AlicesPublicObject, Charlie)),
     ?assert403(erlcloud_s3:copy_object(BobsBucket, AlicesObject,
-                                   AlicesPublicBucket, AlicesObject, Charlie)),
+                                       AlicesPublicBucket, AlicesObject, Charlie)),
 
     %% charlie tries to copy anonymously, which should fail in 403
     CSPort = Charlie#aws_config.s3_port,
@@ -259,41 +221,18 @@ verify_source_not_found(UserConfig) ->
     NonExistingKey = "non-existent-source",
     {'EXIT', {{aws_error, {http_error, 404, _, ErrorXml}}, _Stack}} =
         (catch erlcloud_s3:copy_object(?BUCKET2, ?KEY2,
-                                   ?BUCKET, NonExistingKey, UserConfig)),
+                                       ?BUCKET, NonExistingKey, UserConfig)),
     logger:debug("ErrorXml: ~s", [ErrorXml]),
-    ?assert(string:str(ErrorXml,
-                       "<Resource>/" ++ ?BUCKET ++
-                           "/" ++ NonExistingKey ++ "</Resource>") > 0).
+    ?assert(string:str(
+              binary_to_list(ErrorXml),
+              "<Resource>/" ++ ?BUCKET ++ "/" ++ NonExistingKey ++ "</Resource>")
+            > 0).
 
-verify_replace_usermeta(UserConfig) ->
-    logger:info("Verify replacing usermeta using Put Copy"),
-
-    %% Put Initial Object
-    Headers0 = [{"Content-Type", "text/plain"}],
-    Options0 = [{meta, [{"key1", "val1"}, {"key2", "val2"}]}],
-    ?assertEqual([{version_id, "null"}],
-                 erlcloud_s3:put_object(?BUCKET, ?REPLACE_KEY, ?DATA0, Options0, Headers0, UserConfig)),
-    Props0 = erlcloud_s3:get_object(?BUCKET, ?REPLACE_KEY, UserConfig),
-    logger:debug("Initial Obj: ~p", [Props0]),
-    ?assertEqual("text/plain", proplists:get_value(content_type, Props0)),
-    ?assertHeader("x-amz-meta-key1", "val1", Props0),
-    ?assertHeader("x-amz-meta-key2", "val2", Props0),
-
-    %% Replace usermeta using Put Copy
-    Headers1 = [{"Content-Type", "application/octet-stream"}],
-    Options1 = [{metadata_directive, "REPLACE"},
-                {meta, [{"key3", "val3"}, {"key4", "val4"}]}],
-    ?assertEqual([{copy_source_version_id, "false"}, {version_id, "null"}],
-                 erlcloud_s3:copy_object(?BUCKET, ?REPLACE_KEY, ?BUCKET, ?REPLACE_KEY,
-                                     Options1, Headers1, UserConfig)),
-    Props1 = erlcloud_s3:get_object(?BUCKET, ?REPLACE_KEY, UserConfig),
-    logger:debug("Updated Obj: ~p", [Props1]),
-    ?assertEqual(?DATA0, proplists:get_value(content, Props1)),
-    ?assertEqual("application/octet-stream", proplists:get_value(content_type, Props1)),
-    ?assertHeader("x-amz-meta-key1", undefined, Props1),
-    ?assertHeader("x-amz-meta-key2", undefined, Props1),
-    ?assertHeader("x-amz-meta-key3", "val3", Props1),
-    ?assertHeader("x-amz-meta-key4", "val4", Props1),
+verify_replace_usermeta(_UserConfig) ->
+    %% it appears in erlcloud-3.6.7, erlcloud_s3:copy_object/6 ignores
+    %% metadata_directive; scrapping this test as well.  See
+    %% boto_test_metadata.ObjectMetadataTest.test_mp_object_metadata,
+    %% which covers this case.
     ok.
 
 
@@ -303,7 +242,7 @@ verify_replace_usermeta(UserConfig) ->
 verify_without_cl_header(UserConfig) ->
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET4, UserConfig)),
     Data = ?DATA0,
-    ?assertEqual([{version_id, "null"}],
+    ?assertMatch([{version_id, "null"}|_],
                  erlcloud_s3:put_object(?BUCKET4, ?SRC_KEY, Data, UserConfig)),
     verify_without_cl_header(UserConfig, normal, Data),
     verify_without_cl_header(UserConfig, mp, Data),
@@ -320,10 +259,10 @@ verify_without_cl_header(UserConfig, normal, Data) ->
     ok;
 verify_without_cl_header(UserConfig, mp, Data) ->
     logger:info("Verify Multipart upload copy without Content-Length header"),
-    InitUploadRes = erlcloud_s3_multipart:initiate_upload(
-                      ?BUCKET4, ?MP_TGT_KEY, "application/octet-stream",
-                      [], UserConfig),
-    UploadId = erlcloud_s3_multipart:upload_id(InitUploadRes),
+    {ok, InitUploadRes} = erlcloud_s3:start_multipart(
+                            ?BUCKET4, ?MP_TGT_KEY, [{"Content-Type", "application/octet-stream"}],
+                            [], UserConfig),
+    UploadId = proplists:get_value(uploadId, InitUploadRes),
     logger:info("~p ~p", [InitUploadRes, UploadId]),
     Source = fmt("/~s/~s", [?BUCKET4, ?SRC_KEY]),
     MpTarget = fmt("/~s/~s?partNumber=1&uploadId=~s", [?BUCKET4, ?MP_TGT_KEY, UploadId]),
@@ -344,11 +283,12 @@ verify_without_cl_header(UserConfig, mp, Data) ->
     ?assertEqual(ExpectedBody, proplists:get_value(content, Props)),
     ok.
 
-exec_curl(#aws_config{s3_port=Port} = UserConfig, Method, Resource, AmzHeaders) ->
+exec_curl(#aws_config{hackney_client_options = #hackney_client_options{proxy = {_, Port}}} = UserConfig,
+          Method, Resource, AmzHeaders) ->
     ContentType = "application/octet-stream",
     Date = httpd_util:rfc1123_date(),
-    Auth = rtcs_admin:make_authorization(Method, Resource, ContentType, UserConfig, Date,
-                                   AmzHeaders),
+    Auth = rtcs_admin:make_authorization(
+             Method, Resource, ContentType, UserConfig, Date, AmzHeaders),
     HeaderArgs = [fmt("-H '~s: ~s' ", [K, V]) ||
                      {K, V} <- [{"Date", Date}, {"Authorization", Auth},
                                 {"Content-Type", ContentType} | AmzHeaders]],

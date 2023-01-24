@@ -72,7 +72,7 @@ create_admin_user(Node) ->
 -spec create_user(atom(), non_neg_integer()) -> #aws_config{}.
 create_user(Node, UserIndex) ->
     User = "Test User" ++ integer_to_list(UserIndex),
-    Email = lists:flatten(io_lib:format("test_user_~b@basho.com", [UserIndex])),
+    Email = lists:flatten(io_lib:format("test_user_~b_~b@basho.com", [UserIndex, os:system_time(millisecond)])),
     {UserConfig, Id} = create_user(rtcs_config:cs_port(Node), Email, User),
     logger:info("Created user ~s (~s):", [User, Email]),
     logger:info("KeyId     : ~s", [UserConfig#aws_config.access_key_id]),
@@ -125,6 +125,7 @@ list_users(UserConfig, _Port, Resource, AcceptContentType) ->
     ResBody.
 
 s3_request(#aws_config{s3_host = S3Host,
+                       s3_port = S3Port,
                        s3_scheme = S3Scheme,
                        hackney_client_options = #hackney_client_options{proxy = {_ProxyHost, ProxyPort}}} = Config,
            Method, Host, Path, Subresources, Params, POSTData, Headers) ->
@@ -146,7 +147,7 @@ s3_request(#aws_config{s3_host = S3Host,
     RequestURI =
         lists:flatten([S3Scheme,
                        case Host of "" -> ""; _ -> [Host, $.] end,
-                       S3Host, ":", integer_to_list(ProxyPort),
+                       S3Host, ":", integer_to_list(S3Port),
                        EscapedPath,
                        format_subresources(Subresources),
                        if
@@ -233,12 +234,13 @@ make_authorization(Type, Method, Resource, ContentType, Config, Date, AmzHeaders
                     StsAmzHeaderPart, Resource],
     logger:debug("StringToSign: ~s", [StringToSign]),
     Signature =
-        base64:encode_to_string(crypto:hash(sha, Config#aws_config.secret_access_key, StringToSign)),
+        base64:encode_to_string(crypto:mac(hmac, sha, Config#aws_config.secret_access_key, StringToSign)),
     lists:flatten([Prefix, " ", Config#aws_config.access_key_id, $:, Signature]).
 
 -spec aws_config(string(), string(), non_neg_integer()) -> #aws_config{}.
 aws_config(Key, Secret, Port) ->
-    #aws_config{access_key_id = Key,
+    #aws_config{http_client = hackney,
+                access_key_id = Key,
                 secret_access_key = Secret,
                 s3_scheme = "http://",
                 hackney_client_options = #hackney_client_options{proxy = {"http://127.0.0.1", Port}}}.

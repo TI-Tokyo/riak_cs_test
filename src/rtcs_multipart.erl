@@ -27,20 +27,20 @@
 
 %% Upload object by multipart and return generetad (=expected) content
 multipart_upload(Bucket, Key, Sizes, Config) ->
-    InitRes = erlcloud_s3_multipart:initiate_upload(
-                Bucket, Key, "text/plain", [], Config),
+    InitRes = erlcloud_s3:start_multipart(
+                Bucket, Key, [], [], Config),
     UploadId = erlcloud_xml:get_text(
                  "/InitiateMultipartUploadResult/UploadId", InitRes),
     Content = upload_parts(Bucket, Key, UploadId, Config, 1, Sizes, [], []),
     Content.
 
 upload_parts(Bucket, Key, UploadId, Config, _PartCount, [], Contents, Parts) ->
-    ?assertEqual(ok, erlcloud_s3_multipart:complete_upload(
+    ?assertEqual(ok, erlcloud_s3:complete_multipart(
                        Bucket, Key, UploadId, lists:reverse(Parts), Config)),
     iolist_to_binary(lists:reverse(Contents));
 upload_parts(Bucket, Key, UploadId, Config, PartCount, [Size | Sizes], Contents, Parts) ->
     Content = crypto:strong_rand_bytes(Size),
-    {RespHeaders, _UploadRes} = erlcloud_s3_multipart:upload_part(
+    {RespHeaders, _UploadRes} = erlcloud_s3:upload_part(
                                   Bucket, Key, UploadId, PartCount, Content, Config),
     PartEtag = proplists:get_value("ETag", RespHeaders),
     logger:debug("UploadId: ~p", [UploadId]),
