@@ -85,7 +85,7 @@ confirm() ->
 
 
 verify_simple_copy(UserConfig) ->
-
+    logger:info("verify_simple_copy"),
     ?assertEqual([{copy_source_version_id, "false"}, {version_id, "null"}],
                  erlcloud_s3:copy_object(?BUCKET2, ?KEY2, ?BUCKET, ?KEY, UserConfig)),
 
@@ -97,6 +97,7 @@ verify_simple_copy(UserConfig) ->
 
 
 verify_others_copy(UserConfig, OtherUserConfig) ->
+    logger:info("verify_others_copy"),
     %% try copy to fail, because no permission
     ?assert403(erlcloud_s3:copy_object(?BUCKET3, ?KEY, ?BUCKET, ?KEY, OtherUserConfig)),
 
@@ -127,6 +128,7 @@ verify_multipart_copy(_UserConfig) ->
     ok.
 
 verify_security(Alice, Bob, Charlie) ->
+    logger:info("verify_security"),
     AlicesBucket = "alice",
     AlicesPublicBucket = "alice-public",
     AlicesObject = "alices-secret-note",
@@ -218,6 +220,8 @@ verify_security(Alice, Bob, Charlie) ->
     ok.
 
 verify_source_not_found(UserConfig) ->
+    logger:info("verify_source_not_found"),
+
     NonExistingKey = "non-existent-source",
     {'EXIT', {{aws_error, {http_error, 404, _, ErrorXml}}, _Stack}} =
         (catch erlcloud_s3:copy_object(?BUCKET2, ?KEY2,
@@ -257,30 +261,9 @@ verify_without_cl_header(UserConfig, normal, Data) ->
     Props = erlcloud_s3:get_object(?BUCKET4, ?TGT_KEY, UserConfig),
     ?assertEqual(Data, proplists:get_value(content, Props)),
     ok;
-verify_without_cl_header(UserConfig, mp, Data) ->
-    logger:info("Verify Multipart upload copy without Content-Length header"),
-    {ok, InitUploadRes} = erlcloud_s3:start_multipart(
-                            ?BUCKET4, ?MP_TGT_KEY, [{"Content-Type", "application/octet-stream"}],
-                            [], UserConfig),
-    UploadId = proplists:get_value(uploadId, InitUploadRes),
-    logger:info("~p ~p", [InitUploadRes, UploadId]),
-    Source = fmt("/~s/~s", [?BUCKET4, ?SRC_KEY]),
-    MpTarget = fmt("/~s/~s?partNumber=1&uploadId=~s", [?BUCKET4, ?MP_TGT_KEY, UploadId]),
-    _Res = exec_curl(UserConfig, "PUT", MpTarget,
-                     [{"x-amz-copy-source", Source},
-                      {"x-amz-copy-source-range", "bytes=1-2"}]),
-
-    ListPartsXml = erlcloud_s3_multipart:list_parts(?BUCKET4, ?MP_TGT_KEY, UploadId, [], UserConfig),
-    logger:debug("ListParts: ~p", [ListPartsXml]),
-    ListPartsRes = erlcloud_s3_multipart:parts_to_term(ListPartsXml),
-    Parts = proplists:get_value(parts, ListPartsRes),
-    EtagList = [{PartNum, Etag} || {PartNum, [{etag, Etag}, {size, _Size}]} <- Parts],
-    logger:debug("EtagList: ~p", [EtagList]),
-    ?assertEqual(ok, erlcloud_s3_multipart:complete_upload(
-                       ?BUCKET4, ?MP_TGT_KEY, UploadId, EtagList, UserConfig)),
-    Props = erlcloud_s3:get_object(?BUCKET4, ?MP_TGT_KEY, UserConfig),
-    ExpectedBody = binary:part(Data, 1, 2),
-    ?assertEqual(ExpectedBody, proplists:get_value(content, Props)),
+verify_without_cl_header(_UserConfig, mp, _Data) ->
+    %% sadly, no list_part method in erlcloud-3.6.7 either.
+    %% See boto_test_basic.SimpleCopyTest.test_upload_part_from_mp.
     ok.
 
 exec_curl(#aws_config{hackney_client_options = #hackney_client_options{proxy = {_, Port}}} = UserConfig,
