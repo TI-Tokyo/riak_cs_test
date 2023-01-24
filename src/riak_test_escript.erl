@@ -36,7 +36,7 @@ cli_options() ->
 %% Option Name, Short Code, Long Code, Argument Spec, Help Message
 [
  {help,               $h, "help",     undefined,  "Print this usage page"},
- {config,             $c, "conf",     string,     "specifies the project configuration"},
+ {config,             $c, "conf",     string,     "specifies the project configuration (default = rtcs_dev)"},
  {tests,              $t, "tests",    string,     "specifies which tests to run"},
  {suites,             $s, "suites",   string,     "which suites to run"},
  {dir,                $d, "dir",      string,     "run all tests in the specified directory"},
@@ -79,11 +79,13 @@ main(Args) ->
         _ -> ok
     end,
 
-    Config = proplists:get_value(config, ParsedArgs),
-    ConfigFile = proplists:get_value(file, ParsedArgs),
+    Config = proplists:get_value(config, ParsedArgs, "rtcs_dev"),
+    ConfigFile = proplists:get_value(file, ParsedArgs, os:getenv("HOME") ++ "/.riak_test.config"),
 
     %% Loads application defaults
     application:load(riak_test),
+    %% start hackney, needed for erlcloud
+    application:ensure_all_started(hackney),
 
     %% Loads from ~/.riak_test.config
     rt_config:load(Config, ConfigFile),
@@ -428,7 +430,7 @@ load_tests_in_dir(Dir, SkipTests) ->
                           [],
                           filelib:wildcard("*.beam", Dir)));
         _ ->
-            logger:warning("~s is not a dir!~n", [Dir])
+            logger:warning("~s is not a dir!", [Dir])
     end.
 
 load_tests_folder(SkipTests) ->

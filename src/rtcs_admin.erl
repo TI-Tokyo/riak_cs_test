@@ -131,9 +131,13 @@ s3_request(#aws_config{s3_host = S3Host,
            Method, Host, Path, Subresources, Params, POSTData, Headers) ->
     {ContentMD5, ContentType, Body} =
         case POSTData of
-            {PD, CT} -> {base64:encode(crypto:hash(md5, PD)), CT, PD}; PD -> {"", "", PD}
+            {PD, CT} -> {base64:encode(crypto:hash(md5, PD)), CT, PD};
+            PD -> {"", "", PD}
         end,
-    AmzHeaders = lists:filter(fun ({"x-amz-" ++ _, V}) when V =/= undefined -> true; (_) -> false end, Headers),
+    AmzHeaders = lists:filter(
+                   fun ({"x-amz-" ++ _, V}) when V =/= undefined -> true;
+                       (_) -> false
+                   end, Headers),
     Date = httpd_util:rfc1123_date(erlang:localtime()),
     EscapedPath = url_encode_loose(Path),
     Authorization = make_authorization(Config, Method, ContentMD5, ContentType,
@@ -243,7 +247,7 @@ aws_config(Key, Secret, Port) ->
                 access_key_id = Key,
                 secret_access_key = Secret,
                 s3_scheme = "http://",
-                hackney_client_options = #hackney_client_options{proxy = {"http://127.0.0.1", Port}}}.
+                hackney_client_options = #hackney_client_options{proxy = {"127.0.0.1", Port}}}.
 
 -spec aws_config(#aws_config{}, [{atom(), term()}]) -> #aws_config{}.
 aws_config(UserConfig, []) ->

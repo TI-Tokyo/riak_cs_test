@@ -45,6 +45,7 @@ confirm() ->
     end.
 
 confirm1() ->
+    application:ensure_all_started(ibrowse),
     {{UserConfig, _}, {RiakNodes, _CSNodes} = Tussle} = rtcs:setup(1),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET1, UserConfig)),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET2, UserConfig)),

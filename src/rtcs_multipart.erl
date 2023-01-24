@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -20,71 +21,28 @@
 
 -module(rtcs_multipart).
 
--compile(export_all).
--compile(nowarn_export_all).
+-export([multipart_upload/4]).
 
 -include_lib("eunit/include/eunit.hrl").
 
 %% Upload object by multipart and return generetad (=expected) content
 multipart_upload(Bucket, Key, Sizes, Config) ->
-    InitRes = erlcloud_s3:start_multipart(
-                Bucket, Key, [], [], Config),
-    UploadId = erlcloud_xml:get_text(
-                 "/InitiateMultipartUploadResult/UploadId", InitRes),
+    {ok, InitRes} = erlcloud_s3:start_multipart(
+                      Bucket, Key, [], [], Config),
+    UploadId = proplists:get_value(uploadId, InitRes),
     Content = upload_parts(Bucket, Key, UploadId, Config, 1, Sizes, [], []),
     Content.
 
 upload_parts(Bucket, Key, UploadId, Config, _PartCount, [], Contents, Parts) ->
     ?assertEqual(ok, erlcloud_s3:complete_multipart(
-                       Bucket, Key, UploadId, lists:reverse(Parts), Config)),
+                       Bucket, Key, UploadId, lists:reverse(Parts), [], Config)),
     iolist_to_binary(lists:reverse(Contents));
 upload_parts(Bucket, Key, UploadId, Config, PartCount, [Size | Sizes], Contents, Parts) ->
     Content = crypto:strong_rand_bytes(Size),
-    {RespHeaders, _UploadRes} = erlcloud_s3:upload_part(
-                                  Bucket, Key, UploadId, PartCount, Content, Config),
-    PartEtag = proplists:get_value("ETag", RespHeaders),
+    {ok, Res} = erlcloud_s3:upload_part(
+                  Bucket, Key, UploadId, PartCount, Content, [], Config),
+    PartEtag = proplists:get_value(etag, Res),
     logger:debug("UploadId: ~p", [UploadId]),
     logger:debug("PartEtag: ~p", [PartEtag]),
     upload_parts(Bucket, Key, UploadId, Config, PartCount + 1,
                  Sizes, [Content | Contents], [{PartCount, PartEtag} | Parts]).
-
-upload_part_copy(BucketName, Key, UploadId, PartNum, SrcBucket, SrcKey, Config) ->
-    upload_part_copy(BucketName, Key, UploadId, PartNum, SrcBucket, SrcKey, undefined, Config).
-
-upload_part_copy(BucketName, Key, UploadId, PartNum, SrcBucket, SrcKey, SrcRange, Config) ->
-    Url = "/" ++ Key,
-    Source = filename:join([SrcBucket, SrcKey]),
-    Subresources = [{"partNumber", integer_to_list(PartNum)},
-                    {"uploadId", UploadId}],
-    Headers = [%%{"content-length", byte_size(PartData)},
-               {"x-amz-copy-source", Source} |
-               source_range(SrcRange)],
-    erlcloud_s3:s3_request(Config, put, BucketName, Url,
-                           Subresources, [], {<<>>, []}, Headers).
-
-source_range(undefined) -> [];
-source_range({First, Last}) ->
-    [{"x-amz-copy-source-range",
-      lists:flatten(io_lib:format("bytes=~b-~b", [First, Last]))}].
-
-upload_and_assert_part(Bucket, Key, UploadId, PartNum, PartData, Config) ->
-    {RespHeaders, _UploadRes} = erlcloud_s3_multipart:upload_part(Bucket, Key, UploadId, PartNum, PartData, Config),
-    assert_part(Bucket, Key, UploadId, PartNum, Config, RespHeaders).
-
-
-assert_part(Bucket, Key, UploadId, PartNum, Config, RespHeaders) ->
-    PartEtag = proplists:get_value("ETag", RespHeaders),
-    PartsTerm = erlcloud_s3_multipart:parts_to_term(
-                  erlcloud_s3_multipart:list_parts(Bucket, Key, UploadId, [], Config)),
-    %% logger:debug("~p", [PartsTerm]),
-    Parts = proplists:get_value(parts, PartsTerm),
-    ?assertEqual(Bucket, proplists:get_value(bucket, PartsTerm)),
-    ?assertEqual(Key, proplists:get_value(key, PartsTerm)),
-    ?assertEqual(UploadId, proplists:get_value(upload_id, PartsTerm)),
-    verify_part(PartEtag, proplists:get_value(PartNum, Parts)),
-    PartEtag.
-
-verify_part(_, undefined) ->
-    ?assert(false);
-verify_part(ExpectedEtag, PartInfo) ->
-    ?assertEqual(ExpectedEtag, proplists:get_value(etag, PartInfo)).
