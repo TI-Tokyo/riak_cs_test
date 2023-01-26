@@ -58,10 +58,10 @@ confirm() ->
     U2C1Config = rtcs_admin:aws_config(U2C2Config, [{port, rtcs_config:cs_port(AFirst)}]),
 
     logger:info("User 1 IS valid on the primary cluster, and has no buckets"),
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(U1C1Config)),
+    ?assertEqual([], proplists:get_value(buckets, erlcloud_s3:list_buckets(U1C1Config))),
 
     logger:info("User 2 IS valid on the primary cluster, and has no buckets"),
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(U2C1Config)),
+    ?assertEqual([], proplists:get_value(buckets, erlcloud_s3:list_buckets(U2C1Config))),
 
     logger:info("User 2 is NOT valid on the secondary cluster"),
     ?assertError({aws_error, _}, erlcloud_s3:list_buckets(U2C2Config)),
@@ -69,15 +69,16 @@ confirm() ->
     logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, U1C1Config)),
 
-    ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
-        erlcloud_s3:list_buckets(U1C1Config)),
+    ?assertMatch([[{name, ?TEST_BUCKET}|_]],
+                 proplists:get_value(buckets,
+                                     erlcloud_s3:list_buckets(U1C1Config))),
 
-    ObjList1= erlcloud_s3:list_objects(?TEST_BUCKET, U1C1Config),
+    ObjList1 = erlcloud_s3:list_objects(?TEST_BUCKET, U1C1Config),
     ?assertEqual([], proplists:get_value(contents, ObjList1)),
 
     Object1 = crypto:strong_rand_bytes(4194304),
 
-    ?assertEqual([{version_id, "null"}],
+    ?assertMatch([{version_id, "null"}|_],
                  erlcloud_s3:put_object(?TEST_BUCKET, "object_one", Object1, U1C1Config)),
 
     ObjList2 = erlcloud_s3:list_objects(?TEST_BUCKET, U1C1Config),
@@ -137,11 +138,12 @@ confirm() ->
 
     logger:info("User 2 is valid on secondary cluster after fullsync,"
                 " still no buckets"),
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(U2C2Config)),
+    ?assertEqual([], proplists:get_value(buckets, erlcloud_s3:list_buckets(U2C2Config))),
 
     logger:info("User 1 has the test bucket on the secondary cluster now"),
-    ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
-        erlcloud_s3:list_buckets(U1C2Config)),
+    ?assertMatch([[{name, ?TEST_BUCKET}|_]],
+                 proplists:get_value(buckets,
+                                     erlcloud_s3:list_buckets(U1C2Config))),
 
     logger:info("Object written on primary cluster is readable from secondary "
         "cluster"),
