@@ -31,6 +31,8 @@
 -define(XML, "application/xml").
 
 confirm() ->
+    application:ensure_all_started(ibrowse),
+
     {{AdminUserConfig, _}, {RiakNodes, _CSNodes}} = rtcs:setup(1),
 
     HeadRiakNode = hd(RiakNodes),
@@ -257,7 +259,7 @@ update_email_and_name_doc(?XML, Email, Name) ->
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?><User><Email>" ++ Email ++
         "</Email><Name>" ++ Name ++ "</Name><Status>enabled</Status></User>".
 
-parse_user_record(Output, ?JSON) ->
+parse_user_record({_Status, Output}, ?JSON) ->
     {struct, JsonData} = mochijson2:decode(Output),
     Email = binary_to_list(proplists:get_value(<<"email">>, JsonData)),
     Name = binary_to_list(proplists:get_value(<<"name">>, JsonData)),
@@ -265,7 +267,7 @@ parse_user_record(Output, ?JSON) ->
     KeySecret = binary_to_list(proplists:get_value(<<"key_secret">>, JsonData)),
     Status = binary_to_list(proplists:get_value(<<"status">>, JsonData)),
     {Email, Name, KeyId, KeySecret, Status};
-parse_user_record(Output, ?XML) ->
+parse_user_record({_Status, Output}, ?XML) ->
     {ParsedData, _Rest} = xmerl_scan:string(Output, []),
     lists:foldl(fun user_fields_from_xml/2,
                 {[], [], [], [], []},
@@ -342,8 +344,7 @@ xml_text_value(XmlText) ->
     %% one character (or codepoint), not one byte.
     binary_to_list(unicode:characters_to_binary(XmlText#xmlText.value)).
 
-parse_error_code(Output) ->
-    {'EXIT', {{aws_error, {http_error, Status, _, Body}}, _Backtrace}} = Output,
+parse_error_code({Status, Body}) ->
     {ParsedData, _Rest} = xmerl_scan:string(Body, []),
     {Status, lists:foldl(fun error_code_from_xml/2,
                          undefined,

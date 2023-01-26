@@ -90,7 +90,7 @@ create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
     logger:debug("Trying to create user ~p", [EmailAddr]),
     Resource = "/riak-cs/user",
     ReqBody = "{\"email\":\"" ++ EmailAddr ++  "\", \"name\":\"" ++ Name ++"\"}",
-    {_ResHeader, ResBody} =
+    {_Status, _ResHeader, ResBody} =
         s3_request(UserConfig,
                    post, "", Resource, [], "",
                    {ReqBody, "application/json"}, []),
@@ -100,28 +100,28 @@ create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
                                  K <- [<<"key_id">>, <<"key_secret">>, <<"id">>]],
     {aws_config(KeyId, KeySecret, Port), Id}.
 
--spec update_user(#aws_config{}, non_neg_integer(), string(), string(), string()) -> string().
+-spec update_user(#aws_config{}, non_neg_integer(), string(), string(), string()) -> {non_neg_integer(), string()}.
 update_user(UserConfig, _Port, Resource, ContentType, UpdateDoc) ->
-    {_ResHeader, ResBody} = s3_request(
-                              UserConfig, put, "", Resource, [], "",
-                              {UpdateDoc, ContentType}, []),
+    {Status, _ResHeader, ResBody} =
+        s3_request(UserConfig, put, "", Resource, [], "",
+                   {UpdateDoc, ContentType}, []),
     logger:debug("ResBody: ~s", [ResBody]),
-    ResBody.
+    {Status, ResBody}.
 
 -spec get_user(#aws_config{}, non_neg_integer(), string(), string()) -> string().
 get_user(UserConfig, _Port, Resource, AcceptContentType) ->
     logger:debug("Retreiving user record"),
     Headers = [{"Accept", AcceptContentType}],
-    {_ResHeader, ResBody} = s3_request(
-                              UserConfig, get, "", Resource, [], "", "", Headers),
+    {Status, _ResHeader, ResBody} =
+        s3_request(UserConfig, get, "", Resource, [], "", "", Headers),
     logger:debug("ResBody: ~s", [ResBody]),
-    ResBody.
+    {Status, ResBody}.
 
 -spec list_users(#aws_config{}, non_neg_integer(), string(), string()) -> string().
 list_users(UserConfig, _Port, Resource, AcceptContentType) ->
     Headers = [{"Accept", AcceptContentType}],
-    {_ResHeader, ResBody} = s3_request(
-                              UserConfig, get, "", Resource, [], "", "", Headers),
+    {_Status, _ResHeader, ResBody} =
+        s3_request(UserConfig, get, "", Resource, [], "", "", Headers),
     ResBody.
 
 s3_request(#aws_config{s3_host = S3Host,
@@ -161,10 +161,10 @@ s3_request(#aws_config{s3_host = S3Host,
                        end
                       ]),
     Options = [{proxy_host, "127.0.0.1"}, {proxy_port, ProxyPort}],
-    {ok, _Status, ResponseHeaders, ResponseBody} =
+    {ok, Status, ResponseHeaders, ResponseBody} =
         ibrowse:send_req(RequestURI, [{"content-type", ContentType} | RequestHeaders],
                          Method, Body, Options),
-    {ResponseHeaders, ResponseBody}.
+    {list_to_integer(Status), ResponseHeaders, ResponseBody}.
 
 url_encode_loose(Binary) when is_binary(Binary) ->
     url_encode_loose(binary_to_list(Binary));

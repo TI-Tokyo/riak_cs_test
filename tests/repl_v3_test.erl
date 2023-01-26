@@ -28,8 +28,7 @@
 
 confirm() ->
     %% ibrowse
-    application:load(ibrowse),
-    application:start(ibrowse),
+    application:ensure_all_started(ibrowse),
 
     {_UserConfig, {RiakNodes, [CSNode|_]}} = rtcs:setup2x2([]),
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
