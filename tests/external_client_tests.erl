@@ -8,6 +8,7 @@
 -define(EXTRA_TEST_BUCKET, "go-test-bucket").
 
 confirm() ->
+    application:ensure_all_started(ibrowse),
     {{UserConfig, AdminUserId}, {RiakNodes, _CSNodes}} =
         rtcs:setup(1, [{cs, cs_config()}]),
 
