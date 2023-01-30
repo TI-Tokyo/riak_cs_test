@@ -1821,13 +1821,13 @@ post_result(TestResult, #rt_webhook{url=URL, headers=HookHeaders, name=Name}) ->
 
 %% @doc Set up in memory log capture to check contents in a test.
 setup_log_capture(Nodes) when is_list(Nodes) ->
-    rt:load_modules_on_nodes([riak_test_logger_backend], Nodes),
+    load_modules_on_nodes([riak_test_logger_backend], Nodes),
     [begin
-         rpc:call(Node, riak_test_logger_backend, start_link, []),
-         rpc:call(Node,
-                  logger,
-                  add_handler,
-                  [capture_those_logs, riak_test_logger_backend, #{}])
+         {ok, _Pid} = rpc:call(Node, riak_test_logger_backend, start, []),
+         ok = rpc:call(Node,
+                       logger,
+                       add_handler,
+                       [capture_those_logs, riak_test_logger_backend, #{}])
      end || Node <- Nodes];
 setup_log_capture(Node) when not is_list(Node) ->
     setup_log_capture([Node]).
@@ -1839,7 +1839,7 @@ expect_in_log(Node, Pattern) ->
 expect_in_log(Node, Pattern, Retry, Delay) ->
     CheckLogFun = fun() ->
             Logs = rpc:call(Node, riak_test_logger_backend, get_logs, []),
-            logger:info("looking for pattern ~s in logs for ~p",
+            logger:info("looking for pattern \"~s\" in logs on ~s",
                         [Pattern, Node]),
             case re:run(Logs, Pattern, []) of
                 {match, _} ->

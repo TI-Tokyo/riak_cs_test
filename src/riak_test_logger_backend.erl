@@ -25,7 +25,7 @@
 
 -behavior(gen_server).
 
--export([start_link/0]).
+-export([start_link/0, start/0]).
 -export([log/2,
          get_logs/0,
          clear/0]).
@@ -39,6 +39,10 @@
 -spec start_link() -> {ok, pid()} | {error, term()}.
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+
+-spec start() -> {ok, pid()} | {error, term()}.
+start() ->
+    gen_server:start({local, ?MODULE}, ?MODULE, [], []).
 
 
 -record(state, {level :: logger:level(),
@@ -65,6 +69,7 @@ init([]) ->
 init([Level]) when is_atom(Level) ->
     init([Level, false]);
 init([Level, Verbose]) ->
+    logger:info("starting ~s", [?MODULE]),
     {ok, #state{level = Level, verbose = Verbose}}.
 
 -spec(handle_call(term(), pid(), #state{}) -> {ok, #state{}}).
