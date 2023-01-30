@@ -97,7 +97,7 @@ setup_normal_obj(ObjSpecs, UserConfig) ->
 setup_obj(RiakNodes, UserConfig) ->
     %% Setup bucket
     logger:info("User is valid on the cluster, and has no buckets"),
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
+    ?assertEqual([], proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig))),
     logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
