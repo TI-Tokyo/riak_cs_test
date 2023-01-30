@@ -35,6 +35,8 @@
 -define(TIMESLICES,        5).
 
 confirm() ->
+    application:ensure_all_started(ibrowse),
+
     NumNodes = 1,
     {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs:setup(NumNodes),
     %% Set up to grep logs to verify messages

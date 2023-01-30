@@ -33,6 +33,7 @@
 -define(root_host_alt,      "s3.example.amazonaws.com").
 
 confirm() ->
+    application:ensure_all_started(ibrowse),
     verify_multipart_upload_response().
 
 verify_multipart_upload_response() ->
