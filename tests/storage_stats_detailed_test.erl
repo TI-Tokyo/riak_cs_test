@@ -37,7 +37,7 @@
 
 confirm() ->
     ExtraConf = [{cs, [{riak_cs, [{detailed_storage_calc, true}]}]}],
-    SetupRes = {{AdminConfig, _}, {[RiakNode|_], [CSNode|_]}} = rtcs:setup(1, ExtraConf),
+    SetupRes = {{AdminConfig, _}, {[RiakNode|_], [CSNode|_]}} = rtcs_dev:setup(1, ExtraConf),
 
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
       CSNode, [RiakNode], [riak_cs_utils,
@@ -66,7 +66,7 @@ assert_results_for_empty_bucket(AdminConfig, UserConfig, CSNode, Bucket) ->
     {Begin, End} = storage_stats_test:calc_storage_stats(CSNode),
     {JsonStat, XmlStat} = storage_stats_test:storage_stats_request(
                             AdminConfig, UserConfig, Begin, End),
-    rtcs:reset_log(CSNode),
+    rtcs_dev:reset_log(CSNode),
     lists:foreach(fun(K) ->
                           assert_storage_json_stats(Bucket, K, 0, JsonStat),
                           assert_storage_xml_stats(Bucket, K, 0, XmlStat)
@@ -114,8 +114,8 @@ assert_results_for_non_empty_bucket(AdminConfig, UserConfig, CSNode, Bucket) ->
     {JsonStat, XmlStat} = storage_stats_test:storage_stats_request(
                             AdminConfig, UserConfig, Begin, End),
 
-    ?assert(rtcs:json_get([<<"StartTime">>], JsonStat) =/= notfound),
-    ?assert(rtcs:json_get([<<"EndTime">>],   JsonStat) =/= notfound),
+    ?assert(rtcs_dev:json_get([<<"StartTime">>], JsonStat) =/= notfound),
+    ?assert(rtcs_dev:json_get([<<"EndTime">>],   JsonStat) =/= notfound),
     ?assert(proplists:get_value('StartTime', XmlStat)  =/= notfound),
     ?assert(proplists:get_value('EndTime',   XmlStat)  =/= notfound),
     lists:foreach(fun({K, V}) ->
@@ -152,8 +152,9 @@ assert_results_for_non_empty_bucket(AdminConfig, UserConfig, CSNode, Bucket) ->
 
 assert_storage_json_stats(Bucket, K, V, Sample) ->
     logger:debug("assert json: ~p", [{K, V}]),
-    ?assertEqual(V, rtcs:json_get([list_to_binary(Bucket), list_to_binary(K)],
-                                  Sample)).
+    ?assertEqual(V, rtcs_dev:json_get(
+                      [list_to_binary(Bucket), list_to_binary(K)],
+                      Sample)).
 
 assert_storage_xml_stats(Bucket, K, V, Sample) ->
     logger:debug("assert xml: ~p", [{K, V}]),

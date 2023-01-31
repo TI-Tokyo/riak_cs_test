@@ -25,7 +25,7 @@
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
 
 confirm() ->
-    {{UserConfig, _}, {RiakNodes, _CSNodes}} = rtcs:setup(1),
+    {{UserConfig, _}, {RiakNodes, _CSNodes}} = rtcs_dev:setup(1),
 
     logger:info("Confirming initial stats"),
     confirm_initial_stats(cs, UserConfig, rtcs_config:cs_port(hd(RiakNodes))),

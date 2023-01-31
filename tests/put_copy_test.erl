@@ -47,7 +47,7 @@
 -define(REPLACE_KEY, "replace-target").
 
 confirm() ->
-    {{UserConfig, _}, {RiakNodes, _CSNodes}} = rtcs:setup(1),
+    {{UserConfig, _}, {RiakNodes, _CSNodes}} = rtcs_dev:setup(1),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET, UserConfig)),
     Data = ?DATA0,
     ?assertMatch([{version_id, "null"}|_],
@@ -254,7 +254,7 @@ verify_without_cl_header(UserConfig, normal, Data) ->
     logger:info("Verify basic (non-MP) PUT copy without Content-Length header"),
     Target = fmt("/~s/~s", [?BUCKET4, ?TGT_KEY]),
     Source = fmt("/~s/~s", [?BUCKET4, ?SRC_KEY]),
-    _Res = exec_curl(UserConfig, "PUT", Target, [{"x-amz-copy-source", Source}]),
+    rtcs_exec:curl_request(UserConfig, "PUT", Target, [{"x-amz-copy-source", Source}]),
 
     Props = erlcloud_s3:get_object(?BUCKET4, ?TGT_KEY, UserConfig),
     ?assertEqual(Data, proplists:get_value(content, Props)),
@@ -263,22 +263,6 @@ verify_without_cl_header(_UserConfig, mp, _Data) ->
     %% sadly, no list_part method in erlcloud-3.6.7 either.
     %% See boto_test_basic.SimpleCopyTest.test_upload_part_from_mp.
     ok.
-
-exec_curl(#aws_config{hackney_client_options = #hackney_client_options{proxy = {_, Port}}} = UserConfig,
-          Method, Resource, AmzHeaders) ->
-    ContentType = "application/octet-stream",
-    Date = httpd_util:rfc1123_date(),
-    Auth = rtcs_admin:make_authorization(
-             Method, Resource, ContentType, UserConfig, Date, AmzHeaders),
-    HeaderArgs = [fmt("-H '~s: ~s' ", [K, V]) ||
-                     {K, V} <- [{"Date", Date}, {"Authorization", Auth},
-                                {"Content-Type", ContentType} | AmzHeaders]],
-    Cmd="curl -X " ++ Method ++ " -v -s " ++ HeaderArgs ++
-        "'http://127.0.0.1:" ++ integer_to_list(Port) ++ Resource ++ "'",
-    logger:debug("Curl command line: ~s", [Cmd]),
-    Res = os:cmd(Cmd),
-    logger:debug("Curl result: ~s", [Res]),
-    Res.
 
 fmt(Fmt, Args) ->
     lists:flatten(io_lib:format(Fmt, Args)).

@@ -96,7 +96,7 @@ create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
                    {ReqBody, "application/json"}, []),
     logger:debug("ResBody: ~s", [ResBody]),
     JsonData = mochijson2:decode(ResBody),
-    [KeyId, KeySecret, Id] = [binary_to_list(rtcs:json_get([K], JsonData)) ||
+    [KeyId, KeySecret, Id] = [binary_to_list(rtcs_dev:json_get([K], JsonData)) ||
                                  K <- [<<"key_id">>, <<"key_secret">>, <<"id">>]],
     {aws_config(KeyId, KeySecret, Port), Id}.
 
@@ -266,10 +266,10 @@ aws_config(UserConfig, [{secret, Secret}|Props]) ->
 latest([], {_, Candidate}) ->
     Candidate;
 latest([Sample | Rest], undefined) ->
-    StartTime = rtcs:json_get([<<"StartTime">>], Sample),
+    StartTime = rtcs_dev:json_get([<<"StartTime">>], Sample),
     latest(Rest, {StartTime, Sample});
 latest([Sample | Rest], {CandidateStartTime, Candidate}) ->
-    StartTime = rtcs:json_get([<<"StartTime">>], Sample),
+    StartTime = rtcs_dev:json_get([<<"StartTime">>], Sample),
     NewCandidate = case StartTime < CandidateStartTime of
                        true -> {CandidateStartTime, Candidate};
                        _    -> {StartTime, Sample}
@@ -292,5 +292,5 @@ samples_from_json_request(AdminConfig, UserConfig, {Begin, End}) ->
     StatsKey = string:join(["usage", KeyId, "bj", Begin, End], "/"),
     GetResult = erlcloud_s3:get_object("riak-cs", StatsKey, AdminConfig),
     Usage = mochijson2:decode(proplists:get_value(content, GetResult)),
-    rtcs:json_get([<<"Storage">>, <<"Samples">>], Usage).
+    rtcs_dev:json_get([<<"Storage">>, <<"Samples">>], Usage).
 

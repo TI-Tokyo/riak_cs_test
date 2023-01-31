@@ -28,7 +28,7 @@ config() ->
 
 confirm() ->
     {{UserConfig, _}, {RiakNodes, _CSNodes}} =
-        rtcs:setup(1, [{cs, config()}]),
+        rtcs_dev:setup(1, [{cs, config()}]),
     KeyId = UserConfig#aws_config.access_key_id,
     Port = rtcs_config:cs_port(hd(RiakNodes)),
 
@@ -36,7 +36,7 @@ confirm() ->
     confirm_auth_bypass("riak-cs", "users", UserConfig, Port),
     confirm_auth_bypass("riak-cs", "user/"  ++ KeyId, UserConfig, Port),
     confirm_auth_bypass("riak-cs", "usage/" ++ KeyId ++ "/ab/" ++
-                            rtcs:datetime() ++ "/" ++ rtcs:datetime(),
+                            rtcs_dev:datetime() ++ "/" ++ rtcs_dev:datetime(),
                         UserConfig, Port),
     pass.
 

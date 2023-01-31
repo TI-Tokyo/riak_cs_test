@@ -30,7 +30,7 @@
 -define(ErrNodeId, 2).
 
 confirm() ->
-    {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs:setup(2),
+    {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs_dev:setup(2),
     ErrCSNode = lists:nth(?ErrNodeId, CSNodes),
     ErrNode = lists:nth(?ErrNodeId, RiakNodes),
     ErrConfig = rtcs_admin:aws_config(UserConfig, [{port, rtcs_config:cs_port(ErrNode)}]),

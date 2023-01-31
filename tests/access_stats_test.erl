@@ -35,7 +35,7 @@
 -define(DURATION_SECS, 11).
 
 confirm() ->
-    {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs:setup(2),
+    {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs_dev:setup(2),
     rt:setup_log_capture(hd(CSNodes)),
 
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
@@ -73,7 +73,7 @@ generate_some_accesses(UserConfig, DurationSecs) ->
     %% Illegal URL such that riak_cs_access_log_handler:handle_event/2 gets {log_access, #wm_log_data{notes=undefined}}
     ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:get_object("", "//a", UserConfig)), %% Path-style access
     ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:get_object("riak-cs", "pong", UserConfig)),
-    {rtcs:datetime(Begin), rtcs:datetime(), dict:to_list(Results)}.
+    {rtcs_dev:datetime(Begin), rtcs_dev:datetime(), dict:to_list(Results)}.
 
 generate_some_accesses(UserConfig, UntilGregSecs, R0) ->
     %% Put random object, twice
@@ -175,14 +175,14 @@ client_result(Key, ResultSet) ->
 
 node_samples_from_content(json, Node, Content) ->
     Usage = mochijson2:decode(Content),
-    ListOfNodeStats = rtcs:json_get([<<"Access">>, <<"Nodes">>], Usage),
+    ListOfNodeStats = rtcs_dev:json_get([<<"Access">>, <<"Nodes">>], Usage),
     logger:debug("ListOfNodeStats: ~p", [ListOfNodeStats]),
     NodeBin = list_to_binary(Node),
     [NodeStats | _] = lists:dropwhile(
                         fun(NodeStats) ->
-                                rtcs:json_get(<<"Node">>, NodeStats) =/= NodeBin
+                                rtcs_dev:json_get(<<"Node">>, NodeStats) =/= NodeBin
                         end, ListOfNodeStats),
-    rtcs:json_get(<<"Samples">>, NodeStats);
+    rtcs_dev:json_get(<<"Samples">>, NodeStats);
 node_samples_from_content(xml, Node, Content) ->
     {Usage, _Rest} = xmerl_scan:string(unicode:characters_to_list(Content, utf8)),
     xmerl_xpath:string("/Usage/Access/Nodes/Node[@name='" ++ Node ++ "']/Sample", Usage).
@@ -198,7 +198,7 @@ sum_samples_json(Keys, Samples) ->
 sum_samples_json(_Keys, [], Sum) ->
     Sum;
 sum_samples_json(Keys, [Sample | Samples], Sum) ->
-    InSample = case rtcs:json_get(Keys, Sample) of
+    InSample = case rtcs_dev:json_get(Keys, Sample) of
                    notfound ->
                        0;
                    Value when is_integer(Value) ->

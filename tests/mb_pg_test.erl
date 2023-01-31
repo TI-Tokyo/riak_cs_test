@@ -1,5 +1,23 @@
-%% Copyright (c) 2015 Basho Technologies, Inc.  All Rights Reserved.
-%%               2021 TI Tokyo.  All Rights Reserved.
+%% ---------------------------------------------------------------------
+%%
+%% Copyright (c) 2015 Basho Technologies, Inc.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
+%%
+%% This file is provided to you under the Apache License,
+%% Version 2.0 (the "License"); you may not use this file
+%% except in compliance with the License.  You may obtain
+%% a copy of the License at
+%%
+%%   http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing,
+%% software distributed under the License is distributed on an
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
+%% specific language governing permissions and limitations
+%% under the License.
+%%
+%% ---------------------------------------------------------------------
 
 -module(mb_pg_test).
 
@@ -125,17 +143,17 @@ setup_clusters() ->
                         WBagConf = rtcs_bag:conf(2, 1, shared),
                         EBagConf = rtcs_bag:conf(2, 5, shared),
                         rt:pmap(fun(N) ->
-                                        rtcs:set_conf({cs, current, N}, WBagConf)
+                                        rtcs_dev:set_conf({cs, current, N}, WBagConf)
                                 end, lists:seq(1, 4)),
                         rt:pmap(fun(N) ->
-                                        rtcs:set_conf({cs, current, N}, EBagConf)
+                                        rtcs_dev:set_conf({cs, current, N}, EBagConf)
                                 end, lists:seq(5, 8))
                 end,
     {RiakNodes, _CSs} =
-        rtcs:setup_clusters(#{config_spec => ConfigFun,
-                              join_fun => JoinFun,
-                              num_nodes => 8,
-                              vsn => current}),
+        rtcs_dev:setup_clusters(#{config_spec => ConfigFun,
+                                  join_fun => JoinFun,
+                                  num_nodes => 8,
+                                  vsn => current}),
 
     [WestA1, WestA2, WestB, WestC, EastA1, EastA2, EastB, EastC] = RiakNodes,
     %% Name and connect v3 repl

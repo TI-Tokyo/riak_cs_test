@@ -36,7 +36,7 @@ config() ->
     [{riak_cs, [{region, ?REGION}]}].
 
 confirm() ->
-    {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs:setup(1, [{cs, config()}]),
+    {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs_dev:setup(1, [{cs, config()}]),
 
     %% User 1, Cluster 1 config
     UserConfig1 = rtcs_admin:create_user(hd(RiakNodes), 1),

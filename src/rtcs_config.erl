@@ -230,45 +230,6 @@ replace(Key, Value, Config0) ->
     [proplists:property(Key, Value)|Config1].
 
 
-riak_bitcaskroot(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/riak/data/bitcask", [Prefix, N]).
-
-riak_binpath(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/bin/riak", [Prefix, N]).
-
-riakcmd(Path, N, Cmd) ->
-    lists:flatten(io_lib:format("~s ~s", [riak_binpath(Path, N), Cmd])).
-
-riakcs_home(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/", [Prefix, N]).
-
-riakcs_binpath(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/riak-cs/bin/riak-cs", [Prefix, N]).
-
-riakcs_etcpath(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/riak-cs/etc", [Prefix, N]).
-
-riakcs_libpath(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/riak-cs/lib", [Prefix, N]).
-
-riakcs_logpath(Prefix, N, File) ->
-    io_lib:format("~s/dev/dev~b/riak-cs/log/~s", [Prefix, N, File]).
-
-riakcscmd(Path, N, Cmd) ->
-    lists:flatten(io_lib:format("~s ~s", [riakcs_binpath(Path, N), Cmd])).
-
-riakcs_statuscmd(Path, N) ->
-    lists:flatten(io_lib:format("~s-admin status", [riakcs_binpath(Path, N)])).
-
-riakcs_gccmd(Path, N, Cmd) ->
-    lists:flatten(io_lib:format("~s-admin gc ~s", [riakcs_binpath(Path, N), Cmd])).
-
-riakcs_accesscmd(Path, N, Cmd) ->
-    lists:flatten(io_lib:format("~s-admin access ~s", [riakcs_binpath(Path, N), Cmd])).
-
-riakcs_storagecmd(Path, N, Cmd) ->
-    lists:flatten(io_lib:format("~s-admin storage ~s", [riakcs_binpath(Path, N), Cmd])).
-
 cs_current() ->
     ?CS_CURRENT.
 
@@ -278,9 +239,9 @@ devpath(cs, current) -> rt_config:get(?CS_CURRENT);
 devpath(cs, previous) -> rt_config:get(?CS_PREVIOUS).
 
 set_configs(NumNodes, Config, Vsn) ->
-    rtcs:set_conf({riak, Vsn}, riak_conf()),
+    rtcs_dev:set_conf({riak, Vsn}, riak_conf()),
     rt:pmap(fun(N) ->
-                    rtcs_dev:update_app_config(rtcs:riak_node(N),
+                    rtcs_dev:update_app_config(rtcs_dev:riak_node(N),
                                                 proplists:get_value(riak, Config)),
                     update_cs_config(devpath(cs, Vsn), N,
                                      proplists:get_value(cs, Config))
@@ -290,7 +251,7 @@ set_configs(NumNodes, Config, Vsn) ->
 
 read_config(Vsn, N) ->
     Prefix = devpath(cs, Vsn),
-    EtcPath = riakcs_etcpath(Prefix, N),
+    EtcPath = rtcs_exec:riakcs_etcpath(Prefix, N),
     case file:consult(EtcPath ++ "/advanced.config") of
          {ok, [Config]} ->
              Config;
@@ -309,7 +270,7 @@ update_cs_config(Prefix, N, Config) ->
     CSSection = proplists:get_value(riak_cs, Config),
     UpdConfig = [{riak_cs, update_cs_port(CSSection, N)} |
                  proplists:delete(riak_cs, Config)],
-    update_app_config(riakcs_etcpath(Prefix, N), UpdConfig).
+    update_app_config(rtcs_exec:riakcs_etcpath(Prefix, N), UpdConfig).
 
 update_admin_creds(Config, AdminKey) ->
     [{admin_key, AdminKey}|
@@ -324,7 +285,7 @@ update_cs_port(Config, N) ->
       ]).
 
 update_app_config(Path, Config) ->
-    logger:debug("rtcs:update_app_config(~s,~p)", [Path, Config]),
+    logger:debug("update_app_config(~s,~p)", [Path, Config]),
     FileFormatString = "~s/~s.config",
     AppConfigFile = io_lib:format(FileFormatString, [Path, "app"]),
     AdvConfigFile = io_lib:format(FileFormatString, [Path, "advanced"]),
@@ -340,7 +301,7 @@ update_app_config(Path, Config) ->
 enable_zdbbl(Vsn) ->
     Fs = filelib:wildcard(filename:join([devpath(riak, Vsn),
                                          "dev", "dev*", "etc", "vm.args"])),
-    logger:debug("rtcs:enable_zdbbl for vm.args : ~p", [Fs]),
+    logger:debug("enable_zdbbl for vm.args : ~p", [Fs]),
     [os:cmd("sed -i -e 's/##+zdbbl /+zdbbl /g' " ++ F) || F <- Fs],
     ok.
 

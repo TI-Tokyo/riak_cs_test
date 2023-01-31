@@ -33,7 +33,7 @@ confirm() ->
 
     PrevConfig = rtcs_config:previous_configs(),
     {{UserConfig, _}, {RiakNodes, CSNodes} = Tussle} =
-        rtcs:setup(NumNodes, PrevConfig, previous),
+        rtcs_dev:setup(NumNodes, PrevConfig, previous),
 
     {ok, Data} = prepare_all_data(UserConfig),
     ok = verify_all_data(UserConfig, Data),
@@ -50,9 +50,10 @@ confirm() ->
          N = rtcs_dev:node_id(RiakNode),
          ok = rt:upgrade(RiakNode, RiakCurrentVsn),
          ok = rtcs_config:upgrade_cs(N, AdminCreds),
-         rtcs:set_advanced_conf({cs, current, N},
-                                [{riak_cs,
-                                  [{riak_host, {"127.0.0.1", rtcs_config:pb_port(1)}}]}])
+         rtcs_dev:set_advanced_conf(
+           {cs, current, N},
+           [{riak_cs, [{riak_host, {"127.0.0.1", rtcs_config:pb_port(1)}}]}]
+          )
      end || RiakNode <- RiakNodes],
 
     rtcs_exec:start_all_nodes(Tussle, current),
@@ -88,10 +89,11 @@ confirm() ->
 
 prepare_current(NumNodes) ->
     logger:info("Preparing current cluster", []),
-    {RiakNodes, CSNodes} = rtcs:flavored_setup(#{num_nodes => NumNodes,
-                                                 flavor => rt_config:get(flavor, basic),
-                                                 config_spec => rtcs_config:configs([]),
-                                                 vsn => current}),
+    {RiakNodes, CSNodes} =
+        rtcs_dev:flavored_setup(#{num_nodes => NumNodes,
+                                  flavor => rt_config:get(flavor, basic),
+                                  config_spec => rtcs_config:configs([]),
+                                  vsn => current}),
     rt:pmap(fun(N) -> rtcs_exec:stop_cs(N, current) end, CSNodes),
     rt:pmap(fun(N) -> rtcs_dev:stop(N, current) end, RiakNodes),
     ok.

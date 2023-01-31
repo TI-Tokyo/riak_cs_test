@@ -28,8 +28,8 @@ config() ->
 
 confirm() ->
     %% 10MB threshold, for 3MB objects are used in cs_suites:run/2
-    %% rtcs:set_advanced_conf(cs, config()),
-    Setup = {_, {[RiakNode|_], [CSNode|_]}} = rtcs:setup(1, [{cs, config()}]),
+    %% rtcs_dev:set_advanced_conf(cs, config()),
+    Setup = {_, {[RiakNode|_], [CSNode|_]}} = rtcs_dev:setup(1, [{cs, config()}]),
 
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
       CSNode, [RiakNode], [riak_cs_utils,

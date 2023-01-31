@@ -29,7 +29,7 @@
 
 set_conf(NumNodes, BagFlavor) ->
     BagConf = conf(NumNodes, BagFlavor),
-    rtcs:set_conf(cs, BagConf),
+    rtcs_dev:set_conf(cs, BagConf),
     ok.
 
 conf(NumNodes, BagFlavor) ->
@@ -53,7 +53,7 @@ flavored_setup(#{num_nodes := NumNodes,
                  preconfigured := Preconfigured}) ->
     set_conf(NumNodes, BagFlavor),
     Singltons = 4,
-    SetupResult = rtcs:setupNxMsingles(NumNodes, Singltons, CustomConfigs, Vsn, Preconfigured),
+    SetupResult = rtcs_dev:setupNxMsingles(NumNodes, Singltons, CustomConfigs, Vsn, Preconfigured),
     set_weights(weights(BagFlavor)),
     SetupResult;
 flavored_setup(#{num_nodes := NumNodes,
@@ -64,8 +64,8 @@ flavored_setup(#{num_nodes := NumNodes,
     MultiBags = bags(NumNodes, BagFlavor),
     BagConfigs = configs(MultiBags),
     Singltons = 4,
-    SetupResult = rtcs:setupNxMsingles(NumNodes, Singltons, rtcs_config:merge(CustomConfigs, BagConfigs), Vsn,
-                                       Preconfigured),
+    SetupResult = rtcs_dev:setupNxMsingles(NumNodes, Singltons, rtcs_config:merge(CustomConfigs, BagConfigs), Vsn,
+                                           Preconfigured),
     set_weights(weights(BagFlavor)),
     SetupResult.
 

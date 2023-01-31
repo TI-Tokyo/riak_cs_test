@@ -33,8 +33,8 @@ history(NodesInMaster) ->
     ].
 
 setup_single_bag(NodesInMaster) ->
-    Tussle = {RiakNodes, [CSNode|_]} = rtcs:setupNxMsingles(NodesInMaster, 4, custom_configs(), current),
-    UserConfig = rtcs:setup_admin_user(4, current),
+    Tussle = {RiakNodes, [CSNode|_]} = rtcs_dev:setupNxMsingles(NodesInMaster, 4, custom_configs(), current),
+    UserConfig = rtcs_dev:setup_admin_user(4, current),
 
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
       CSNode, RiakNodes, [riak_cs_utils,
@@ -53,16 +53,17 @@ transition_to_mb(NodesInMaster, State) ->
     rt:pmap(fun(N) -> rtcs_dev:stop(N) end, CSNodes),
     %% Because there are noises from poolboy shutdown at stopping riak-cs,
     %% truncate error log here and re-assert emptiness of error.log file later.
-    rtcs:truncate_error_log(1),
+    rtcs_dev:truncate_error_log(1),
 
     rt:pmap(fun(RiakNode) ->
                     N = rtcs_dev:node_id(RiakNode),
-                    rtcs:set_conf({cs, current, N}, BagConf),
+                    rtcs_dev:set_conf({cs, current, N}, BagConf),
                     %% dev1 is the master cluster, so all CS nodes are configured as that
                     %% Also could be dev2, but not dev3 or later.
-                    rtcs:set_advanced_conf({cs, current, N},
-                                           [{riak_cs,
-                                             [{riak_host, {"127.0.0.1", rtcs_config:pb_port(1)}}]}])
+                    rtcs_dev:set_advanced_conf(
+                      {cs, current, N},
+                      [{riak_cs, [{riak_host, {"127.0.0.1", rtcs_config:pb_port(1)}}]}]
+                     )
             end, RiakNodes),
     [N1|Nn] = CSNodes,
     rtcs_dev:start(N1), rt:wait_until_pingable(N1),

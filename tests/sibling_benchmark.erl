@@ -71,10 +71,10 @@ confirm() ->
         case proplists:get_value(version, RTConfig, current) of
             current ->
                 put(version, current),
-                _ = rtcs:setup(4, Config);
+                _ = rtcs_dev:setup(4, Config);
             previous ->
                 put(version, previous),
-                _ = rtcs:setup(4, Config, previous)
+                _ = rtcs_dev:setup(4, Config, previous)
         end,
 
     %% setting up the stage

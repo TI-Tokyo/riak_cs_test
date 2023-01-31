@@ -55,7 +55,7 @@ confirm_1(Use2iForStorageCalc) when is_boolean(Use2iForStorageCalc) ->
     Conf = [{riak, [{riak_kv, [{delete_mode, keep}]}]},
             {cs, [{riak_cs,
                    [{use_2i_for_storage_calc, Use2iForStorageCalc}]}]}],
-    SetupRes = {_, {[RiakNode], [CSNode]}} = rtcs:setup(1, Conf),
+    SetupRes = {_, {[RiakNode], [CSNode]}} = rtcs_dev:setup(1, Conf),
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
       CSNode, [RiakNode], [riak_cs_utils,
                            rcs_common_manifest_utils,
@@ -119,7 +119,7 @@ verify_cs840_regression(UserConfig, RiakNodes) ->
 mess_with_writing_various_props(RiakNodes, UserConfig, VariousProps) ->
     F = fun({CSBucket, CSKey, NewState, Props}) ->
                 Bucket = <<"0o:", (crypto:hash(md5, list_to_binary(CSBucket)))/binary>>,
-                Pid = rtcs:pbc(RiakNodes, objects, CSBucket),
+                Pid = rtcs_dev:pbc(RiakNodes, objects, CSBucket),
                 {ok, RiakObject0} = riakc_pb_socket:get(Pid, Bucket, list_to_binary(CSKey)),
                 [{UUID, Manifest0}|_] = hd([binary_to_term(V) || V <- riakc_obj:get_values(RiakObject0)]),
                 Manifest1 = Manifest0?MANIFEST{state=NewState, props=Props},
@@ -139,7 +139,7 @@ mess_with_writing_various_props(RiakNodes, UserConfig, VariousProps) ->
 
 mess_with_active_undefined(RiakNodes) ->
     CSBucket = ?BUCKET7, CSKey = ?KEY,
-    Pid = rtcs:pbc(RiakNodes, objects, CSBucket),
+    Pid = rtcs_dev:pbc(RiakNodes, objects, CSBucket),
     Bucket = <<"0o:", (crypto:hash(md5, list_to_binary(CSBucket)))/binary>>,
     {ok, RiakObject0} = riakc_pb_socket:get(Pid, Bucket, list_to_binary(CSKey)),
     [{UUID, Manifest0}|_] = hd([binary_to_term(V) || V <- riakc_obj:get_values(RiakObject0)]),
@@ -153,7 +153,7 @@ mess_with_active_undefined(RiakNodes) ->
 mess_with_tombstone(RiakNodes, UserConfig) ->
     CSBucket = ?BUCKET8,
     CSKey = ?KEY,
-    Pid = rtcs:pbc(RiakNodes, objects, CSBucket),
+    Pid = rtcs_dev:pbc(RiakNodes, objects, CSBucket),
     Block = crypto:strong_rand_bytes(100),
     ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(CSBucket, CSKey,
                                                                 Block, UserConfig)),
@@ -244,7 +244,7 @@ give_over_bucket(Bucket, UserConfig, AnotherUser) ->
     {Bucket, undefined, undefined}.
 
 calc_storage_stats(CSNode) ->
-    Begin = rtcs:datetime(),
+    Begin = rtcs_dev:datetime(),
     %% FIXME: workaround for #766
     timer:sleep(1000),
     Res = rtcs_exec:calculate_storage(1),
@@ -254,16 +254,16 @@ calc_storage_stats(CSNode) ->
     true = rt:expect_in_log(CSNode, "Finished storage calculation"),
     %% FIXME: workaround for #766
     timer:sleep(1000),
-    End = rtcs:datetime(),
+    End = rtcs_dev:datetime(),
     {Begin, End}.
 
 assert_storage_json_stats({Bucket, undefined, undefined}, Sample) ->
-    ?assertEqual(notfound, rtcs:json_get([list_to_binary(Bucket)], Sample));
+    ?assertEqual(notfound, rtcs_dev:json_get([list_to_binary(Bucket)], Sample));
 assert_storage_json_stats({Bucket, ExpectedObjects, ExpectedBytes}, Sample) ->
-    ?assertEqual(ExpectedObjects, rtcs:json_get([list_to_binary(Bucket), <<"Objects">>],   Sample)),
-    ?assertEqual(ExpectedBytes,   rtcs:json_get([list_to_binary(Bucket), <<"Bytes">>],     Sample)),
-    ?assert(rtcs:json_get([<<"StartTime">>], Sample) =/= notfound),
-    ?assert(rtcs:json_get([<<"EndTime">>],   Sample) =/= notfound),
+    ?assertEqual(ExpectedObjects, rtcs_dev:json_get([list_to_binary(Bucket), <<"Objects">>],   Sample)),
+    ?assertEqual(ExpectedBytes,   rtcs_dev:json_get([list_to_binary(Bucket), <<"Bytes">>],     Sample)),
+    ?assert(rtcs_dev:json_get([<<"StartTime">>], Sample) =/= notfound),
+    ?assert(rtcs_dev:json_get([<<"EndTime">>],   Sample) =/= notfound),
     ok.
 
 assert_storage_xml_stats({Bucket, undefined, undefined}, Sample) ->
@@ -306,7 +306,7 @@ samples_from_json_request(SignUserConfig, UserConfig, {Begin, End}) ->
     logger:debug("GET Storage stats response[json]: ~p", [GetResult]),
     Usage = mochijson2:decode(proplists:get_value(content, GetResult)),
     logger:debug("Usage Response[json]: ~p", [Usage]),
-    rtcs:json_get([<<"Storage">>, <<"Samples">>], Usage).
+    rtcs_dev:json_get([<<"Storage">>, <<"Samples">>], Usage).
 
 samples_from_xml_request(SignUserConfig, UserConfig, {Begin, End}) ->
     KeyId = UserConfig#aws_config.access_key_id,

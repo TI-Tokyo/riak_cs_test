@@ -1,4 +1,23 @@
-%% Copyright (c) 2014 Basho Technologies, Inc.  All Rights Reserved.
+%% ---------------------------------------------------------------------
+%%
+%% Copyright (c) 2014 Basho Technologies, Inc.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
+%%
+%% This file is provided to you under the Apache License,
+%% Version 2.0 (the "License"); you may not use this file
+%% except in compliance with the License.  You may obtain
+%% a copy of the License at
+%%
+%%   http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing,
+%% software distributed under the License is distributed on an
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
+%% specific language governing permissions and limitations
+%% under the License.
+%%
+%% ---------------------------------------------------------------------
 
 -module(mb_trans_test).
 
@@ -22,11 +41,11 @@ confirm() ->
     NodesInMaster = 1,
     %% setup single bag cluster at first
     {RiakNodes, CSNodes} =
-        rtcs:setupNxMsingles(NodesInMaster, 4),
+        rtcs_dev:setupNxMsingles(NodesInMaster, 4),
     UserConfig = rtcs_admin:create_user(hd(CSNodes), 1),
-    rtcs:truncate_error_log(1),
+    rtcs_dev:truncate_error_log(1),
     OldInOldContent = setup_old_bucket_and_key(UserConfig, ?OLD_BUCKET, ?OLD_KEY_IN_OLD),
-    rtcs:assert_error_log_empty(1),
+    rtcs_dev:assert_error_log_empty(1),
 
     transition_to_multibag_configuration(
       NodesInMaster, lists:zip(CSNodes, RiakNodes)),
@@ -74,7 +93,7 @@ confirm() ->
         {B, M} <- [{?OLD_BUCKET, MOldInOld},
                    {?OLD_BUCKET, MNewInOld},
                    {?NEW_BUCKET, MNewInNew}]],
-    rtcs:assert_error_log_empty(1),
+    rtcs_dev:assert_error_log_empty(1),
     pass.
 
 assert_block_bag(Bucket, Key, Manifest, RiakNodes, [BagD, BagE]) ->
@@ -100,15 +119,16 @@ transition_to_multibag_configuration(NodesInMaster, NodeList) ->
     rt:pmap(fun({CSNode, _RiakNode}) -> rtcs_dev:stop(CSNode) end, NodeList),
     %% Because there are noises from poolboy shutdown at stopping riak-cs,
     %% truncate error log here and re-assert emptiness of error.log file later.
-    rtcs:truncate_error_log(1),
+    rtcs_dev:truncate_error_log(1),
 
     rt:pmap(fun({CSNode, RiakNode}) ->
                     N = rtcs_dev:node_id(RiakNode),
-                    rtcs:set_conf({cs, current, N}, BagConf),
+                    rtcs_dev:set_conf({cs, current, N}, BagConf),
                     %% dev1 is the master cluster, so all CS nodes are configured as that
-                    rtcs:set_advanced_conf({cs, current, N},
-                                           [{riak_cs,
-                                             [{riak_host, {"127.0.0.1", rtcs_config:pb_port(1)}}]}]),
+                    rtcs_dev:set_advanced_conf(
+                      {cs, current, N},
+                      [{riak_cs, [{riak_host, {"127.0.0.1", rtcs_config:pb_port(1)}}]}]
+                     ),
                     rtcs_dev:start(CSNode)
             end, NodeList),
     [ok = rt:wait_until_pingable(CSNode) || {CSNode, _RiakNode} <- NodeList],

@@ -38,7 +38,7 @@
 
 
 confirm() ->
-    {{UserConfig, _}, {_RiakNodes, _CSNodes}} = rtcs:setup(1),
+    {{UserConfig, _}, {_RiakNodes, _CSNodes}} = rtcs_dev:setup(1),
 
     logger:info("User is valid on the cluster, and has no buckets"),
     ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
@@ -67,10 +67,10 @@ non_mp_get_cases(UserConfig) ->
     basic_get_test_case(?TEST_BUCKET, ?KEY_MULTIPLE_BLOCK, MultipleBlock, UserConfig),
 
     %% GET after nval=1 GET failure
-    rt_intercept:add(rtcs:cs_node(1), {riak_cs_block_server, [{{get_block_local, 6}, get_block_local_insufficient_vnode_at_nval1}]}),
+    rt_intercept:add(rtcs_dev:cs_node(1), {riak_cs_block_server, [{{get_block_local, 6}, get_block_local_insufficient_vnode_at_nval1}]}),
     Res = erlcloud_s3:get_object(?TEST_BUCKET, ?KEY_SINGLE_BLOCK, UserConfig),
     ?assertEqual(SingleBlock, proplists:get_value(content, Res)),
-    rt_intercept:clean(rtcs:cs_node(1), riak_cs_block_server),
+    rt_intercept:clean(rtcs_dev:cs_node(1), riak_cs_block_server),
 
     %% Range GET for single-block object test cases
     [range_get_test_case(?TEST_BUCKET, ?KEY_SINGLE_BLOCK, SingleBlock,
@@ -140,7 +140,7 @@ timestamp_skew_cases(UserConfig) ->
     Data = <<"bark! bark! bark!!!">>,
     ?assertEqual(ok, erlcloud_s3:create_bucket(BucketName, UserConfig)),
     erlcloud_s3:put_object(BucketName, KeyName, Data, UserConfig),
-    
+
     meck:new(httpd_util, [passthrough]),
     %% To emulate clock skew, override erlang:localtime/0 to
     %% enable random walk time, as long as erlcloud_s3 uses

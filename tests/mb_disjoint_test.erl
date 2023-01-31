@@ -21,7 +21,7 @@ confirm() ->
     BagFlavor = disjoint,
 
     {RiakNodes, CSNodes} =
-        rtcs:setupNxMsingles(NodesOfMasterBag, NumNodes,
+        rtcs_dev:setupNxMsingles(NodesOfMasterBag, NumNodes,
                              fun(_Nodes) -> rtcs_bag:set_conf(NodesOfMasterBag, BagFlavor) end,
                              current),
     UserConfig = rtcs_admin:create_user(hd(CSNodes), 1),

@@ -32,7 +32,7 @@
 
 confirm() ->
     {{UserConfig, _}, {RiakNodes, [CSNode|_] = CSNodes}} =
-        rtcs:setup(2, [{cs, [{riak_cs, [{storage_calc_timeout, 1}]}]}]),
+        rtcs_dev:setup(2, [{cs, [{riak_cs, [{storage_calc_timeout, 1}]}]}]),
 
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
       CSNode, RiakNodes, [riak_cs_utils,
@@ -41,7 +41,7 @@ confirm() ->
                           riak_cs_storage,
                           riak_cs_storage_mr]),
 
-    Begin = rtcs:datetime(),
+    Begin = rtcs_dev:datetime(),
     run_storage_batch(hd(CSNodes)),
     logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
@@ -53,7 +53,7 @@ confirm() ->
 
     run_storage_batch(CSNode),
     timer:sleep(1000),
-    End = rtcs:datetime(),
+    End = rtcs_dev:datetime(),
 
     assert_storage_stats(UserConfig, Begin, End),
     pass.
@@ -65,11 +65,11 @@ assert_storage_stats(UserConfig, Begin, End) ->
     logger:info("Storage stats response: ~p", [GetResult]),
     Usage = mochijson2:decode(proplists:get_value(content, GetResult)),
     logger:info("Storage Usage: ~p", [Usage]),
-    Samples = rtcs:json_get([<<"Storage">>, <<"Samples">>], Usage),
+    Samples = rtcs_dev:json_get([<<"Storage">>, <<"Samples">>], Usage),
 
     ?assert(lists:any(
               fun(Sample) ->
-                      case rtcs:json_get(list_to_binary(?TEST_BUCKET), Sample) of
+                      case rtcs_dev:json_get(list_to_binary(?TEST_BUCKET), Sample) of
                           notfound -> false;
                           ResultStr ->
                               ?assert(not is_integer(ResultStr)),

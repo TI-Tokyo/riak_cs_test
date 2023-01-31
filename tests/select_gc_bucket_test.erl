@@ -44,7 +44,7 @@ confirm() ->
     end.
 
 confirm1() ->
-    {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs:setup(1),
+    {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs_dev:setup(1),
 
     BlockKeysFile = "/tmp/select_gc.txt",
     os:cmd("rm -f " ++ BlockKeysFile),

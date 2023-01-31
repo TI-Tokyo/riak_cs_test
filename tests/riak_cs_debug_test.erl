@@ -55,7 +55,7 @@ confirm() ->
     ?assertContainsAll(minimum_necessary_files(), List1),
     ok = file:delete(TarGz1),
 
-    _ = rtcs:setup(1),
+    _ = rtcs_dev:setup(1),
 
     logger:info("sleeping 3 sec to allow riak_cs to create reports.log..."),
     timer:sleep(3000),
@@ -93,7 +93,7 @@ confirm() ->
     pass.
 
 restart_cs_node() ->
-    N = rtcs:cs_node(1),
+    N = rtcs_dev:cs_node(1),
     rtcs_dev:stop(N),
     rtcs_dev:start(N),
     ok.

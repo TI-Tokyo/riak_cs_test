@@ -118,8 +118,8 @@ new(Setup) ->
 new({{AdminConfig, _}, {RiakNodes, CSNodes}}, Ops) ->
     rt:setup_log_capture(hd(CSNodes)),
     rtcs_exec:gc(1, "set-interval infinity"),
-    Begin = rtcs:datetime(),
-    rtcs:truncate_error_log(1),
+    Begin = rtcs_dev:datetime(),
+    rtcs_dev:truncate_error_log(1),
     %% FIXME: workaround for riak_cs#766
     timer:sleep(timer:seconds(1)),
     {ok, #state{begin_at = Begin,
@@ -234,7 +234,7 @@ apply_operation(stats_storage, CurrentCircle,
     true = rt:expect_in_log(CSNode, "Finished storage calculation"),
     %% FIXME: workaround for riak_cs#766
     timer:sleep(timer:seconds(2)),
-    End = rtcs:datetime(),
+    End = rtcs_dev:datetime(),
     [get_storage_stats(AdminConfig, Begin, End, Circle) || Circle <- [CurrentCircle|Circles]],
     {ok, CurrentCircle, State};
 apply_operation(gc, Circle, #state{cs_nodes=[CSNode|_]} = State) ->
@@ -262,7 +262,7 @@ apply_operation(gc, Circle, #state{cs_nodes=[CSNode|_]} = State) ->
     {ok, Circle, State};
 apply_operation(end_of_op, Circle,
                 #state{node1_cs_vsn=Vsn, circles=SoFar} = State) ->
-    rtcs:assert_error_log_empty(Vsn, 1),
+    rtcs_dev:assert_error_log_empty(Vsn, 1),
     {ok, Circle, State#state{circles=[Circle|SoFar]}};
 
 apply_operation(delete_all, CurrentCircle, #state{circles=Circles} = State) ->

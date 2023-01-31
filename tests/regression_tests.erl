@@ -23,7 +23,7 @@
 
 %% @doc this module gathers various regression tests which can be
 %% separate easily. Regression tests which needs configuration change
-%% can be written as different module. In case of rtcs:setup(1) with
+%% can be written as different module. In case of rtcs_dev:setup(1) with
 %% vanilla CS setup used. Otherwise feel free to create an independent
 %% module like cs743_regression_test.
 
@@ -54,7 +54,7 @@
 
 confirm() ->
     %% Setting short timeouts to accelarate verify_cs756
-    SetupInfo = {{UserConfig, _}, _Nodes} = rtcs:setup(1, [{cs, [{riak_cs, [{riakc_timeouts, 1000}]}]}]),
+    SetupInfo = {{UserConfig, _}, _Nodes} = rtcs_dev:setup(1, [{cs, [{riak_cs, [{riakc_timeouts, 1000}]}]}]),
 
     ok = verify_cs296(SetupInfo, "test-bucket-cs296"),
     ok = verify_cs347(SetupInfo, "test-bucket-cs347"),
@@ -224,7 +224,7 @@ verify_cs770({{UserConfig, _}, {RiakNodes, _}}, BucketName) ->
                           scheduled_delete =:= Mx?MANIFEST.state
                   end, 8, 4096),
 
-    Pbc = rtcs:pbc(RiakNodes, objects, BucketName),
+    Pbc = rtcs_dev:pbc(RiakNodes, objects, BucketName),
 
     %% verify that object is also stored in latest GC bucket
     Ms = all_manifests_in_gc_bucket(Pbc),

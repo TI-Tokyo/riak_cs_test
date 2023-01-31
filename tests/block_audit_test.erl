@@ -45,7 +45,7 @@ confirm() ->
     end.
 
 confirm1() ->
-    {{UserConfig, _}, {RiakNodes, _CSNodes} = Tussle} = rtcs:setup(1),
+    {{UserConfig, _}, {RiakNodes, _CSNodes} = Tussle} = rtcs_dev:setup(1),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET1, UserConfig)),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET2, UserConfig)),
     FalseOrphans1 =
@@ -56,7 +56,7 @@ confirm1() ->
         [setup_objects(RiakNodes, UserConfig, Bucket, mp,
                        ?KEY_ALIVE_MP, ?KEY_ORPHANED_MP, ?KEY_FALSE_ORPHANED_MP) ||
             Bucket <- [?BUCKET1, ?BUCKET2]],
-    Home = rtcs_config:riakcs_home(rtcs_config:devpath(cs, current), 1),
+    Home = rtcs_exec:riakcs_home(rtcs_config:devpath(cs, current), 1),
     file:delete(filename:join([Home, "riak-cs", "maybe-orphaned-blocks"])),
     file:delete(filename:join([Home, "riak-cs", "actual-orphaned-blocks"])),
     Res1 = rtcs_exec:exec_priv_escript(

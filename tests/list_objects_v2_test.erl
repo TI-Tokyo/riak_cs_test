@@ -29,7 +29,7 @@
 
 confirm() ->
     {{UserConfig, _}, {RiakNodes, CSNodes}} =
-        rtcs:setup(2, [{cs, [{riak_cs, [{fold_objects_for_list_keys, true}]}]}]),
+        rtcs_dev:setup(2, [{cs, [{riak_cs, [{fold_objects_for_list_keys, true}]}]}]),
     assert_v2_is_default(CSNodes),
     pass = list_objects_test_helper:test(UserConfig),
 

@@ -31,7 +31,7 @@ confirm() ->
 
 confirm_in_auto_mode() ->
     {_Creds, {_RiakNodes, [RCS1, RCS2]}} =
-        rtcs:setup(2, cs_config(auto)),
+        rtcs_dev:setup(2, cs_config(auto)),
     %% standard setup has stanchion on rcs-dev1
 
     logger:info("Default setup has stanchion at the node that was brought up first (~s)", [RCS1]),
@@ -65,7 +65,7 @@ confirm_in_auto_mode() ->
 
 confirm_in_pinned_mode() ->
     {{AdminUserConfig, _Id}, {_RiakNodes, [RCS1, RCS2]}} =
-        rtcs:setup(2, cs_config(riak_cs_only)),
+        rtcs_dev:setup(2, cs_config(riak_cs_only)),
 
     logger:info("Default setup has stanchion at the node that was brought up first (~s)", [RCS1]),
     ok                = verify_stancion_at_node(RCS1),
@@ -119,6 +119,6 @@ cs_config(auto) ->
     [{cs, [{riak_cs, [{stanchion_hosting_mode, auto}]}]}];
 cs_config(riak_cs_only) ->
     fun({_RiakNodes, [N1, N2]}) ->
-            rtcs:set_advanced_conf(N1, [{riak_cs, [{stanchion_hosting_mode, riak_cs_with_stanchion}]}]),
-            rtcs:set_advanced_conf(N2, [{riak_cs, [{stanchion_hosting_mode, riak_cs_only}]}])
+            rtcs_dev:set_advanced_conf(N1, [{riak_cs, [{stanchion_hosting_mode, riak_cs_with_stanchion}]}]),
+            rtcs_dev:set_advanced_conf(N2, [{riak_cs, [{stanchion_hosting_mode, riak_cs_only}]}])
     end.

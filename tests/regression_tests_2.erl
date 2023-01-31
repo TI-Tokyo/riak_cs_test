@@ -20,7 +20,7 @@
 
 %% @doc regression_tests running with two node cluster, while
 %% regression_tests.erl is for single node cluster In case of
-%% rtcs:setup(2) with vanilla CS setup used. Otherwise feel free to
+%% rtcs_dev:setup(2) with vanilla CS setup used. Otherwise feel free to
 %% create an independent module like cs743_regression_test.
 
 
@@ -31,7 +31,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 confirm() ->
-    {{UserConfig, _}, {_RiakNodes, _CSNodes}} = rtcs:setup(2),
+    {{UserConfig, _}, {_RiakNodes, _CSNodes}} = rtcs_dev:setup(2),
 
     ok = verify_cs631(UserConfig, "cs-631-test-bukcet"),
     ok = verify_cs654(UserConfig),

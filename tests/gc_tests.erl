@@ -37,7 +37,7 @@
 
 confirm() ->
     NumNodes = 1,
-    {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs:setup(NumNodes),
+    {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs_dev:setup(NumNodes),
     %% Set up to grep logs to verify messages
     rt:setup_log_capture(hd(CSNodes)),
 
@@ -62,7 +62,7 @@ confirm() ->
     ok = put_more_bad_keys(RiakNodes, UserConfig),
     %% Ensure the leeway has expired
     timer:sleep(2000),
-    RiakIDs = rtcs:riak_id_per_cluster(NumNodes),
+    RiakIDs = rtcs_dev:riak_id_per_cluster(NumNodes),
     [repair_gc_bucket(ID) || ID <- RiakIDs],
     ok = verify_gc_run2(hd(CSNodes)),
 
@@ -110,7 +110,7 @@ setup_obj(RiakNodes, UserConfig) ->
     erlcloud_s3:delete_object(?TEST_BUCKET, ?TEST_KEY_BAD_STATE, UserConfig),
     %% Change the state in the manifest in gc bucket to active.
     %% See https://github.com/basho/riak_cs/issues/827#issuecomment-54567839
-    GCPbc = rtcs:pbc(RiakNodes, objects, ?TEST_BUCKET),
+    GCPbc = rtcs_dev:pbc(RiakNodes, objects, ?TEST_BUCKET),
     {ok, GCKeys} = riakc_pb_socket:list_keys(GCPbc, ?GC_BUCKET),
     BKey = {list_to_binary(?TEST_BUCKET), list_to_binary(?TEST_KEY_BAD_STATE)},
     logger:info("Changing state to active ~p, ~p", [?TEST_BUCKET, ?TEST_KEY_BAD_STATE]),
@@ -158,7 +158,7 @@ put_more_bad_keys(RiakNodes, UserConfig) ->
          erlcloud_s3:put_object(?TEST_BUCKET, Key, Block, UserConfig),
          erlcloud_s3:delete_object(?TEST_BUCKET, Key, UserConfig)
      end || Suffix <- lists:seq(100, 199)],
-    GCPbc = rtcs:pbc(RiakNodes, objects, ?TEST_BUCKET),
+    GCPbc = rtcs_dev:pbc(RiakNodes, objects, ?TEST_BUCKET),
     {ok, GCKeys} = riakc_pb_socket:list_keys(GCPbc, ?GC_BUCKET),
     BadGCKeys = put_more_bad_keys(GCPbc, GCKeys, []),
     logger:info("Bad state manifests have been put at ~p", [BadGCKeys]),
@@ -187,7 +187,7 @@ repair_gc_bucket(RiakNodeID) ->
     PbPort = integer_to_list(rtcs_config:pb_port(RiakNodeID)),
     Res = rtcs_exec:exec_priv_escript(
             1, "repair_gc_bucket.erl",
-            "--host 127.0.0.1 --port " ++ PbPort ++ " --leeway-seconds 1 --page-size 5 --debug",
+            "--host 127.0.0.1 --port " ++ PbPort ++ " --leeway-seconds 1 --page-size 5",
             #{by => cs}),
     Lines = binary:split(list_to_binary(Res), [<<"\n">>], [global]),
     logger:info("Repair script result: ==== BEGIN", []),
@@ -224,7 +224,7 @@ verify_riak_object_remaining_for_bad_key(RiakNodes, GCKey, {{Bucket, Key}, UUID}
     {ok, _BlockObj} = rc_helper:get_riakc_obj(RiakNodes, blocks, Bucket, {Key, UUID, 0}),
     {ok, _ManifestObj} = rc_helper:get_riakc_obj(RiakNodes, objects, Bucket, Key),
 
-    GCPbc = rtcs:pbc(RiakNodes, objects, Bucket),
+    GCPbc = rtcs_dev:pbc(RiakNodes, objects, Bucket),
     {ok, FileSetObj} = riakc_pb_socket:get(GCPbc, ?GC_BUCKET, GCKey),
     Manifests = twop_set:to_list(binary_to_term(riakc_obj:get_value(FileSetObj))),
     {UUID, Manifest} = lists:keyfind(UUID, 1, Manifests),
@@ -263,7 +263,7 @@ verify_partial_gc_run(CSNode, RiakNodes,
     logger:info("GC target period: (~p, ~p)", [Start0, End0]),
     %% Reap!
     timer:sleep(3000),
-    GCPbc = rtcs:pbc(RiakNodes, objects, ?TEST_BUCKET),
+    GCPbc = rtcs_dev:pbc(RiakNodes, objects, ?TEST_BUCKET),
     {ok, Keys} = riakc_pb_socket:list_keys(GCPbc, ?GC_BUCKET),
     logger:debug("Keys: ~p", [Keys]),
     StartKey = list_to_binary(integer_to_list(Start0)),
