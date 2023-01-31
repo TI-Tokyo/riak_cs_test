@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
-%% Copyright (c) 2007-2016 Basho Technologies, Inc.  All Rights Reserved.
+%% Copyright (c) 2007-2016 Basho Technologies, Inc.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -37,6 +38,19 @@
 
 -define(assert500(X),
         ?assertError({aws_error, {http_error, 500, _, _}}, (X))).
+-define(assertProp(Key, Expected, Props),
+        ?assertEqual(Expected,
+                     proplists:get_value(Key, Props))).
+
+-define(assertHasBucket(B, UserConfig),
+        ?assert(
+           lists:any(
+             fun(PL) -> proplists:get_value(name, PL) == B end,
+             proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig)))
+          )
+       ).
+-define(assertNoBuckets(UserConfig),
+        ?assertEqual([], proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig)))).
 
 confirm() ->
     %% Setting short timeouts to accelarate verify_cs756
@@ -60,15 +74,14 @@ confirm() ->
 %% trying to list nonexistent bucket.
 verify_cs296(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes}}, BucketName) ->
     logger:info("CS296: User is valid on the cluster, and has no buckets"),
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
+    ?assertNoBuckets(UserConfig),
 
     ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:list_objects(BucketName, UserConfig)),
 
     logger:info("creating bucket ~p", [BucketName]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(BucketName, UserConfig)),
 
-    ?assertMatch([{buckets, [[{name, BucketName}, _]]}],
-        erlcloud_s3:list_buckets(UserConfig)),
+    ?assertHasBucket(BucketName, UserConfig),
 
     logger:info("deleting bucket ~p", [BucketName]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(BucketName, UserConfig)),
@@ -82,7 +95,7 @@ verify_cs296(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes}}, BucketName)
 verify_cs347(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes}}, BucketName) ->
 
     logger:info("CS347: User is valid on the cluster, and has no buckets"),
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
+    ?assertNoBuckets(UserConfig),
 
     ListObjectRes1 =
         case catch erlcloud_s3:list_objects(BucketName, UserConfig) of
@@ -96,8 +109,7 @@ verify_cs347(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes}}, BucketName)
     logger:info("creating bucket ~p", [BucketName]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(BucketName, UserConfig)),
 
-    ?assertMatch([{buckets, [[{name, BucketName}, _]]}],
-                 erlcloud_s3:list_buckets(UserConfig)),
+    ?assertHasBucket(BucketName, UserConfig),
 
     logger:info("deleting bucket ~p", [BucketName]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(BucketName, UserConfig)),
@@ -122,7 +134,7 @@ check_no_such_bucket(Response, Resource) ->
 check_error_response({_, Status, _, RespStr} = _Response,
                      Status,
                      Code, Message, Resource) ->
-    {RespXml, _} = xmerl_scan:string(RespStr),
+    {RespXml, _} = xmerl_scan:string(binary_to_list(RespStr)),
     lists:all(error_child_element_verifier(Code, Message, Resource),
               RespXml#xmlElement.content).
 
@@ -143,7 +155,7 @@ error_child_element_verifier(Code, Message, Resource) ->
 %% trying to put to a nonexistent bucket.
 verify_cs436(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes}}, BucketName) ->
     logger:info("CS436: User is valid on the cluster, and has no buckets"),
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
+    ?assertEqual([], proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig))),
 
     ?assertError({aws_error, {http_error, 404, _, _}},
                  erlcloud_s3:put_object(BucketName,
@@ -155,13 +167,12 @@ verify_cs436(_SetupInfo = {{UserConfig, _}, {_RiakNodes, _CSNodes}}, BucketName)
     logger:info("creating bucket ~p", [BucketName]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(BucketName, UserConfig)),
 
-    ?assertMatch([{buckets, [[{name, BucketName}, _]]}],
-        erlcloud_s3:list_buckets(UserConfig)),
+    ?assertHasBucket(BucketName, UserConfig),
 
     logger:info("deleting bucket ~p", [BucketName]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(BucketName, UserConfig)),
 
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
+    ?assertNoBuckets(UserConfig),
 
     %% Attempt to put object again and ensure result is still 404
     ?assertError({aws_error, {http_error, 404, _, _}},

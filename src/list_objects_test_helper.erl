@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
-%% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved.
+%% Copyright (c) 2007-2013 Basho Technologies, Inc.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -20,24 +21,37 @@
 
 -module(list_objects_test_helper).
 
--compile(export_all).
--compile(nowarn_export_all).
+-export([test/1,
+         load_objects/3,
+         load_objects/4,
+         delete_objects/4
+        ]).
 
 -include_lib("eunit/include/eunit.hrl").
 
 -define(TEST_BUCKET, "riak-test-bucket").
 
+-define(assertHasBucket(B, UserConfig),
+        ?assert(
+           lists:any(
+             fun(PL) -> proplists:get_value(name, PL) == B end,
+             proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig)))
+          )
+       ).
+-define(assertNoBuckets(UserConfig),
+        ?assertEqual([], proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig)))).
+
+
 test(UserConfig) ->
     logger:info("User is valid on the cluster, and has no buckets"),
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
+    ?assertEqual([], proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig))),
 
     ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
 
     logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
-    ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
-        erlcloud_s3:list_buckets(UserConfig)),
+    ?assertHasBucket(?TEST_BUCKET, UserConfig),
 
     %% Put 10 objects in the bucket
     Count1 = 10,
@@ -126,7 +140,7 @@ test(UserConfig) ->
     ?assertEqual(ok, erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
 
     ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
-    rtcs_dev:pass().
+    pass.
 
 load_objects(Bucket, Count, Config) ->
     load_objects(Bucket, Count, [], Config).
