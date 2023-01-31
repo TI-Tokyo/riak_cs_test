@@ -1,6 +1,7 @@
 %% -------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2016 Basho Technologies, Inc.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -60,7 +61,9 @@ setup(NumNodes, Configs) ->
 setup(NumNodes, Configs, Vsn) ->
     Flavor = rt_config:get(flavor, basic),
     logger:info("Flavor: ~p", [Flavor]),
+
     application:ensure_all_started(erlcloud),
+    application:ensure_all_started(ibrowse),
 
     {_, [CSNode0|_]} = Nodes =
         flavored_setup(#{num_nodes => NumNodes,

@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
-%% Copyright (c) 2007-2014 Basho Technologies, Inc.  All Rights Reserved.
+%% Copyright (c) 2007-2014 Basho Technologies, Inc.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -35,8 +36,6 @@
 -define(TIMESLICES,        5).
 
 confirm() ->
-    application:ensure_all_started(ibrowse),
-
     NumNodes = 1,
     {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs:setup(NumNodes),
     %% Set up to grep logs to verify messages

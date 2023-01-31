@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
-%% Copyright (c) 2007-2014 Basho Technologies, Inc.  All Rights Reserved.
+%% Copyright (c) 2007-2014 Basho Technologies, Inc.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -46,9 +47,6 @@
 -define(REPLACE_KEY, "replace-target").
 
 confirm() ->
-    %% ibrowse
-    application:ensure_all_started(ibrowse),
-
     {{UserConfig, _}, {RiakNodes, _CSNodes}} = rtcs:setup(1),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET, UserConfig)),
     Data = ?DATA0,

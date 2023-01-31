@@ -1,6 +1,7 @@
 %% -------------------------------------------------------------------
 %%
 %% Copyright (c) 2013-2016 Basho Technologies, Inc.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -27,9 +28,6 @@
 -define(TEST_BUCKET, "riak-test-bucket").
 
 confirm() ->
-    %% ibrowse
-    application:ensure_all_started(ibrowse),
-
     {_UserConfig, {RiakNodes, [CSNode|_]}} = rtcs:setup2x2([]),
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
       CSNode, RiakNodes, [riak_cs_utils,

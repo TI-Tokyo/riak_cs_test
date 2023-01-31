@@ -1,6 +1,7 @@
 %% -------------------------------------------------------------------
 %%
 %% Copyright (c) 2016 Basho Technologies, Inc.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -33,7 +34,6 @@
 -define(root_host_alt,      "s3.example.amazonaws.com").
 
 confirm() ->
-    application:ensure_all_started(ibrowse),
     verify_multipart_upload_response().
 
 verify_multipart_upload_response() ->
