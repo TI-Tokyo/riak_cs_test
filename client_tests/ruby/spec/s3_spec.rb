@@ -126,7 +126,6 @@ describe Aws::S3 do
       Tempfile.create('riakcs-test') do |f1|
         size = 1
         (size*1024/2).times {|i| f1.write "fa"}
-        puts "putting six!"
         File.open(f1.path, 'rb') do |f2|
           s3.put_object({bucket: bucket_name,
                          key: object_name,
