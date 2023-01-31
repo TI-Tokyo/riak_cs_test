@@ -78,20 +78,25 @@ riakcs_logpath(Prefix, N, File) ->
 exec_priv_escript(N, Command, ScriptOptions) ->
     exec_priv_escript(N, Command, ScriptOptions, #{by => riak}).
 
-exec_priv_escript(N, Command, ScriptOptions, #{by := ByWhom}) ->
-    ExecuterPrefix = rtcs_config:devpath(ByWhom, current),
-    Cmd = case ByWhom of
+exec_priv_escript(N, Command, ScriptOptions, #{by := By} = Options) ->
+    Env = lists:foldl(
+            fun({Var, Val}, Q) -> io_lib:format("~s=~s ~s", [Var, Val, Q]) end,
+            "", maps:get(env, Options, [])),
+    ExecuterPrefix = rtcs_config:devpath(By, current),
+    Cmd = case By of
               cs ->
                   EscriptPath = io_lib:format("priv/tools/~s", [Command]),
-                  riakcscmd(ExecuterPrefix, N, "escript " ++ EscriptPath ++ " " ++ ScriptOptions);
+                  riakcscmd(ExecuterPrefix, N, "escript " ++
+                                EscriptPath ++ " " ++ ScriptOptions);
               riak ->
                   EscriptPath = io_lib:format("../../../../riak_cs/dev/dev~b/riak-cs/priv/tools/~s",
                                               [N, Command]),
-                  riakcmd(ExecuterPrefix, N, "escript " ++ EscriptPath ++ " " ++ ScriptOptions)
+                  riakcmd(ExecuterPrefix, N, "escript " ++
+                              EscriptPath ++ " " ++ ScriptOptions)
           end,
 
-    logger:info("Running ~s", [Cmd]),
-    os:cmd(Cmd).
+    logger:info("Running ~s", [Env ++ " " ++ Cmd]),
+    os:cmd(Env ++ " " ++ Cmd).
 
 show_stanchion_cs(N) -> show_stanchion_cs(N, current).
 
