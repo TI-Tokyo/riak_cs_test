@@ -21,15 +21,7 @@
 -module(put_copy_test).
 
 -export([confirm/0]).
--include_lib("eunit/include/eunit.hrl").
-
--include_lib("erlcloud/include/erlcloud_aws.hrl").
-
--define(assert403(X),
-        ?assertError({aws_error, {http_error, 403, _, _}}, (X))).
--define(assertProp(Key, Expected, Props),
-        ?assertEqual(Expected,
-                     proplists:get_value(Key, Props))).
+-include("rtcs.hrl").
 
 -define(BUCKET, "put-copy-bucket-test").
 -define(KEY, "pocket").

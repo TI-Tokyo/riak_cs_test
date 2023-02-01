@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
-%% Copyright (c) 2007-2015 Basho Technologies, Inc.  All Rights Reserved.
+%% Copyright (c) 2007-2015 Basho Technologies, Inc.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -29,7 +30,7 @@ config() ->
 confirm() ->
     %% 10MB threshold, for 3MB objects are used in cs_suites:run/2
     %% rtcs_dev:set_advanced_conf(cs, config()),
-    Setup = {_, {[RiakNode|_], [CSNode|_]}} = rtcs_dev:setup(1, [{cs, config()}]),
+    Setup = {_, {[RiakNode], [CSNode]}} = rtcs_dev:setup(1, [{cs, config()}]),
 
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
       CSNode, [RiakNode], [riak_cs_utils,

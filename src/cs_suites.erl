@@ -178,7 +178,7 @@ apply_operations(#circle{tag=Tag} = Circle, State, [Op | Rest]) ->
     logger:info("[~s] Applying operation ~w ...", [Tag, Op]),
     {USec, {ok, NewCircle, NewState}} =
         timer:tc(fun() -> apply_operation(Op, Circle, State) end),
-    logger:info("[~s] Finished operation ~w in ~B [msec]", [Tag, Op, USec div 1000]),
+    logger:info("[~s] Finished operation ~w in ~B msec", [Tag, Op, USec div 1000]),
     apply_operations(NewCircle, NewState, Rest).
 
 -spec apply_operation(op(), circle(), state()) -> {ok, circle(), state()}.
@@ -217,8 +217,7 @@ apply_operation(delete_bucket_old, CurrentCircle, #state{circles=Circles} = Stat
     NewCircles = [delete_first_bucket(Circle) || Circle <- Circles],
     {ok, CurrentCircle, State#state{circles=NewCircles}};
 apply_operation(stats_access, Circle, State) ->
-    Res = rtcs_exec:flush_access(1),
-    logger:info("riak-cs-access flush result: ~s", [Res]),
+    {ok, Res} = rtcs_exec:flush_access(1),
     ExpectRegexp = "All access logs were flushed",
     ?assertMatch({match, _}, re:run(Res, ExpectRegexp)),
     %% TODO
@@ -227,8 +226,7 @@ apply_operation(stats_access, Circle, State) ->
 apply_operation(stats_storage, CurrentCircle,
                 #state{admin_config=AdminConfig, begin_at=Begin,
                        cs_nodes=[CSNode|_], circles=Circles} = State) ->
-    Res = rtcs_exec:calculate_storage(1),
-    logger:info("riak-cs-admin storage batch result: ~s", [Res]),
+    {ok, Res} = rtcs_exec:calculate_storage(1),
     ExpectRegexp = "Batch storage calculation started",
     ?assertMatch({match, _}, re:run(Res, ExpectRegexp)),
     true = rt:expect_in_log(CSNode, "Finished storage calculation"),
@@ -239,11 +237,11 @@ apply_operation(stats_storage, CurrentCircle,
     {ok, CurrentCircle, State};
 apply_operation(gc, Circle, #state{cs_nodes=[CSNode|_]} = State) ->
     timer:sleep(timer:seconds(?GC_LEEWAY + 1)),
-    rtcs_exec:gc(1, "batch 1"),
+    {ok, _} = rtcs_exec:gc(1, "batch 1"),
     ok = rt:wait_until(
            CSNode,
            fun(_N) ->
-                   Res = rtcs_exec:gc(1, "status"),
+                   {ok, Res} = rtcs_exec:gc(1, "status"),
                    ExpectSubstr = "There is no garbage collection in progress",
                    case string:str(Res, ExpectSubstr) of
                        0 ->
@@ -297,20 +295,19 @@ put_objects(KeyCount, UserConfig, #bucket{name=B, count=Before} = Bucket) ->
     Bucket#bucket{count = Before + KeyCount}.
 
 multipart_upload(Bucket, Key, Parts, Config) ->
-    InitRes = erlcloud_s3_multipart:initiate_upload(
-                Bucket, Key, "text/plain", [], Config),
-    UploadId = erlcloud_xml:get_text(
-                 "/InitiateMultipartUploadResult/UploadId", InitRes),
+    {ok, InitRes} = erlcloud_s3:start_multipart(
+                      Bucket, Key, "text/plain", [], Config),
+    UploadId = proplists:get_value(uploadId, InitRes),
     upload_parts(Bucket, Key, UploadId, Config, 1, Parts, []).
 
 upload_parts(Bucket, Key, UploadId, UserConfig, _PartCount, [], PartEtags) ->
-    ?assertEqual(ok, erlcloud_s3_multipart:complete_upload(
-                       Bucket, Key, UploadId, lists:reverse(PartEtags), UserConfig)),
+    ?assertEqual(ok, erlcloud_s3:complete_multipart(
+                       Bucket, Key, UploadId, lists:reverse(PartEtags), [], UserConfig)),
     ok;
 upload_parts(Bucket, Key, UploadId, UserConfig, PartCount, [Part | Parts], PartEtags) ->
-    {RespHeaders, _UploadRes} = erlcloud_s3_multipart:upload_part(
-                                  Bucket, Key, UploadId, PartCount, Part, UserConfig),
-    PartEtag = proplists:get_value("ETag", RespHeaders),
+    {ok, UploadRes} = erlcloud_s3:upload_part(
+                                  Bucket, Key, UploadId, PartCount, Part, [], UserConfig),
+    PartEtag = proplists:get_value(etag, UploadRes),
     upload_parts(Bucket, Key, UploadId, UserConfig, PartCount + 1,
                  Parts, [{PartCount, PartEtag} | PartEtags]).
 

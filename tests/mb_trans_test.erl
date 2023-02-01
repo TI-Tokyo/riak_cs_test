@@ -38,7 +38,6 @@
 -define(NEW_KEY_IN_NEW, "new_key_in_new").
 
 confirm() ->
-    application:ensure_all_started(ibrowse),
     NodesInMaster = 1,
     %% setup single bag cluster at first
     {RiakNodes, CSNodes} =

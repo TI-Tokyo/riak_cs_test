@@ -31,26 +31,11 @@
 
 -include_lib("xmerl/include/xmerl.hrl").
 -include_lib("eunit/include/eunit.hrl").
--include_lib("erlcloud/include/erlcloud_aws.hrl").
 -include("riak_cs.hrl").
+-include("rtcs.hrl").
 
 -define(TEST_BUCKET_CS347, "test-bucket-cs347").
 
--define(assert500(X),
-        ?assertError({aws_error, {http_error, 500, _, _}}, (X))).
--define(assertProp(Key, Expected, Props),
-        ?assertEqual(Expected,
-                     proplists:get_value(Key, Props))).
-
--define(assertHasBucket(B, UserConfig),
-        ?assert(
-           lists:any(
-             fun(PL) -> proplists:get_value(name, PL) == B end,
-             proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig)))
-          )
-       ).
--define(assertNoBuckets(UserConfig),
-        ?assertEqual([], proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig)))).
 
 confirm() ->
     %% Setting short timeouts to accelarate verify_cs756

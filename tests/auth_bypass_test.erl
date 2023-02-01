@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2014 Basho Technologies, Inc.  All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -21,8 +22,9 @@
 -module(auth_bypass_test).
 
 -export([confirm/0]).
--include_lib("eunit/include/eunit.hrl").
--include_lib("erlcloud/include/erlcloud_aws.hrl").
+
+-include("rtcs.hrl").
+
 config() ->
     [{riak_cs, [{admin_auth_enabled, false}]}].
 

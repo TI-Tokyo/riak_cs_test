@@ -22,7 +22,6 @@
         ]).
 
 
--include_lib("eunit/include/eunit.hrl").
 -include("riak_cs.hrl").
 
 %% Setup utilities

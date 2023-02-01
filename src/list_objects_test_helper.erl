@@ -27,19 +27,9 @@
          delete_objects/4
         ]).
 
--include_lib("eunit/include/eunit.hrl").
+-include("rtcs.hrl").
 
 -define(TEST_BUCKET, "riak-test-bucket").
-
--define(assertHasBucket(B, UserConfig),
-        ?assert(
-           lists:any(
-             fun(PL) -> proplists:get_value(name, PL) == B end,
-             proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig)))
-          )
-       ).
--define(assertNoBuckets(UserConfig),
-        ?assertEqual([], proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig)))).
 
 
 test(UserConfig) ->

@@ -1,6 +1,7 @@
 %% -------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2016 Basho Technologies, Inc.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -24,9 +25,8 @@
 
 -export([confirm/0]).
 
--include_lib("erlcloud/include/erlcloud_aws.hrl").
+-include("rtcs.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
--include_lib("eunit/include/eunit.hrl").
 
 -define(BUCKET, "access-stats-test-1").
 -define(KEY, "a").
@@ -107,11 +107,8 @@ generate_some_accesses(UserConfig, UntilGregSecs, R0) ->
     end.
 
 flush_access_stats() ->
-    Res = rtcs_exec:flush_access(1),
-    logger:info("riak-cs-access flush result:", []),
-    [logger:info("** ~s", [L]) || L <- string:tokens(Res, "\n")],
-    ExpectRegexp = "All access logs were flushed\.",
-    ?assertMatch({match, _}, re:run(Res, ExpectRegexp)).
+    {ok, Res} = rtcs_exec:flush_access(1),
+    ?assertMatch({match, _}, re:run(Res, "All access logs were flushed\.")).
 
 assert_access_stats(Format, UserConfig, {Begin, End, ClientStats}) ->
     KeyId = UserConfig#aws_config.access_key_id,

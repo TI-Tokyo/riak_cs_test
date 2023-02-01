@@ -5,9 +5,9 @@
 %% @doc `riak_test' module for testing multi bag disjoint configuration
 
 -export([confirm/0]).
--include_lib("eunit/include/eunit.hrl").
 
 -include("riak_cs.hrl").
+-include("rtcs.hrl").
 
 -define(TEST_BUCKET_CREATE_DELETE, "riak-test-bucket-create-delete").
 
@@ -28,7 +28,7 @@ confirm() ->
     rtcs_bag:set_weights(BagFlavor),
 
     logger:info("User is valid on the cluster, and has no buckets"),
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
+    ?assertNoBuckets(UserConfig),
 
     assert_bucket_create_delete_twice(UserConfig),
 

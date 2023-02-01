@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
-%% Copyright (c) 2007-2014 Basho Technologies, Inc.  All Rights Reserved.
+%% Copyright (c) 2007-2014 Basho Technologies, Inc.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -19,8 +20,12 @@
 %% ---------------------------------------------------------------------
 
 -module(rc_helper).
--compile(export_all).
--compile(nowarn_export_all).
+
+-export([get_riakc_obj/4,
+         update_riakc_obj/5,
+         delete_riakc_obj/4,
+         to_riak_bucket/2
+        ]).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -33,7 +38,6 @@ to_riak_bucket(blocks, CSBucket) ->
 to_riak_bucket(_, CSBucket) ->
     CSBucket.
 
--spec md5(iodata()) -> binary().
 md5(IOData) ->
     crypto:hash(md5, IOData).
 

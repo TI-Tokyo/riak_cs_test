@@ -45,6 +45,10 @@ metadata(Pid) ->
 %%      It then cleans up that backend and returns the logs as part of the return proplist.
 confirm(TestModule, Outdir, TestMetaData, HarnessArgs) ->
     rt:setup_harness(TestModule, HarnessArgs),
+
+    application:ensure_all_started(erlcloud),
+    application:ensure_all_started(ibrowse),
+
     {Mod, Fun} = function_name(TestModule),
     ThisModLog = filename:join([Outdir, atom_to_list(TestModule) ++ ".log"]),
     logger:add_handler(

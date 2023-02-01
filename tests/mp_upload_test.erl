@@ -349,7 +349,7 @@ abort_and_verify_uploads(Bucket, Count, Config) ->
 
 upload_id_present(UploadId, UploadList) ->
     [] /= [UploadData || UploadData <- UploadList,
-                         proplists:get_value(upload_id, UploadData) =:= UploadId].
+                         proplists:get_value(uploadId, UploadData) =:= UploadId].
 
 upload_id_for_key(Key, UploadList) ->
     Uploads = proplists:get_value(uploads, UploadList),

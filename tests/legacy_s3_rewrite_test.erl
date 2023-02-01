@@ -33,7 +33,6 @@ confirm() ->
 
     CsPortStr = integer_to_list(rtcs_config:cs_port(hd(RiakNodes))),
 
-    Cmd = os:find_executable("make"),
     Args = ["test-auth-v2"],
     Env = [{"CS_HTTP_PORT",          CsPortStr},
            {"AWS_ACCESS_KEY_ID",     UserConfig#aws_config.access_key_id},
@@ -42,8 +41,9 @@ confirm() ->
 
 
 
-    case rtcs_dev:cmd(Cmd, [{cd, "client_tests/python/boto_tests"}, {env, Env}, {args, Args}]) of
-        ok ->
+    case rtcs_dev:cmd({spawn_executable, os:find_executable("make")},
+                      [{cd, "client_tests/python/boto_tests"}, {env, Env}, {args, Args}]) of
+        {ok, _} ->
             pass;
         {error, Reason} ->
             logger:error("Error : ~p", [Reason])

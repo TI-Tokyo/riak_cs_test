@@ -10,7 +10,6 @@
          set_uniform_weights/1]).
 
 confirm() ->
-    rt_config:set(console_log_level, info),
     NodesInMaster = 2,
     SetupRes = setup_single_bag(NodesInMaster),
     {ok, InitialState} = cs_suites:new(SetupRes),
@@ -33,7 +32,9 @@ history(NodesInMaster) ->
     ].
 
 setup_single_bag(NodesInMaster) ->
-    Tussle = {RiakNodes, [CSNode|_]} = rtcs_dev:setupNxMsingles(NodesInMaster, 4, custom_configs(), current),
+    Tussle = {RiakNodes, [CSNode|_]} =
+        rtcs_dev:setupNxMsingles(NodesInMaster, 4, custom_configs(), current),
+
     UserConfig = rtcs_dev:setup_admin_user(4, current),
 
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(

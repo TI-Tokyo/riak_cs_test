@@ -127,21 +127,21 @@ flush_access(N) -> flush_access(N, current).
 flush_access(N, Vsn) ->
     Cmd = riakcs_accesscmd(rtcs_config:devpath(cs, Vsn), N, "flush"),
     logger:info("Running ~s", [Cmd]),
-    os:cmd(Cmd).
+    rtcs_dev:cmd(Cmd).
 
 gc(N, SubCmd) -> gc(N, SubCmd, current).
 
 gc(N, SubCmd, Vsn) ->
     Cmd = riakcs_gccmd(rtcs_config:devpath(cs, Vsn), N, SubCmd),
     logger:info("Running ~s", [Cmd]),
-    os:cmd(Cmd).
+    rtcs_dev:cmd(Cmd).
 
 calculate_storage(N) -> calculate_storage(N, current).
 
 calculate_storage(N, Vsn) ->
     Cmd = riakcs_storagecmd(rtcs_config:devpath(cs, Vsn), N, "batch -r"),
     logger:info("Running ~s", [Cmd]),
-    os:cmd(Cmd).
+    rtcs_dev:cmd(Cmd).
 
 enable_proxy_get(SrcNode, Vsn, SinkCluster) ->
     rtdev:run_riak_repl(SrcNode, rtcs_config:devpath(riak, Vsn),

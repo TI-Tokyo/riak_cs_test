@@ -131,9 +131,6 @@ setup(NumNodes, Configs, Vsn) ->
     Flavor = rt_config:get(flavor, basic),
     logger:info("Flavor: ~p", [Flavor]),
 
-    application:ensure_all_started(erlcloud),
-    application:ensure_all_started(ibrowse),
-
     {_, [CSNode0|_]} = Nodes =
         flavored_setup(#{num_nodes => NumNodes,
                          flavor => Flavor,

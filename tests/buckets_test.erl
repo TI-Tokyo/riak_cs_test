@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -23,7 +24,8 @@
 %% @doc `riak_test' module for testing object get behavior.
 
 -export([confirm/0]).
--include_lib("eunit/include/eunit.hrl").
+
+-include("rtcs.hrl").
 
 %% keys for non-multipart objects
 -define(TEST_BUCKET,        "riak-test-bucket").
@@ -64,14 +66,14 @@ confirm() ->
 
 verify_create_delete(UserConfig) ->
     logger:info("User is valid on the cluster, and has no buckets"),
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
+    ?assertNoBuckets(UserConfig),
     logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
     logger:info("deleting bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
     logger:info("User is valid on the cluster, and has no buckets"),
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
+    ?assertNoBuckets(UserConfig),
     ok.
 
 verify_bucket_delete_fails(UserConfig) ->
@@ -92,15 +94,15 @@ verify_bucket_delete_fails(UserConfig) ->
 verify_bucket_mpcleanup(UserConfig) ->
     Bucket = ?TEST_BUCKET,
     Key = ?KEY_SINGLE_BLOCK,
-    InitUploadRes = erlcloud_s3_multipart:initiate_upload(Bucket, Key, [], [], UserConfig),
-    logger:info("InitUploadRes = ~p", [InitUploadRes]),
-    UploadId = erlcloud_s3_multipart:upload_id(InitUploadRes),
-    logger:info("UploadId = ~p", [UploadId]),
+    {ok, InitUploadRes} = erlcloud_s3:start_multipart(Bucket, Key, [], [], UserConfig),
+    UploadId = proplists:get_value(uploadId, InitUploadRes),
 
     %% make sure that mp uploads created
-    UploadsList1 = erlcloud_s3_multipart:list_uploads(Bucket, [], UserConfig),
-    Uploads1 = proplists:get_value(uploads, UploadsList1, []),
-    ?assertEqual(Bucket, proplists:get_value(bucket, UploadsList1)),
+    {ok, UploadsList1} = erlcloud_s3:list_multipart_uploads(Bucket, [], [], UserConfig),
+    Uploads1 = proplists:get_value(uploads, UploadsList1),
+    lists:foreach(
+      fun(UP) -> ?assertEqual(Key, proplists:get_value(key, UP)) end,
+      Uploads1),
     ?assert(mp_upload_test:upload_id_present(UploadId, Uploads1)),
 
     logger:info("deleting bucket ~p", [?TEST_BUCKET]),
@@ -109,7 +111,7 @@ verify_bucket_mpcleanup(UserConfig) ->
     %% check that writing mp uploads never resurrect
     %% after bucket delete
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
-    UploadsList2 = erlcloud_s3_multipart:list_uploads(Bucket, [], UserConfig),
+    {ok, UploadsList2} = erlcloud_s3:list_multipart_uploads(Bucket, [], [], UserConfig),
     Uploads2 = proplists:get_value(uploads, UploadsList2, []),
     ?assertEqual([], Uploads2),
     ?assertEqual(Bucket, proplists:get_value(bucket, UploadsList2)),
