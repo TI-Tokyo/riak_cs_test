@@ -38,6 +38,7 @@
 -define(NEW_KEY_IN_NEW, "new_key_in_new").
 
 confirm() ->
+    application:ensure_all_started(ibrowse),
     NodesInMaster = 1,
     %% setup single bag cluster at first
     {RiakNodes, CSNodes} =
@@ -133,8 +134,7 @@ transition_to_multibag_configuration(NodesInMaster, NodeList) ->
             end, NodeList),
     [ok = rt:wait_until_pingable(CSNode) || {CSNode, _RiakNode} <- NodeList],
     rtcs_bag:set_weights(rtcs_bag:weights(disjoint)),
-    {0, ListWeightRes} = rtcs_bag:list_weight(),
-    logger:info("Weight: ~s", [ListWeightRes]),
+    {ok, _ListWeightRes} = rtcs_bag:list_weight(),
     ok.
 
 assert_gc_run(CSNode, UserConfig) ->

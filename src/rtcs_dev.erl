@@ -42,6 +42,7 @@
          setup/1, setup/2, setup/3,
          setup2x2/1,
          setupNxMsingles/2, setupNxMsingles/4,
+         setup_admin_user/2,
          setup_harness/2,
          spawn_cmd/1, spawn_cmd/2,
          start/1, start/2,
@@ -501,7 +502,7 @@ assert_error_log_empty(N) ->
     assert_error_log_empty(current, N).
 
 assert_error_log_empty(Vsn, N) ->
-    ErrorLog = rtcs_config:riakcs_logpath(rtcs_config:devpath(cs, Vsn), N, "error.log"),
+    ErrorLog = riakcs_logpath(rtcs_config:devpath(cs, Vsn), N, "error.log"),
     case file:read_file(ErrorLog) of
         {error, enoent} -> ok;
         {ok, <<>>} -> ok;
@@ -515,10 +516,12 @@ assert_error_log_empty(Vsn, N) ->
     end.
 
 truncate_error_log(N) ->
-    Cmd = os:find_executable("rm"),
-    ErrorLog = rtcs_config:riakcs_logpath(rt_config:get(rtcs_config:cs_current()), N, "error.log"),
+    ErrorLog = riakcs_logpath(rt_config:get(rtcs_config:cs_current()), N, "error.log"),
     logger:info("truncating ~s", [ErrorLog]),
-    ok = cmd(Cmd, [{args, ["-f", ErrorLog]}]).
+    "" = os:cmd("rm -f " ++  ErrorLog).
+
+riakcs_logpath(Prefix, N, File) ->
+    io_lib:format("~s/dev/dev~b/riak-cs/log/~s", [Prefix, N, File]).
 
 %% Kind = objects | blocks | users | buckets ...
 pbc(RiakNodes, ObjectKind, Opts) ->
@@ -616,29 +619,30 @@ node_version(N) ->
 
 spawn_cmd(Cmd) ->
     spawn_cmd(Cmd, []).
+spawn_cmd(Cmd, Opts) when is_list(Cmd) ->
+    spawn_cmd({spawn, Cmd}, Opts);
 spawn_cmd(Cmd, Opts) ->
-    open_port({spawn_executable, Cmd},
-              [stream, in, binary, exit_status, stderr_to_stdout] ++ Opts).
+    open_port(Cmd, [stream, in, binary, exit_status, stderr_to_stdout] ++ Opts).
 
 cmd(Cmd) ->
     cmd(Cmd, []).
-
 cmd(Cmd, Opts) ->
-    get_cmd_result(spawn_cmd(Cmd, Opts), <<>>).
+    get_cmd_result(spawn_cmd(Cmd, Opts), <<>>, []).
 
-get_cmd_result(Port, LineAcc) ->
+get_cmd_result(Port, LineAcc, Acc) ->
     receive
         {Port, {exit_status, 0}} ->
-            ok;
+            {ok, Acc};
         {Port, {exit_status, Status}} ->
             {error, {exit_status, Status}};
         {Port, {data, Line}} when size(Line) > 0 ->
             case lists:reverse(binary_to_list(Line)) of
                 [$\n|_] ->
-                    logger:info("[cmd] ~s~s", [LineAcc, Line]),
-                    get_cmd_result(Port, <<>>);
+                    FullLine = <<LineAcc/binary, Line/binary>>,
+                    logger:info("[cmd] ~s", [FullLine]),
+                    get_cmd_result(Port, <<>>, Acc ++ binary_to_list(FullLine));
                 _ ->
-                    get_cmd_result(Port, <<LineAcc/binary, Line/binary>>)
+                    get_cmd_result(Port, <<LineAcc/binary, Line/binary>>, Acc)
             end
     end.
 

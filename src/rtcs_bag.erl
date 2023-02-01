@@ -157,7 +157,9 @@ ensure_binary(V) when is_binary(V) ->
 %%     Pid.
 
 multibagcmd(Path, N, Args) ->
-    lists:flatten(io_lib:format("~s-supercluster ~s", [rtcs_config:riakcs_binpath(Path, N), Args])).
+    lists:flatten(io_lib:format("~s-supercluster ~s", [riakcs_binpath(Path, N), Args])).
+riakcs_binpath(Prefix, N) ->
+    io_lib:format("~s/dev/dev~b/riak-cs/bin/riak-cs", [Prefix, N]).
 
 list_weight() ->
     list_weight(1).
