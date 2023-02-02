@@ -21,7 +21,9 @@
 
 -module(rtcs_multipart).
 
--export([multipart_upload/4]).
+-export([multipart_upload/4,
+         upload_and_assert_part/6
+        ]).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -42,7 +44,24 @@ upload_parts(Bucket, Key, UploadId, Config, PartCount, [Size | Sizes], Contents,
     {ok, Res} = erlcloud_s3:upload_part(
                   Bucket, Key, UploadId, PartCount, Content, [], Config),
     PartEtag = proplists:get_value(etag, Res),
-    logger:debug("UploadId: ~p", [UploadId]),
-    logger:debug("PartEtag: ~p", [PartEtag]),
     upload_parts(Bucket, Key, UploadId, Config, PartCount + 1,
                  Sizes, [Content | Contents], [{PartCount, PartEtag} | Parts]).
+
+
+upload_and_assert_part(Bucket, Key, UploadId, PartNum, PartData, Config) ->
+    {ok, UploadRes} = erlcloud_s3:upload_part(Bucket, Key, UploadId, PartNum, PartData, [], Config),
+    assert_part(Bucket, Key, UploadId, Config, UploadRes).
+
+
+assert_part(Bucket, _Key, UploadId, Config, UploadRes) ->
+    ETag = proplists:get_value(etag, UploadRes),
+    {ok, MPU} = erlcloud_s3:list_multipart_uploads(Bucket, [], [], Config),
+    Uploads = proplists:get_value(uploads, MPU),
+    ?assert(lists:any(fun(P) -> proplists:get_value(uploadId, P) == UploadId end, Uploads)),
+    ETag.
+
+
+%% source_range(undefined) -> [];
+%% source_range({First, Last}) ->
+%%     [{"x-amz-copy-source-range",
+%%       lists:flatten(io_lib:format("bytes=~b-~b", [First, Last]))}].

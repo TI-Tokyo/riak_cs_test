@@ -42,10 +42,10 @@ assert_v2_is_default(CSNodes) ->
     ok.
 
 list_to_non_existent_bucket_many_times(RiakNodes) ->
-    [?assertEqual({0, "404"},
-                   list_objects_by_anonymous(
-                     RiakNodes,
-                     "non-existent-bucket-" ++ integer_to_list(I))) ||
+    [?assertEqual("404",
+                  list_objects_by_anonymous(
+                    RiakNodes,
+                    "non-existent-bucket-" ++ integer_to_list(I))) ||
         I <- lists:seq(1, 30)],
     ok.
 
@@ -54,7 +54,7 @@ list_objects_by_anonymous(RiakNodes, Bucket) ->
     %% --write-out '%{http_code}': output http response status code to stdout
     Cmd = "curl -s --write-out '%{http_code}' -o /dev/null http://localhost:" ++
         integer_to_list(Port) ++ "/" ++ Bucket,
-    rt:cmd(Cmd).
+    os:cmd(Cmd).
 
 
 

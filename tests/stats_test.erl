@@ -21,8 +21,8 @@
 -module(stats_test).
 
 -export([confirm/0]).
--include_lib("eunit/include/eunit.hrl").
--include_lib("erlcloud/include/erlcloud_aws.hrl").
+
+-include("rtcs.hrl").
 
 confirm() ->
     {{UserConfig, _}, {RiakNodes, _CSNodes}} = rtcs_dev:setup(1),
@@ -121,8 +121,7 @@ confirm_stats(stanchion, UserConfig, Port) ->
 do_some_api_calls(UserConfig, Bucket1, Bucket2) ->
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket1, UserConfig)),
 
-    ?assertMatch([{buckets, [[{name, Bucket1}, _]]}],
-        erlcloud_s3:list_buckets(UserConfig)),
+    ?assertHasBucket(Bucket1, UserConfig),
 
     Object = crypto:strong_rand_bytes(500),
     erlcloud_s3:put_object(Bucket1, "object_one", Object, UserConfig),

@@ -34,10 +34,8 @@
 -define(assertNoBuckets(UserConfig),
         ?assertEqual([], proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig)))).
 
--define(assert500(X),
-        ?assertError({aws_error, {http_error, 500, _, _}}, (X))).
--define(assert403(X),
-        ?assertError({aws_error, {http_error, 403, _, _}}, (X))).
+-define(assertHttpCode(Code, X),
+        ?assertError({aws_error, {http_error, Code, _, _}}, (X))).
 
 -define(assertProp(Key, Expected, Props),
         ?assertEqual(Expected,

@@ -112,10 +112,8 @@ verify_bucket_mpcleanup(UserConfig) ->
     %% after bucket delete
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
     {ok, UploadsList2} = erlcloud_s3:list_multipart_uploads(Bucket, [], [], UserConfig),
-    Uploads2 = proplists:get_value(uploads, UploadsList2, []),
+    Uploads2 = proplists:get_value(uploads, UploadsList2),
     ?assertEqual([], Uploads2),
-    ?assertEqual(Bucket, proplists:get_value(bucket, UploadsList2)),
-    ?assertNot(mp_upload_test:upload_id_present(UploadId, Uploads2)),
     ok.
 
 %% @doc in race condition: on delete_bucket
@@ -127,11 +125,9 @@ verify_bucket_mpcleanup_racecond_and_fix(UserConfig, UserConfig1,
 
     %% then fail on creation
     %%TODO: check fail fail fail => 500
-    ?assertError({aws_error, {http_error, 500, [], _}},
-                 erlcloud_s3:create_bucket(Bucket, UserConfig)),
+    ?assertHttpCode(500, erlcloud_s3:create_bucket(Bucket, UserConfig)),
 
-    ?assertError({aws_error, {http_error, 500, [], _}},
-                 erlcloud_s3:create_bucket(Bucket, UserConfig1)),
+    ?assertHttpCode(500, erlcloud_s3:create_bucket(Bucket, UserConfig1)),
 
     %% but we have a cleanup script, for existing system with 1.4.x or earlier
     %% DO cleanup here
@@ -149,10 +145,9 @@ verify_bucket_mpcleanup_racecond_and_fix(UserConfig, UserConfig1,
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, UserConfig1)),
 
     %% Nothing found
-    UploadsList2 = erlcloud_s3_multipart:list_uploads(Bucket, [], UserConfig1),
-    Uploads2 = proplists:get_value(uploads, UploadsList2, []),
+    {ok, UploadsList2} = erlcloud_s3:list_multipart_uploads(Bucket, [], [], UserConfig1),
+    Uploads2 = proplists:get_value(uploads, UploadsList2),
     ?assertEqual([], Uploads2),
-    ?assertEqual(Bucket, proplists:get_value(bucket, UploadsList2)),
     ok.
 
 %% @doc cleanup orphan multipart for 30 buckets (> pool size)
@@ -179,15 +174,14 @@ verify_cleanup_orphan_mp(UserConfig, UserConfig1, RiakNodes, CSNode) ->
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket1, UserConfig1)),
 
     %% Nothing found
-    UploadsList = erlcloud_s3_multipart:list_uploads(Bucket1, [], UserConfig1),
-    Uploads = proplists:get_value(uploads, UploadsList, []),
+    {ok, UploadsList} = erlcloud_s3:list_multipart_uploads(Bucket1, [], [], UserConfig1),
+    Uploads = proplists:get_value(uploads, UploadsList),
     ?assertEqual([], Uploads),
-    ?assertEqual(Bucket1, proplists:get_value(bucket, UploadsList)),
     ok.
 
 prepare_bucket_with_orphan_mp(BucketName, Key, UserConfig, RiakNodes) ->
     ?assertEqual(ok, erlcloud_s3:create_bucket(BucketName, UserConfig)),
-    _InitUploadRes = erlcloud_s3_multipart:initiate_upload(BucketName, Key, [], [], UserConfig),
+    {ok, _InitUploadRes} = erlcloud_s3:start_multipart(BucketName, Key, [], [], UserConfig),
 
     %% Reserve riak object to emulate prior 1.4.5 behavior afterwards
     {ok, ManiObj} = rc_helper:get_riakc_obj(RiakNodes, objects, BucketName, Key),
@@ -199,7 +193,8 @@ prepare_bucket_with_orphan_mp(BucketName, Key, UserConfig, RiakNodes) ->
 
 
 verify_max_buckets_per_user(UserConfig) ->
-    [{buckets, Buckets}] = erlcloud_s3:list_buckets(UserConfig),
+    ListBucketsRes = erlcloud_s3:list_buckets(UserConfig),
+    Buckets = proplists:get_value(buckets, ListBucketsRes),
     logger:debug("existing buckets: ~p", [Buckets]),
     BucketNameBase = "toomanybuckets",
     [begin
@@ -209,12 +204,11 @@ verify_max_buckets_per_user(UserConfig) ->
                       erlcloud_s3:create_bucket(BucketName, UserConfig))
      end
      || N <- lists:seq(1,100-length(Buckets))],
-    logger:debug("100 buckets created", []),
+    logger:info("100 buckets created", []),
     BucketName1 = BucketNameBase ++ "101",
-    ?assertError({aws_error, {http_error, 400, [], _}},
-                 erlcloud_s3:create_bucket(BucketName1, UserConfig)),
+    ?assertHttpCode(400, erlcloud_s3:create_bucket(BucketName1, UserConfig)),
     ok.
-    
+
 verify_bucket_location(UserConfig) ->
     ?assertEqual(?REGION,
                  erlcloud_s3:get_bucket_attribute(?TEST_BUCKET, location, UserConfig)).

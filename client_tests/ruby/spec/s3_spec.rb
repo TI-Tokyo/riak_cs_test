@@ -41,7 +41,6 @@ describe Aws::S3 do
       s3.delete_bucket({bucket: b.name})
     }
   rescue Exception => e
-    puts e
   end
 
   describe "when there is no bucket" do

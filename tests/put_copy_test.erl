@@ -89,7 +89,7 @@ verify_simple_copy(UserConfig) ->
 verify_others_copy(UserConfig, OtherUserConfig) ->
     logger:info("verify_others_copy"),
     %% try copy to fail, because no permission
-    ?assert403(erlcloud_s3:copy_object(?BUCKET3, ?KEY, ?BUCKET, ?KEY, OtherUserConfig)),
+    ?assertHttpCode(403, erlcloud_s3:copy_object(?BUCKET3, ?KEY, ?BUCKET, ?KEY, OtherUserConfig)),
 
     %% set key public
     Acl = [{acl, public_read}],
@@ -154,8 +154,8 @@ verify_security(Alice, Bob, Charlie) ->
 
     %% >> Bob can do it right
     %% Bring Alice's objects to Bob's bucket
-    ?assert403(erlcloud_s3:copy_object(BobsBucket, AlicesObject,
-                                       AlicesBucket, AlicesObject, Bob)),
+    ?assertHttpCode(403, erlcloud_s3:copy_object(BobsBucket, AlicesObject,
+                                                 AlicesBucket, AlicesObject, Bob)),
 
     ?assertEqual([{copy_source_version_id, "false"}, {version_id, "null"}],
                  erlcloud_s3:copy_object(BobsBucket, AlicesPublicObject,
@@ -180,17 +180,17 @@ verify_security(Alice, Bob, Charlie) ->
 
     %% >> Charlie can't do it
     %% try copying Alice's private object to Charlie's
-    ?assert403(erlcloud_s3:copy_object(CharliesBucket, AlicesObject,
-                                       AlicesBucket, AlicesObject, Charlie)),
+    ?assertHttpCode(403, erlcloud_s3:copy_object(CharliesBucket, AlicesObject,
+                                                 AlicesBucket, AlicesObject, Charlie)),
 
-    ?assert403(erlcloud_s3:copy_object(AlicesPublicBucket, AlicesObject,
-                                       AlicesBucket, AlicesObject, Charlie)),
+    ?assertHttpCode(403, erlcloud_s3:copy_object(AlicesPublicBucket, AlicesObject,
+                                                 AlicesBucket, AlicesObject, Charlie)),
 
     %% try copy Alice's public object to Bob's
-    ?assert403(erlcloud_s3:copy_object(BobsBucket, AlicesPublicObject,
-                                       AlicesBucket, AlicesPublicObject, Charlie)),
-    ?assert403(erlcloud_s3:copy_object(BobsBucket, AlicesObject,
-                                       AlicesPublicBucket, AlicesObject, Charlie)),
+    ?assertHttpCode(403, erlcloud_s3:copy_object(BobsBucket, AlicesPublicObject,
+                                                 AlicesBucket, AlicesPublicObject, Charlie)),
+    ?assertHttpCode(403, erlcloud_s3:copy_object(BobsBucket, AlicesObject,
+                                                 AlicesPublicBucket, AlicesObject, Charlie)),
 
     %% charlie tries to copy anonymously, which should fail in 403
     CSPort = Charlie#aws_config.s3_port,

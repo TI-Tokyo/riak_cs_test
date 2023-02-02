@@ -47,20 +47,20 @@ verify_multipart_upload_response() ->
     Config = AdminConfig#aws_config{s3_host = Host},
 
     logger:info("creating bucket ~p", [Bucket]),
-    ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, Config)),
+    ok = erlcloud_s3:create_bucket(Bucket, Config),
 
-    {ok, {_, Result}} = perform_multipart_upload(
+    {ok, Result} = perform_multipart_upload(
         Bucket, Key, NumParts, PartSize, Config),
-    % logger:info("Response Data of '~s/~s':\n~p\n", [Bucket, Key, Result]),
 
-    verify_multipart_upload_response(Result, Host, Bucket, Key),
+    verify_multipart_upload_response(
+      xmerl_scan:string(Result), Host, Bucket, Key),
 
     pass.
 
 perform_multipart_upload(Bucket, Key, NumParts, PartSize, Config) ->
     logger:info("initiating multipart upload of '~s/~s'", [Bucket, Key]),
-    UploadId = erlcloud_s3_multipart:upload_id(
-        erlcloud_s3_multipart:initiate_upload(Bucket, Key, [], [], Config)),
+    {ok, MPStartRes} = erlcloud_s3:start_multipart(Bucket, Key, [], [], Config),
+    UploadId = proplists:get_value(uploadId, MPStartRes),
 
     logger:info("uploading parts of '~s/~s'", [Bucket, Key]),
     EtagList = upload_and_assert_parts(
@@ -99,30 +99,17 @@ get_response_value([_ | Content], Field) ->
     get_response_value(Content, Field).
 
 %
-% Use erlcloud_s3:s3_request instead of erlcloud_s3_multipart:complete_upload
+% Use curl instead of erlcloud_s3_multipart:complete_upload
 % to be able to process the full result XML.
 %
 complete_multipart_upload(Bucket, Key, UploadId, EtagList, Config) ->
-    Response = erlcloud_s3:s3_request(
-        Config, post, Bucket,
-        [$/ | Key],                             % URL
-        [{"uploadId", UploadId}],               % sub-resources
-        [],                                     % params
-        etags_to_multipart_request(EtagList),   % POST data
-        []),                                    % headers
-    % logger:info("Raw Response: ~p", [Response]),
-    case Response of
-        {_, []} ->
-            {ok, Response};
-        {Headers, BodyXML} ->
-            Body = xmerl_scan:string(BodyXML),
-            case erlang:element(1, Body) of
-                #xmlElement{name = 'Error'} ->
-                    {error, {msg, text, {Headers, Body}}};
-                _ ->
-                    {ok, {Headers, Body}}
-            end
-    end.
+    {ok, Response} =
+        rtcs_exec:curl_request(
+          Config, 'POST',
+          io_lib:format("/~s/~s?uploadId=~s", [Bucket, Key, UploadId]),
+          [],
+          etags_to_multipart_request(EtagList)),
+    {ok, binary_to_list(Response)}.
 
 etags_to_multipart_request(EtagList) ->
     ReqData = [{'Part', [

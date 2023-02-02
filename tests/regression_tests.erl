@@ -262,23 +262,23 @@ verify_cs756({{UserConfig, _}, {RiakNodes, _}}, BucketName) ->
     [rt:wait_until_unpingable(RiakNode) || RiakNode <- RiakNodes],
 
     %% test Object APIs before bucket creation
-    ?assert500(erlcloud_s3:put_object(BucketName, "mine", <<"deadbeef">>, UserConfig)),
-    ?assert500(erlcloud_s3:get_object(BucketName, "mine", UserConfig)),
+    ?assertHttpCode(500, erlcloud_s3:put_object(BucketName, "mine", <<"deadbeef">>, UserConfig)),
+    ?assertHttpCode(500, erlcloud_s3:get_object(BucketName, "mine", UserConfig)),
 
     %% test bucket creation fails
-    ?assert500(erlcloud_s3:create_bucket(BucketName, UserConfig)),
-    ?assert500(erlcloud_s3:delete_bucket("dummybucket", UserConfig)),
+    ?assertHttpCode(500, erlcloud_s3:create_bucket(BucketName, UserConfig)),
+    ?assertHttpCode(500, erlcloud_s3:delete_bucket("dummybucket", UserConfig)),
 
-    ?assert500(erlcloud_s3:put_object(BucketName, "mine", <<"deadbeef">>, UserConfig)),
-    ?assert500(erlcloud_s3:get_object(BucketName, "mine", UserConfig)),
-    ?assert500(erlcloud_s3:delete_object(BucketName, "mine", UserConfig)),
+    ?assertHttpCode(500, erlcloud_s3:put_object(BucketName, "mine", <<"deadbeef">>, UserConfig)),
+    ?assertHttpCode(500, erlcloud_s3:get_object(BucketName, "mine", UserConfig)),
+    ?assertHttpCode(500, erlcloud_s3:delete_object(BucketName, "mine", UserConfig)),
 
     %% try copy
-    ?assert500(erlcloud_s3:copy_object(BucketName, "destination",
-                                       BucketName, "mine", UserConfig)),
+    ?assertHttpCode(500, erlcloud_s3:copy_object(BucketName, "destination",
+                                                 BucketName, "mine", UserConfig)),
 
-    ?assert500(erlcloud_s3:delete_bucket("dummybucket", UserConfig)),
-    ?assert500(erlcloud_s3:delete_bucket(BucketName, UserConfig)),
+    ?assertHttpCode(500, erlcloud_s3:delete_bucket("dummybucket", UserConfig)),
+    ?assertHttpCode(500, erlcloud_s3:delete_bucket(BucketName, UserConfig)),
 
     ok.
 

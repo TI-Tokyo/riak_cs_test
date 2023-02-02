@@ -140,7 +140,7 @@ s3_request(#aws_config{s3_host = S3Host,
                    end, Headers),
     Date = httpd_util:rfc1123_date(erlang:localtime()),
     EscapedPath = url_encode_loose(Path),
-    Authorization = make_authorization(Config, Method, ContentMD5, ContentType,
+    Authorization = make_authorization_int(Config, Method, ContentMD5, ContentType,
                                        Date, AmzHeaders, Host, EscapedPath, Subresources),
     FHeaders = [Header || {_, Value} = Header <- Headers, Value =/= undefined],
     RequestHeaders = [{"date", Date}, {"authorization", Authorization}|FHeaders] ++
@@ -201,10 +201,10 @@ format_subresource({Subresource, Value}) when is_integer(Value) ->
 format_subresource(Subresource) ->
     Subresource.
 
-make_authorization(#aws_config{access_key_id = KeyId,
-                               secret_access_key = SecretKey},
-                   Method, ContentMD5, ContentType, Date, AmzHeaders,
-                   Host, Resource, Subresources) ->
+make_authorization_int(#aws_config{access_key_id = KeyId,
+                                   secret_access_key = SecretKey},
+                       Method, ContentMD5, ContentType, Date, AmzHeaders,
+                       Host, Resource, Subresources) ->
     CanonizedAmzHeaders =
         [[Name, $:, Value, $\n] || {Name, Value} <- lists:sort(AmzHeaders)],
     StringToSign = [string:to_upper(atom_to_list(Method)), $\n,
@@ -218,6 +218,7 @@ make_authorization(#aws_config{access_key_id = KeyId,
                    ],
     Signature = base64:encode(crypto:mac(hmac, sha, SecretKey, StringToSign)),
     ["AWS ", KeyId, $:, Signature].
+
 
 -spec(make_authorization(string(), string(), string(), #aws_config{}, string()) -> string()).
 make_authorization(Method, Resource, ContentType, Config, Date) ->
@@ -234,12 +235,14 @@ make_authorization(Type, Method, Resource, ContentType, Config, Date, AmzHeaders
                  velvet -> "MOSS"
              end,
     StsAmzHeaderPart = [[K, $:, V, $\n] || {K, V} <- AmzHeaders],
-    StringToSign = [Method, $\n, [], $\n, ContentType, $\n, Date, $\n,
-                    StsAmzHeaderPart, Resource],
-    logger:debug("StringToSign: ~s", [StringToSign]),
+    STS = iolist_to_binary(
+            [as_string(Method), $\n, [], $\n, ContentType, $\n, Date, $\n, StsAmzHeaderPart, Resource]),
     Signature =
-        base64:encode_to_string(crypto:mac(hmac, sha, Config#aws_config.secret_access_key, StringToSign)),
+        base64:encode_to_string(crypto:mac(hmac, sha, Config#aws_config.secret_access_key, STS)),
     lists:flatten([Prefix, " ", Config#aws_config.access_key_id, $:, Signature]).
+as_string(A) when is_atom(A) ->
+    string:to_upper(atom_to_list(A));
+as_string(A) -> A.
 
 -spec aws_config(string(), string(), non_neg_integer()) -> #aws_config{}.
 aws_config(Key, Secret, Port) ->

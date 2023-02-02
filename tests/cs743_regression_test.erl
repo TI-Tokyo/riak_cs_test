@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -100,7 +101,7 @@ etoomanyobjects(N, UserConfig) ->
     lists:map(fun(I) ->
                       R = erlcloud_s3:put_object(?TEST_BUCKET, integer_to_list(I),
                                                  SingleBlock, UserConfig),
-                      [{version_id,"null"}] = R
+                      ?assertEqual("null", proplists:get_value(version_id, R))
               end,
               lists:seq(1,N)),
     ok.

@@ -618,7 +618,8 @@ spawn_cmd(Cmd) ->
     spawn_cmd(Cmd, []).
 spawn_cmd(Cmd, Opts) when is_list(Cmd) ->
     spawn_cmd({spawn, Cmd}, Opts);
-spawn_cmd(Cmd, Opts) ->
+spawn_cmd({_, CmdName} = Cmd, Opts) ->
+    logger:info("Executing \"~s\"", [CmdName]),
     open_port(Cmd, [stream, in, binary, exit_status, stderr_to_stdout] ++ Opts).
 
 cmd(Cmd) ->
@@ -629,7 +630,13 @@ cmd(Cmd, Opts) ->
 get_cmd_result(Port, LineAcc, Acc) ->
     receive
         {Port, {exit_status, 0}} ->
-            {ok, Acc};
+            case LineAcc of
+                <<>> ->
+                    ok;
+                _ ->
+                    logger:info("[cmd] ~s (no eol)", [LineAcc])
+            end,
+            {ok, iolist_to_binary([Acc, LineAcc])};
         {Port, {exit_status, Status}} ->
             {error, {exit_status, Status}};
         {Port, {data, Line}} when size(Line) > 0 ->
