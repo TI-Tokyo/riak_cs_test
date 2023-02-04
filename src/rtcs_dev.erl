@@ -217,14 +217,10 @@ setup_clusters(#{config_spec := Configs,
     ok = rt:wait_until_no_pending_changes(RiakNodes),
     ok = rt:wait_until_ring_converged(RiakNodes),
 
-    [N1|Nn] = CSNodes,
-    %% let this node start stanchion
-    start(N1, Vsn),
-    rt:wait_until_pingable(N1),
     rt:pmap(fun(N) ->
                     start(N, Vsn),
                     rt:wait_until_pingable(N)
-            end, Nn),
+            end, CSNodes),
     logger:info("Tussle ready", []),
 
     Nodes.
