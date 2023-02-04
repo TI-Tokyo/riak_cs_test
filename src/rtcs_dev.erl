@@ -43,6 +43,7 @@
          setup2x2/1,
          setupNxMsingles/2, setupNxMsingles/4,
          setup_admin_user/2,
+         setup_clusters/1,
          setup_harness/2,
          spawn_cmd/1, spawn_cmd/2,
          start/1, start/2,

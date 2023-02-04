@@ -72,8 +72,8 @@ upload(UserConfig, https_copy, B, DstK, SrcK) ->
     send_ssl_request(UserConfig, [ReqHdr, CopyHdr, $\n]);
 
 upload(UserConfig, multipart_copy, B, DstK, SrcK) ->
-    InitUploadRes = erlcloud_s3_multipart:initiate_upload(B, DstK, "text/plain", [], UserConfig),
-    UploadId = erlcloud_s3_multipart:upload_id(InitUploadRes),
+    {ok, InitUploadRes} = erlcloud_s3:start_multipart(B, DstK, "text/plain", [], UserConfig),
+    UploadId = proplists:get_value(uploadId, InitUploadRes),
 
     {RespHeaders1, _} = rtcs_multipart:upload_part_copy(
                           B, DstK, UploadId, 1, B, SrcK, {0, mb(5)-1}, UserConfig),

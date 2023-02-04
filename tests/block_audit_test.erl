@@ -111,7 +111,7 @@ fake_false_orphans(RiakNodes, FalseOrphans) ->
         {B, K, O} <- FalseOrphans].
 
 assert_result(Bucket) ->
-    Home = rtcs_config:riakcs_home(rtcs_config:devpath(cs, current), 1),
+    Home = rtcs_exec:riakcs_home(rtcs_config:devpath(cs, current), 1),
     OutFile1 = filename:join([Home, "riak-cs", "actual-orphaned-blocks", Bucket]),
     {ok, Bin} = file:read_file(OutFile1),
     KeySeqs = [begin

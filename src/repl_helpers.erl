@@ -160,7 +160,7 @@ wait_until_leader(Node) ->
 wait_until_13_leader(Node) ->
     wait_until_new_leader(Node, undefined).
 
-%% taken from 
+%% taken from
 %% https://github.com/basho/riak_test/blob/master/tests/repl_util.erl
 wait_until_new_leader(Node, OldLeader) ->
     Res = rt:wait_until(Node,
@@ -371,4 +371,3 @@ enable_pg13(Node, Cluster) ->
 disable_pg13(Node, Cluster) ->
     Res = rpc:call(Node, riak_repl_console, proxy_get, [["disable", Cluster]]),
     ?assertEqual(ok, Res).
-

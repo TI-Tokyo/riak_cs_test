@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved.
+%%               2022, 2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -24,7 +25,8 @@
 %% entities that violate the specified object size restrictions
 
 -export([confirm/0]).
--include_lib("eunit/include/eunit.hrl").
+
+-include("rtcs.hrl").
 
 -define(TEST_BUCKET, "riak-test-bucket").
 -define(TEST_KEY1, "riak_test_key1").
@@ -36,16 +38,15 @@
 confirm() ->
     {{UserConfig, _}, _} = rtcs_dev:setup(1, [{cs, cs_config()}]),
 
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
+    ?assertNoBuckets(UserConfig),
     logger:info("User is valid on the cluster, and has no buckets"),
 
-    ?assertError({aws_error, {http_error, 404, [], _}}, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
+    ?assertHttpCode(404, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
 
     logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
-    ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
-                 erlcloud_s3:list_buckets(UserConfig)),
+    ?assertHasBucket(?TEST_BUCKET, UserConfig),
 
     %% Test cases
     too_large_upload_part_test_case(?TEST_BUCKET, ?TEST_KEY1, UserConfig),
@@ -54,7 +55,7 @@ confirm() ->
     logger:info("deleting bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
 
-    ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
+    ?assertHttpCode(404, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
 
     pass.
 
@@ -66,31 +67,34 @@ generate_part_data(X, Size)
 too_large_upload_part_test_case(Bucket, Key, Config) ->
     %% Initiate a multipart upload
     logger:info("Initiating multipart upload"),
-    InitUploadRes = erlcloud_s3_multipart:initiate_upload(Bucket, Key, [], [], Config),
-    UploadId = erlcloud_s3_multipart:upload_id(InitUploadRes),
+    {ok, InitUploadRes} = erlcloud_s3:start_multipart(Bucket, Key, [], [], Config),
+    UploadId = proplists:get_value(uploadId, InitUploadRes),
 
     %% Verify the upload id is in list_uploads results and
     %% that the bucket information is correct
-    UploadsList1 = erlcloud_s3_multipart:list_uploads(Bucket, [], Config),
-    Uploads1 = proplists:get_value(uploads, UploadsList1, []),
-    ?assertEqual(Bucket, proplists:get_value(bucket, UploadsList1)),
-    ?assert(upload_id_present(UploadId, Uploads1)),
+    {ok, MPU} = erlcloud_s3:list_multipart_uploads(Bucket, [], [], Config),
+    Uploads = proplists:get_value(uploads, MPU),
+    ?assert(lists:any(fun(P) -> proplists:get_value(uploadId, P) == UploadId end, Uploads)),
 
     logger:info("Uploading an oversize part"),
-    ?assertError({aws_error, {http_error, 400, _, _}},
-                 erlcloud_s3_multipart:upload_part(Bucket,
-                                                   Key,
-                                                   UploadId,
-                                                   1,
-                                                   generate_part_data(61, 2000),
-                                                   Config)).
+    ?assertEqual(
+       {error, {http_error, 400, undefined,
+                iolist_to_binary(
+                  ["<?xml version=\"1.0\" encoding=\"UTF-8\"?><Error><Code>EntityTooLarge</Code>"
+                   "<Message>Your proposed upload exceeds the maximum allowed object size.</Message>"
+                   "<Resource>/",Bucket,"/",Key,"</Resource><RequestId></RequestId></Error>"])}},
+       erlcloud_s3:upload_part(Bucket, Key,
+                               UploadId,
+                               1, generate_part_data(61, 2000),
+                               [], Config)),
+    ok.
 
 too_large_object_put_test_case(Bucket, Key, Config) ->
     Object1 = crypto:strong_rand_bytes(1001),
     Object2 = crypto:strong_rand_bytes(1000),
 
-    ?assertError({aws_error, {http_error, 400, _, _}},
-                 erlcloud_s3:put_object(Bucket, Key, Object1, Config)),
+    ?assertHttpCode(400,
+                    erlcloud_s3:put_object(Bucket, Key, Object1, Config)),
 
     erlcloud_s3:put_object(Bucket, Key, Object2, Config),
 
@@ -104,9 +108,6 @@ too_large_object_put_test_case(Bucket, Key, Config) ->
     ObjList2 = erlcloud_s3:list_objects(Bucket, Config),
     ?assertEqual([], proplists:get_value(contents, ObjList2)).
 
-upload_id_present(UploadId, UploadList) ->
-    [] /= [UploadData || UploadData <- UploadList,
-                         proplists:get_value(upload_id, UploadData) =:= UploadId].
 
 cs_config() ->
     [{riak_cs,

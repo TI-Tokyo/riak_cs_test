@@ -22,7 +22,7 @@
 
 -export([confirm/0]).
 
--include_lib("eunit/include/eunit.hrl").
+-include("rtcs.hrl").
 
 -define(BUCKET, "error-response-test").
 -define(BUCKET2, "error-response-test2").
@@ -42,14 +42,14 @@ confirm() ->
 
     %% vefity response for timeout during getting a user.
     rt_intercept:add(ErrCSNode, {riak_cs_riak_client, [{{get_user, 2}, get_user_timeout}]}),
-    ?assertError({aws_error, {http_error, 503, [], _}},
-                 erlcloud_s3:get_object(?BUCKET, ?KEY, ErrConfig)),
+    ?assertHttpCode(503, erlcloud_s3:get_object(?BUCKET, ?KEY, ErrConfig)),
     rt_intercept:clean(ErrCSNode, riak_cs_riak_client),
 
     %% vefity response for timeout during getting block.
     %% FIXME: This should be http_error 503
     rt_intercept:add(ErrCSNode, {riak_cs_block_server, [{{get_block_local, 6}, get_block_local_timeout}]}),
-    ?assertError({aws_error, {socket_error, retry_later}}, erlcloud_s3:get_object(?BUCKET, ?KEY, ErrConfig)),
+    ?assertError({aws_error, {socket_error, {hackney_error,{closed,<<>>}}}},
+                 erlcloud_s3:get_object(?BUCKET, ?KEY, ErrConfig)),
     rt_intercept:clean(ErrCSNode, riak_cs_block_server),
 
     pass.

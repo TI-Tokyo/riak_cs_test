@@ -63,7 +63,7 @@ create_admin_user(Node) ->
     %% must match the values in client_tests/python/boto_test.py
 
     {UserConfig, Id} = create_user(rtcs_config:cs_port(Node), Email, User),
-    logger:info("Created Riak CS Admin account with:", []),
+    logger:info("Created Riak CS Admin account on node ~s:", [rtcs_dev:cs_node(Node)]),
     logger:info("KeyId     : ~s", [UserConfig#aws_config.access_key_id]),
     logger:info("KeySecret : ~s", [UserConfig#aws_config.secret_access_key]),
     logger:info("UserId    : ~s", [Id]),
@@ -141,7 +141,7 @@ s3_request(#aws_config{s3_host = S3Host,
     Date = httpd_util:rfc1123_date(erlang:localtime()),
     EscapedPath = url_encode_loose(Path),
     Authorization = make_authorization_int(Config, Method, ContentMD5, ContentType,
-                                       Date, AmzHeaders, Host, EscapedPath, Subresources),
+                                           Date, AmzHeaders, Host, EscapedPath, Subresources),
     FHeaders = [Header || {_, Value} = Header <- Headers, Value =/= undefined],
     RequestHeaders = [{"date", Date}, {"authorization", Authorization}|FHeaders] ++
         case ContentMD5 of
