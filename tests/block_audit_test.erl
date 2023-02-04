@@ -76,7 +76,7 @@ confirm1() ->
     assert_result(?BUCKET1),
     assert_result(?BUCKET2),
 
-    BlockKeysFileList = [filename:join([Home, "riak-cs", "actual-orphaned-blocks", B]) ||
+    BlockKeysFileList = [filename:join([Home, "actual-orphaned-blocks", B]) ||
                         B <- [?BUCKET1, ?BUCKET2]],
     tools_helper:offline_delete(Tussle, BlockKeysFileList),
     pass.
@@ -112,7 +112,7 @@ fake_false_orphans(RiakNodes, FalseOrphans) ->
 
 assert_result(Bucket) ->
     Home = rtcs_exec:riakcs_home(rtcs_config:devpath(cs, current), 1),
-    OutFile1 = filename:join([Home, "riak-cs", "actual-orphaned-blocks", Bucket]),
+    OutFile1 = filename:join([Home, "actual-orphaned-blocks", Bucket]),
     {ok, Bin} = file:read_file(OutFile1),
     KeySeqs = [begin
                    [_RiakBucketHex, _RiakKeyHex,

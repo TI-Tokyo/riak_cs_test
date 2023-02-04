@@ -73,19 +73,19 @@ riakcs_storagecmd(Path, N, Cmd) ->
 %%     lists:flatten(io_lib:format("~s-debug ~s", [riakcs_binpath(Path, N), Cmd])).
 
 riak_bitcaskroot(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/riak/data/bitcask", [Prefix, N]).
+    lists:flatten(io_lib:format("~s/dev/dev~b/riak/data/bitcask", [Prefix, N])).
 
 riak_binpath(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/~s/bin/riak", [Prefix, N, rtdev:which_riak(Prefix)]).
+    lists:flatten(io_lib:format("~s/dev/dev~b/~s/bin/riak", [Prefix, N, rtdev:which_riak(Prefix)])).
 
 riakcs_home(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/riak-cs", [Prefix, N]).
+    lists:flatten(io_lib:format("~s/dev/dev~b/riak-cs", [Prefix, N])).
 
 riakcs_binpath(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/riak-cs/bin/riak-cs", [Prefix, N]).
+    lists:flatten(io_lib:format("~s/dev/dev~b/riak-cs/bin/riak-cs", [Prefix, N])).
 
 riakcs_etcpath(Prefix, N) ->
-    io_lib:format("~s/dev/dev~b/riak-cs/etc", [Prefix, N]).
+    lists:flatten(io_lib:format("~s/dev/dev~b/riak-cs/etc", [Prefix, N])).
 
 %% riakcs_libpath(Prefix, N) ->
 %%     io_lib:format("~s/dev/dev~b/riak-cs/lib", [Prefix, N]).

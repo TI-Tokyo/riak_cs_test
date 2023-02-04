@@ -38,24 +38,19 @@ offline_delete({RiakNodes, _CSNodes} = Tussle, BlockKeysFileList) ->
     logger:info("Stop nodes and execute offline_delete script..."),
     stop_all_nodes(Tussle),
 
-    [begin
-         Res =
-             rtcs_exec:exec_priv_escript(
-               1,
-               "internal/offline_delete.erl",
-               "-r 8 --yes " ++
-                   rtcs_config:riak_bitcaskroot(rtcs_config:devpath(riak, current), 1) ++
-                   " " ++ BlockKeysFile,
-               #{by => riak,
-                 env => [{"ERL_LIBS",
-                          io_lib:format("~s/dev/dev1/riak-cs/lib/getopt-1.0.2",
-                                        [rtcs_config:devpath(cs, current)])}]
-                }
-              ),
-         logger:info("offline_delete.erl log:", []),
-         [ logger:info("~s", [L]) || L <- string:tokens(Res, "\n") ],
-         logger:info("offline_delete.erl log:============= END")
-     end || BlockKeysFile <- BlockKeysFileList],
+    [rtcs_exec:exec_priv_escript(
+       1,
+       "internal/offline_delete.erl",
+       "-r 8 --yes " ++
+           rtcs_exec:riak_bitcaskroot(rtcs_config:devpath(riak, current), 1) ++
+           " " ++ BlockKeysFile,
+       #{by => riak,
+         env => [{"ERL_LIBS",
+                  io_lib:format("~s/dev/dev1/riak-cs/lib/getopt-1.0.2",
+                                [rtcs_config:devpath(cs, current)])}]
+        }
+      )
+     || BlockKeysFile <- BlockKeysFileList],
 
     logger:info("Assert all blocks are non-existent now"),
     start_all_nodes(Tussle, current),
