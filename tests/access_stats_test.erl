@@ -46,7 +46,6 @@ confirm() ->
                                riak_cs_storage_mr]),
 
     Results = generate_some_accesses(UserConfig),
-    logger:debug("Client results: ~p", [Results]),
     flush_access_stats(),
     assert_access_stats(json, UserConfig, Results),
     assert_access_stats(xml, UserConfig, Results),

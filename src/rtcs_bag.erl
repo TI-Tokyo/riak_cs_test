@@ -165,7 +165,6 @@ list_weight() ->
 
 list_weight(N) ->
     Cmd = multibagcmd(rt_config:get(rtcs_config:cs_current()), N, io_lib:format("~s", [weight])),
-    logger:info("Running ~s", [Cmd]),
     rt:cmd(Cmd).
 
 bag_weight(N, Kind, BagId, Weight) ->
@@ -176,12 +175,10 @@ bag_weight(N, Kind, BagId, Weight) ->
              end,
     Cmd = multibagcmd(rt_config:get(rtcs_config:cs_current()), N,
                              io_lib:format("~s ~s ~B", [SubCmd, BagId, Weight])),
-    logger:info("Running ~s", [Cmd]),
     rt:cmd(Cmd).
 
 bag_refresh(N) ->
     Cmd = multibagcmd(rt_config:get(rtcs_config:cs_current()), N, "refresh"),
-    logger:info("Running ~p", [Cmd]),
     rt:cmd(Cmd).
 
 %% Assertion utilities
