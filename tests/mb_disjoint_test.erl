@@ -35,8 +35,7 @@ confirm() ->
     logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
-    ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
-                 erlcloud_s3:list_buckets(UserConfig)),
+    ?assertHasBucket(?TEST_BUCKET, UserConfig),
 
     assert_object_in_expected_bag(RiakNodes, UserConfig, normal,
                                   ?TEST_BUCKET, ?KEY_NORMAL),
