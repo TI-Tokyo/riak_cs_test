@@ -443,7 +443,6 @@ join_retry({error, node_still_starting}, _Fun, 0, _Delay) ->
     logger:warning("Too many retries, join failed"),
     {error, too_many_retries};
 join_retry({error, node_still_starting}, Fun, RetryCount, Delay) ->
-    logger:info("Join error because node is not yet ready, retrying after ~Bms", [Delay]),
     timer:sleep(Delay),
     join_retry(Fun(), Fun, RetryCount - 1, Delay);
 join_retry(Error, _Fun, _Retry, _Delay) ->
@@ -452,7 +451,7 @@ join_retry(Error, _Fun, _Retry, _Delay) ->
 %% @doc Have `Node' send a join request to `PNode'
 join(Node, PNode) ->
     Fun = fun() -> rpc:call(Node, riak_core, join, [PNode]) end,
-    logger:info("[join] ~p to (~p)", [Node, PNode]),
+    logger:info("joining ~s to ~s", [Node, PNode]),
     ?assertEqual(ok, join_with_retry(Fun)),
     ok.
 
@@ -461,7 +460,7 @@ staged_join(Node, PNode) ->
     %% `riak_core:staged_join/1' can now return an `{error,
     %% node_still_starting}' tuple which indicates retry.
     Fun = fun() -> rpc:call(Node, riak_core, staged_join, [PNode]) end,
-    logger:info("[join] ~p to (~p)", [Node, PNode]),
+    logger:info("joining ~s to ~s", [Node, PNode]),
     ?assertEqual(ok, join_with_retry(Fun)),
     ok.
 
