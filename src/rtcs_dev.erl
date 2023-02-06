@@ -205,7 +205,6 @@ setup_clusters(#{config_spec := Configs,
                              initial_config => Configs,
                              vsn => Vsn}),
 
-    create_snmp_dirs(RiakNodes),
     clean_data_dir(RiakNodes, "*"),
 
     rt:pmap(fun(N) -> start(N, Vsn) end, RiakNodes),
@@ -224,10 +223,6 @@ setup_clusters(#{config_spec := Configs,
     logger:info("Tussle ready", []),
 
     Nodes.
-
-create_snmp_dirs(Nodes) ->
-    Snmp = [node_path(Node) ++ "/data/snmp/agent/db" || Node <- Nodes],
-    [?assertCmd("mkdir -p " ++ Dir) || Dir <- Snmp].
 
 clean_data_dir(Nodes, SubDir) when is_list(Nodes) ->
     DataDirs = [node_path(Node) ++ "/data/" ++ SubDir || Node <- Nodes],
