@@ -24,7 +24,8 @@
 %% @doc `riak_test' module for testing conditional object get behavior.
 
 -export([confirm/0]).
--include_lib("eunit/include/eunit.hrl").
+
+-include("rtcs.hrl").
 
 %% keys for non-multipart objects
 -define(TEST_BUCKET, "riak-test-bucket").
@@ -35,13 +36,12 @@ confirm() ->
     {{UserConfig, _}, {_RiakNodes, _CSNodes}} = rtcs_dev:setup(1),
 
     logger:info("User is valid on the cluster, and has no buckets"),
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
+    ?assertNoBuckets(UserConfig),
 
     logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
-    ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
-                 erlcloud_s3:list_buckets(UserConfig)),
+    ?assertHasBucket(?TEST_BUCKET, UserConfig),
 
     {Content, Etag, ThreeDates} =
         setup_object(?TEST_BUCKET, ?TEST_KEY, UserConfig),
@@ -64,8 +64,7 @@ setup_object(Bucket, Key, UserConfig) ->
     {Content, Etag, {Before, LastModified, After}}.
 
 before_and_after_of_last_modified(Obj) ->
-    Headers = proplists:get_value(headers, Obj),
-    LastModified = proplists:get_value("Last-Modified", Headers),
+    LastModified = proplists:get_value(last_modified, Obj),
     LastModifiedErlDate = httpd_util:convert_request_date(LastModified),
     LastModifiedSec = calendar:datetime_to_gregorian_seconds(LastModifiedErlDate),
     Before = rfc1123_date(LastModifiedSec - 1),
