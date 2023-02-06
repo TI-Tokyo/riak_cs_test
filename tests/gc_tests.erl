@@ -51,9 +51,9 @@ confirm() ->
     %% Ensure the leeway has expired
     timer:sleep(2000),
 
-    Result = rtcs_exec:gc(1, "earliest-keys"),
+    {ok, Result} = rtcs_exec:gc(1, "earliest-keys"),
     logger:debug("~p", [Result]),
-    ?assert(string:str(Result, "GC keys in") > 0),
+    ?assert(string:str(binary_to_list(Result), "GC keys in") > 0),
 
     ok = verify_gc_run(hd(CSNodes), GCKey),
     ok = verify_riak_object_remaining_for_bad_key(RiakNodes, GCKey, {BKey, UUID}),
