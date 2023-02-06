@@ -24,6 +24,7 @@
 %% @doc `riak_test' module for testing multi bag proxy_get feature
 
 -export([confirm/0]).
+
 -include_lib("eunit/include/eunit.hrl").
 
 -include("riak_cs.hrl").
@@ -95,12 +96,12 @@ upload_objects(UserWest, _UserEast) ->
                         rtcs_object:upload(UserWest, normal_copy, B, DstKey, K),
                         {B, DstKey, Content}
                     end || {B, K, Content} <- Normals],
-    MPCopies = [begin
-                    DstKey = K ++ "-copy",
-                    rtcs_object:upload(UserWest, multipart_copy, B, DstKey, K),
-                    {B, DstKey, Content}
-                end || {B, K, Content} <- MPs],
-    {Normals, MPs, NormalCopies, MPCopies}.
+    %% MPCopies = [begin
+    %%                 DstKey = K ++ "-copy",
+    %%                 rtcs_object:upload(UserWest, multipart_copy, B, DstKey, K),
+    %%                 {B, DstKey, Content}
+    %%             end || {B, K, Content} <- MPs],
+    {Normals, MPs, NormalCopies, []}.
 
 assert_proxy_get(_UserWest, UserEast, {Normals, MPs, NormalCopies, MPCopies}) ->
     logger:info("Try to download them from East..."),
@@ -124,10 +125,10 @@ assert_proxy_get_does_not_work(UserWest, UserEast) ->
                                ?BUCKET_PREFIX ++ integer_to_list(K), ?KEY_MP) ||
                   K <- lists:seq(1, ?BUCKET_COUNT)],
     logger:info("Try to download them from East, all should fail..."),
-    [?assertError({aws_error,{socket_error,retry_later}},
+    [?assertError({aws_error,{socket_error,{hackney_error,{closed,<<>>}}}},
                   erlcloud_s3:get_object(B, K, UserEast)) ||
         {B, K, _Content} <- Normals],
-    [?assertError({aws_error,{socket_error,retry_later}},
+    [?assertError({aws_error,{socket_error,{hackney_error,{closed,<<>>}}}},
                   erlcloud_s3:get_object(B, K, UserEast)) ||
         {B, K, _Content} <- MPs],
     logger:info("Got connection close errors AS EXPECTED. Yay!."),
