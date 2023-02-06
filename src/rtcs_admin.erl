@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2016 Basho Technologies, Inc.  All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -31,16 +32,13 @@
          list_users/4,
          make_authorization/5,
          make_authorization/6,
-         make_authorization/7,
-         aws_config/2,
-         aws_config/3]).
+         make_authorization/7
+        ]).
 
--include_lib("eunit/include/eunit.hrl").
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
--include_lib("xmerl/include/xmerl.hrl").
 
 -spec storage_stats_json_request(#aws_config{}, #aws_config{}, string(), string()) ->
-                                        [{string(), {non_neg_integer(), non_neg_integer()}}].
+          [{string(), {non_neg_integer(), non_neg_integer()}}].
 storage_stats_json_request(AdminConfig, UserConfig, Begin, End) ->
     Samples = samples_from_json_request(AdminConfig, UserConfig, {Begin, End}),
     logger:debug("Storage samples[json]: ~p", [Samples]),
@@ -54,7 +52,7 @@ create_user_rpc(Node, Key, Secret) ->
 
     %% You know this is a kludge, user creation via RPC
     _Res = rpc:call(Node, riak_cs_user, create_user, [User, Email, Key, Secret]),
-    {aws_config(Key, Secret, rtcs_config:cs_port(1)), undefined}.
+    {rtcs_clients:aws_config(Key, Secret, rtcs_config:cs_port(1)), undefined}.
 
 -spec create_admin_user(atom()) -> {#aws_config{}, binary()}.
 create_admin_user(Node) ->
@@ -83,7 +81,7 @@ create_user(Node, UserIndex) ->
 -spec create_user(non_neg_integer(), string(), string()) -> {#aws_config{}, string()}.
 create_user(Port, EmailAddr, Name) ->
     %% create_user(Port, undefined, EmailAddr, Name).
-    create_user(Port, aws_config("admin-key", "admin-secret", Port), EmailAddr, Name).
+    create_user(Port, rtcs_clients:aws_config("admin-key", "admin-secret", Port), EmailAddr, Name).
 
 -spec create_user(non_neg_integer(), string(), string(), string()) -> {#aws_config{}, string()}.
 create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
@@ -91,20 +89,20 @@ create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
     Resource = "/riak-cs/user",
     ReqBody = "{\"email\":\"" ++ EmailAddr ++  "\", \"name\":\"" ++ Name ++"\"}",
     {_Status, _ResHeader, ResBody} =
-        s3_request(UserConfig,
-                   post, "", Resource, [], "",
-                   {ReqBody, "application/json"}, []),
+        rtcs_clients:s3_request(UserConfig,
+                                post, Resource, [], "",
+                                {ReqBody, "application/json"}, []),
     logger:debug("ResBody: ~s", [ResBody]),
     JsonData = mochijson2:decode(ResBody),
     [KeyId, KeySecret, Id] = [binary_to_list(rtcs_dev:json_get([K], JsonData)) ||
                                  K <- [<<"key_id">>, <<"key_secret">>, <<"id">>]],
-    {aws_config(KeyId, KeySecret, Port), Id}.
+    {rtcs_clients:aws_config(KeyId, KeySecret, Port), Id}.
 
 -spec update_user(#aws_config{}, non_neg_integer(), string(), string(), string()) -> {non_neg_integer(), string()}.
 update_user(UserConfig, _Port, Resource, ContentType, UpdateDoc) ->
     {Status, _ResHeader, ResBody} =
-        s3_request(UserConfig, put, "", Resource, [], "",
-                   {UpdateDoc, ContentType}, []),
+        rtcs_clients:s3_request(UserConfig, put, Resource, [], "",
+                                {UpdateDoc, ContentType}, []),
     logger:debug("ResBody: ~s", [ResBody]),
     {Status, ResBody}.
 
@@ -113,7 +111,7 @@ get_user(UserConfig, _Port, Resource, AcceptContentType) ->
     logger:debug("Retreiving user record"),
     Headers = [{"Accept", AcceptContentType}],
     {Status, _ResHeader, ResBody} =
-        s3_request(UserConfig, get, "", Resource, [], "", "", Headers),
+        rtcs_clients:s3_request(UserConfig, get, Resource, [], "", "", Headers),
     logger:debug("ResBody: ~s", [ResBody]),
     {Status, ResBody}.
 
@@ -121,103 +119,8 @@ get_user(UserConfig, _Port, Resource, AcceptContentType) ->
 list_users(UserConfig, _Port, Resource, AcceptContentType) ->
     Headers = [{"Accept", AcceptContentType}],
     {_Status, _ResHeader, ResBody} =
-        s3_request(UserConfig, get, "", Resource, [], "", "", Headers),
+        rtcs_clients:s3_request(UserConfig, get, Resource, [], "", "", Headers),
     ResBody.
-
-s3_request(#aws_config{s3_host = S3Host,
-                       s3_port = S3Port,
-                       s3_scheme = S3Scheme,
-                       hackney_client_options = #hackney_client_options{proxy = {_ProxyHost, ProxyPort}}} = Config,
-           Method, Host, Path, Subresources, Params, POSTData, Headers) ->
-    {ContentMD5, ContentType, Body} =
-        case POSTData of
-            {PD, CT} -> {base64:encode(crypto:hash(md5, PD)), CT, PD};
-            PD -> {"", "", PD}
-        end,
-    AmzHeaders = lists:filter(
-                   fun ({"x-amz-" ++ _, V}) when V =/= undefined -> true;
-                       (_) -> false
-                   end, Headers),
-    Date = httpd_util:rfc1123_date(erlang:localtime()),
-    EscapedPath = url_encode_loose(Path),
-    Authorization = make_authorization_int(Config, Method, ContentMD5, ContentType,
-                                           Date, AmzHeaders, Host, EscapedPath, Subresources),
-    FHeaders = [Header || {_, Value} = Header <- Headers, Value =/= undefined],
-    RequestHeaders = [{"date", Date}, {"authorization", Authorization}|FHeaders] ++
-        case ContentMD5 of
-            "" -> [];
-            _ -> [{"content-md5", binary_to_list(ContentMD5)}]
-        end,
-    RequestURI =
-        lists:flatten([S3Scheme,
-                       case Host of "" -> ""; _ -> [Host, $.] end,
-                       S3Host, ":", integer_to_list(S3Port),
-                       EscapedPath,
-                       format_subresources(Subresources),
-                       if
-                           Params =:= [] -> "";
-                           Subresources =:= [] -> [$?, uri_string:compose_query(Params)];
-                           true -> [$&, uri_string:compose_query(Params)]
-                       end
-                      ]),
-    Options = [{proxy_host, "127.0.0.1"}, {proxy_port, ProxyPort}],
-    {ok, Status, ResponseHeaders, ResponseBody} =
-        ibrowse:send_req(RequestURI, [{"content-type", ContentType} | RequestHeaders],
-                         Method, Body, Options),
-    {list_to_integer(Status), ResponseHeaders, ResponseBody}.
-
-url_encode_loose(Binary) when is_binary(Binary) ->
-    url_encode_loose(binary_to_list(Binary));
-url_encode_loose(String) ->
-    url_encode_loose(String, []).
-url_encode_loose([], Accum) ->
-    lists:reverse(Accum);
-url_encode_loose([Char|String], Accum)
-  when Char >= $A, Char =< $Z;
-       Char >= $a, Char =< $z;
-       Char >= $0, Char =< $9;
-       Char =:= $-; Char =:= $_;
-       Char =:= $.; Char =:= $~;
-       Char =:= $/; Char =:= $: ->
-    url_encode_loose(String, [Char|Accum]);
-url_encode_loose([Char|String], Accum)
-  when Char >=0, Char =< 255 ->
-    url_encode_loose(String, [hex_char(Char rem 16), hex_char(Char div 16),$%|Accum]).
-
-hex_char(C) when C >= 0, C =< 9 -> $0 + C;
-hex_char(C) when C >= 10, C =< 15 -> $A + C - 10.
-
-format_subresources([]) ->
-    [];
-format_subresources(Subresources) ->
-    [$? | string:join(lists:sort([format_subresource(Subresource) ||
-                                     Subresource <- Subresources]),
-                      "&")].
-
-format_subresource({Subresource, Value}) when is_list(Value) ->
-    Subresource ++ "=" ++ Value;
-format_subresource({Subresource, Value}) when is_integer(Value) ->
-    Subresource ++ "=" ++ integer_to_list(Value);
-format_subresource(Subresource) ->
-    Subresource.
-
-make_authorization_int(#aws_config{access_key_id = KeyId,
-                                   secret_access_key = SecretKey},
-                       Method, ContentMD5, ContentType, Date, AmzHeaders,
-                       Host, Resource, Subresources) ->
-    CanonizedAmzHeaders =
-        [[Name, $:, Value, $\n] || {Name, Value} <- lists:sort(AmzHeaders)],
-    StringToSign = [string:to_upper(atom_to_list(Method)), $\n,
-                    ContentMD5, $\n,
-                    ContentType, $\n,
-                    Date, $\n,
-                    CanonizedAmzHeaders,
-                    case Host of "" -> ""; _ -> [$/, Host] end,
-                    Resource,
-                    format_subresources(Subresources)
-                   ],
-    Signature = base64:encode(crypto:mac(hmac, sha, SecretKey, StringToSign)),
-    ["AWS ", KeyId, $:, Signature].
 
 
 -spec(make_authorization(string(), string(), string(), #aws_config{}, string()) -> string()).
@@ -243,27 +146,6 @@ make_authorization(Type, Method, Resource, ContentType, Config, Date, AmzHeaders
 as_string(A) when is_atom(A) ->
     string:to_upper(atom_to_list(A));
 as_string(A) -> A.
-
--spec aws_config(string(), string(), non_neg_integer()) -> #aws_config{}.
-aws_config(Key, Secret, Port) ->
-    #aws_config{http_client = hackney,
-                access_key_id = Key,
-                secret_access_key = Secret,
-                s3_scheme = "http://",
-                hackney_client_options = #hackney_client_options{proxy = {"127.0.0.1", Port}}}.
-
--spec aws_config(#aws_config{}, [{atom(), term()}]) -> #aws_config{}.
-aws_config(UserConfig, []) ->
-    UserConfig;
-aws_config(UserConfig, [{port, Port}|Props]) ->
-    aws_config(UserConfig#aws_config{hackney_client_options = #hackney_client_options{proxy = {"localhost", Port}}},
-               Props);
-aws_config(UserConfig, [{key, KeyId}|Props]) ->
-    aws_config(UserConfig#aws_config{access_key_id = KeyId},
-               Props);
-aws_config(UserConfig, [{secret, Secret}|Props]) ->
-    aws_config(UserConfig#aws_config{secret_access_key = Secret},
-               Props).
 
 
 latest([], {_, Candidate}) ->

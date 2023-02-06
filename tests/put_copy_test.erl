@@ -246,7 +246,7 @@ verify_without_cl_header(UserConfig, normal, Data) ->
     logger:info("Verify basic (non-MP) PUT copy without Content-Length header"),
     Target = fmt("/~s/~s", [?BUCKET4, ?TGT_KEY]),
     Source = fmt("/~s/~s", [?BUCKET4, ?SRC_KEY]),
-    rtcs_exec:curl_request(UserConfig, "PUT", Target, [{"x-amz-copy-source", Source}]),
+    rtcs_clients:curl_request(UserConfig, "PUT", Target, [{"x-amz-copy-source", Source}]),
 
     Props = erlcloud_s3:get_object(?BUCKET4, ?TGT_KEY, UserConfig),
     ?assertEqual(Data, proplists:get_value(content, Props)),

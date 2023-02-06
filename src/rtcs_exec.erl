@@ -29,8 +29,6 @@
          riakcs_etcpath/2,
          exec_priv_escript/3,
          exec_priv_escript/4,
-         curl_request/4,
-         curl_request/5,
          flush_access/1, flush_access/2,
          gc/2, gc/3,
          calculate_storage/1, calculate_storage/2,
@@ -151,26 +149,3 @@ enable_proxy_get(SrcNode, Vsn, SinkCluster) ->
 disable_proxy_get(SrcN, Vsn, SinkCluster) ->
     rtdev:run_riak_repl(SrcN, rtcs_config:devpath(riak, Vsn),
                         "proxy_get disable " ++ SinkCluster).
-
-
-curl_request(UserConfig, Method, Resource, AmzHeaders) ->
-    curl_request(UserConfig, Method, Resource, AmzHeaders, []).
-curl_request(#aws_config{hackney_client_options = #hackney_client_options{proxy = {_, Port}}} = UserConfig,
-             Method, Resource, AmzHeaders, PostData) ->
-    ContentType = "application/octet-stream",
-    Date = httpd_util:rfc1123_date(),
-    Auth = rtcs_admin:make_authorization(
-             Method, Resource, ContentType, UserConfig, Date, AmzHeaders),
-    HeaderArgs = [io_lib:format("-H '~s: ~s' ", [K, V]) ||
-                     {K, V} <- [{"Date", Date}, {"Authorization", Auth},
-                                {"Content-Type", ContentType} | AmzHeaders]],
-    Cmd = io_lib:format(
-            "curl -X ~s -s ~s ~s"
-            " 'http://127.0.0.1:~b~s'",
-            [Method, HeaderArgs, maybe_post_data(Method, PostData), Port, Resource]),
-    rtcs_dev:cmd(Cmd).
-
-maybe_post_data(M, Data) when M == post; M == 'POST' ->
-    iolist_to_binary(["--data-binary '", Data, "'"]);
-maybe_post_data(_, _) ->
-    <<>>.
