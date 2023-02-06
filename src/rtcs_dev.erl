@@ -89,7 +89,7 @@ path(Key, _) ->
     throw(lists:flatten(Err)).
 
 setup_harness(_Test, _Args) ->
-    logger:info("Cleaning up lingering pipe directories"),
+    logger:debug("Cleaning up lingering pipe directories"),
     rt:pmap(fun(Dir) ->
                     %% when joining two absolute paths, filename:join intentionally
                     %% throws away the first one. ++ gets us around that, while

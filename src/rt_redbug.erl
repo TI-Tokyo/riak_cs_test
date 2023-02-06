@@ -1,6 +1,7 @@
 %% -------------------------------------------------------------------
 %%
 %% Copyright (c) 2016 Basho Technologies, Inc.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -25,26 +26,21 @@
 
 -module(rt_redbug).
 
--export([is_tracing_applied/0]).
--export([set_tracing_applied/1]).
--export([stop/1]).
--export([trace/2, trace/3]).
--export([default_trace_options/0]).
+-export([is_tracing_applied/0,
+         set_tracing_applied/1,
+         stop/1,
+         trace/2, trace/3,
+         default_trace_options/0
+        ]).
 
 set_tracing_applied(TracingApplied) when is_boolean(TracingApplied) ->
-    
     %% Enable redbug tracing if enabled via command-line or config file
     Enabled = case TracingApplied of
-        true ->
-		      TracingApplied;
-		          _ -> rt_config:get(apply_traces, false)
-    end,
-    case Enabled of
-        true ->
-            logger:warning("Will enable any redbug traces contained in the test");
-        _ ->
-            logger:warning("Will not enable any redbug traces contained in the test")
-    end,
+                  true ->
+                      TracingApplied;
+                  _ ->
+                      rt_config:get(apply_traces, false)
+              end,
     rt_config:set(apply_traces, Enabled).
 
 is_tracing_applied() ->
