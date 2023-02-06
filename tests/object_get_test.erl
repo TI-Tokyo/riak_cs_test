@@ -23,7 +23,7 @@
 %% @doc `riak_test' module for testing object get behavior.
 
 -export([confirm/0]).
--include_lib("eunit/include/eunit.hrl").
+-include("rtcs.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
 %% keys for non-multipart objects
@@ -41,13 +41,12 @@ confirm() ->
     {{UserConfig, _}, {_RiakNodes, _CSNodes}} = rtcs_dev:setup(1),
 
     logger:info("User is valid on the cluster, and has no buckets"),
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
+    ?assertNoBuckets(UserConfig),
 
     logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
-    ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
-                 erlcloud_s3:list_buckets(UserConfig)),
+    ?assertHasBucket(?TEST_BUCKET, UserConfig),
 
     non_mp_get_cases(UserConfig),
     mp_get_cases(UserConfig),
@@ -175,12 +174,11 @@ long_key_cases(UserConfig) ->
     LongKey = binary_to_list(binary:copy(<<"a">>, 1024)),
     TooLongKey = binary_to_list(binary:copy(<<"b">>, 1025)),
     Data = <<"pocketburger">>,
-    ?assertEqual([{version_id,"null"}],
-                 erlcloud_s3:put_object(?TEST_BUCKET, LongKey, Data, UserConfig)),
-    ErrorString = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Error>"
-        "<Code>KeyTooLongError</Code><Message>Your key is too long</Message><Size>1025</Size>"
-        "<MaxSizeAllowed>1024</MaxSizeAllowed><RequestId></RequestId></Error>",
-    ?assertError({aws_error, {http_error, 400, [], ErrorString}},
+    ?assertProp(version_id, "null", erlcloud_s3:put_object(?TEST_BUCKET, LongKey, Data, UserConfig)),
+    ErrorString = <<"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Error>"
+                    "<Code>KeyTooLongError</Code><Message>Your key is too long</Message><Size>1025</Size>"
+                    "<MaxSizeAllowed>1024</MaxSizeAllowed><RequestId></RequestId></Error>">>,
+    ?assertError({aws_error, {http_error, 400, _, ErrorString}},
                  erlcloud_s3:put_object(?TEST_BUCKET, TooLongKey, Data, UserConfig)).
 
 mb(MegaBytes) ->
@@ -206,7 +204,8 @@ range_get_test_case(Bucket, Key, WholeContent, {Start, End}, Config) ->
     {Skip, Length} = range_skip_length({Start, End}, WholeSize),
     ?assertEqual(Length, list_to_integer(ContentLength)),
     ?assertEqual(Length, byte_size(Content)),
-    assert_content_range(Skip, Length, WholeSize, Obj),
+    %% no content_range in erlcloud_s3:get_object result:
+    %% just check that the contents data returned are good
     ExpectedContent = binary:part(WholeContent, Skip, Length),
     ?assertEqual(ExpectedContent, Content).
 
@@ -237,13 +236,6 @@ format_range(Range) ->
                end,
     lists:flatten(RangeStr).
 
-assert_content_range(Skip, Length, Size, Obj) ->
-    Expected = lists:flatten(
-                 io_lib:format("bytes ~B-~B/~B", [Skip, Skip + Length - 1, Size])),
-    Headers = proplists:get_value(headers, Obj),
-    ContentRange = proplists:get_value("Content-Range", Headers),
-    ?assertEqual(Expected, ContentRange).
-
 %% TODO: riak_test includes its own mochiweb by escriptizing.
 %% End position which is larger than size is fixed on the branch 1.5 of basho/mochweb:
 %%   https://github.com/basho/mochiweb/commit/38992be7822ddc1b8e6f318ba8e73fc8c0b7fd22
@@ -260,24 +252,21 @@ range_skip_length(Spec, Size) ->
     end.
 
 multipart_upload(Bucket, Key, Sizes, Config) ->
-    InitRes = erlcloud_s3_multipart:initiate_upload(
-                Bucket, Key, "text/plain", [], Config),
-    UploadId = erlcloud_xml:get_text(
-                 "/InitiateMultipartUploadResult/UploadId", InitRes),
+    {ok, InitRes} = erlcloud_s3:start_multipart(
+                      Bucket, Key, [], [], Config),
+    UploadId = proplists:get_value(uploadId, InitRes),
     Content = upload_parts(Bucket, Key, UploadId, Config, 1, Sizes, [], []),
     basic_get_test_case(Bucket, Key, Content, Config),
     Content.
 
 upload_parts(Bucket, Key, UploadId, Config, _PartCount, [], Contents, Parts) ->
-    ?assertEqual(ok, erlcloud_s3_multipart:complete_upload(
-                       Bucket, Key, UploadId, lists:reverse(Parts), Config)),
+    ?assertEqual(ok, erlcloud_s3:complete_multipart(
+                       Bucket, Key, UploadId, lists:reverse(Parts), [], Config)),
     iolist_to_binary(lists:reverse(Contents));
 upload_parts(Bucket, Key, UploadId, Config, PartCount, [Size | Sizes], Contents, Parts) ->
     Content = crypto:strong_rand_bytes(Size),
-    {RespHeaders, _UploadRes} = erlcloud_s3_multipart:upload_part(
-                                  Bucket, Key, UploadId, PartCount, Content, Config),
-    PartEtag = proplists:get_value("ETag", RespHeaders),
-    logger:debug("UploadId: ~p", [UploadId]),
-    logger:debug("PartEtag: ~p", [PartEtag]),
+    {ok, UploadRes} = erlcloud_s3:upload_part(
+                        Bucket, Key, UploadId, PartCount, Content, [], Config),
+    PartEtag = proplists:get_value(etag, UploadRes),
     upload_parts(Bucket, Key, UploadId, Config, PartCount + 1,
                  Sizes, [Content | Contents], [{PartCount, PartEtag} | Parts]).
