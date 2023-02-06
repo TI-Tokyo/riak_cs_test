@@ -780,11 +780,10 @@ no_pending_changes(Nodes) ->
         true ->
             true;
         false ->
-            NodesWithChanges =
+            _NodesWithChanges =
                 [Node ||
                     {Node, false} <- lists:zip(Nodes -- BadNodes, Changes)],
-            logger:info("Changes not yet complete, nodes with pending changes: ~p",
-                        [NodesWithChanges]),
+            %% logger:info("Changes not yet complete, nodes with pending changes: ~p", [NodesWithChanges]),
             false
     end.
 
@@ -802,12 +801,12 @@ wait_until_transfers_complete([Node0|_]) ->
     ok.
 
 wait_for_service(Node, Services) when is_list(Services) ->
+    logger:info("Waiting for services ~p on node ~p", [Services, Node]),
     F = fun(N) ->
                 case rpc:call(N, riak_core_node_watcher, services, [N]) of
                     {badrpc, Error} ->
                         {badrpc, Error};
                     CurrServices when is_list(CurrServices) ->
-                        logger:info("Waiting for services ~p on node ~p", [Services, Node]),
                         lists:all(fun(Service) -> lists:member(Service, CurrServices) end, Services);
                     Res ->
                         Res
