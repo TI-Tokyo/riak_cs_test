@@ -227,7 +227,7 @@ update_user_test(AdminConfig, Node, ContentType, Users) ->
     {_, _, _, UpdSecret1, _} = parse_user_record(UpdateResult, ContentType),
 
     %% Generate an updated user config with the new secret
-    UserConfig2 = rtcs_admin:aws_config(UserConfig, [{secret, UpdSecret1}]),
+    UserConfig2 = rtcs_clients:aws_config(UserConfig, [{secret, UpdSecret1}]),
 
     %% Fetch the user record using the user's own credentials
     UserResult7 = parse_user_record(

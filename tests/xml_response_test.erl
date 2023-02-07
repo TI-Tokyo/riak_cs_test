@@ -104,7 +104,7 @@ get_response_value([_ | Content], Field) ->
 %
 complete_multipart_upload(Bucket, Key, UploadId, EtagList, Config) ->
     {ok, Response} =
-        rtcs_exec:curl_request(
+        rtcs_clients:curl_request(
           Config, 'POST',
           io_lib:format("/~s/~s?uploadId=~s", [Bucket, Key, UploadId]),
           [],
