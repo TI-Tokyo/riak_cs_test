@@ -48,12 +48,12 @@ confirm() ->
     %% User 1, Cluster 1 config
     U1C1Config = rtcs_admin:create_user(AFirst, 1),
     %% User 1, Cluster 2 config
-    U1C2Config = rtcs_admin:aws_config(U1C1Config, [{port, rtcs_config:cs_port(BFirst)}]),
+    U1C2Config = rtcs_clients:aws_config(U1C1Config, [{port, rtcs_config:cs_port(BFirst)}]),
 
     %% User 2, Cluster 2 config
     U2C2Config = rtcs_admin:create_user(BFirst, 2),
     %% User 2, Cluster 1 config
-    U2C1Config = rtcs_admin:aws_config(U2C2Config, [{port, rtcs_config:cs_port(AFirst)}]),
+    U2C1Config = rtcs_clients:aws_config(U2C2Config, [{port, rtcs_config:cs_port(AFirst)}]),
 
     logger:info("User 1 IS valid on the primary cluster, and has no buckets"),
     ?assertEqual([], proplists:get_value(buckets, erlcloud_s3:list_buckets(U1C1Config))),

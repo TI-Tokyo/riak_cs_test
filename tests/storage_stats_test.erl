@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2014 Basho Technologies, Inc.  All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -26,11 +27,9 @@
          storage_stats_request/3,
          storage_stats_request/4]).
 
--include_lib("erlcloud/include/erlcloud_aws.hrl").
--include_lib("xmerl/include/xmerl.hrl").
--include_lib("eunit/include/eunit.hrl").
-
+-include("rtcs.hrl").
 -include("riak_cs.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 -define(BUCKET1, "storage-stats-test-1").
 -define(BUCKET2, "storage-stats-test-2").
@@ -65,7 +64,7 @@ confirm_1(Use2iForStorageCalc) when is_boolean(Use2iForStorageCalc) ->
     confirm_2(SetupRes).
 
 confirm_2({{UserConfig, _}, {[RiakNode], [CSNode]}}) ->
-    UserConfig2 = rtcs_admin:create_user(RiakNode, 1),
+    UserConfig2 = rtcs_admin:create_user(CSNode, 1),
 
     TestSpecs = [store_object(?BUCKET1, UserConfig),
                  delete_object(?BUCKET2, UserConfig),
@@ -86,6 +85,7 @@ confirm_2({{UserConfig, _}, {[RiakNode], [CSNode]}}) ->
     rt:setup_log_capture(CSNode),
 
     {Begin, End} = calc_storage_stats(CSNode),
+    logger:info("going to issue stats requests as user ~p", [UserConfig#aws_config.access_key_id]),
     {JsonStat, XmlStat} = storage_stats_request(UserConfig, Begin, End),
     lists:foreach(fun(Spec) ->
                           assert_storage_json_stats(Spec, JsonStat),
@@ -125,11 +125,11 @@ mess_with_writing_various_props(RiakNodes, UserConfig, VariousProps) ->
                 Manifest1 = Manifest0?MANIFEST{state=NewState, props=Props},
                 RiakObject = riakc_obj:update_value(RiakObject0,
                                                     term_to_binary([{UUID, Manifest1}])),
-                logger:info("~p", [Manifest1?MANIFEST.props]),
+                logger:debug("~p", [Manifest1?MANIFEST.props]),
 
                 Block = crypto:strong_rand_bytes(100),
-                ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(CSBucket, CSKey,
-                                                                            Block, UserConfig)),
+                ?assertProp(version_id, "null",
+                            erlcloud_s3:put_object(CSBucket, CSKey, Block, UserConfig)),
                 ok = riakc_pb_socket:put(Pid, RiakObject),
                 assure_num_siblings(Pid, Bucket, list_to_binary(CSKey), 2),
                 ok = riakc_pb_socket:stop(Pid)
@@ -155,23 +155,20 @@ mess_with_tombstone(RiakNodes, UserConfig) ->
     CSKey = ?KEY,
     Pid = rtcs_dev:pbc(RiakNodes, objects, CSBucket),
     Block = crypto:strong_rand_bytes(100),
-    ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(CSBucket, CSKey,
-                                                                Block, UserConfig)),
+    ?assertProp(version_id, "null", erlcloud_s3:put_object(CSBucket, CSKey, Block, UserConfig)),
     Bucket = <<"0o:", (crypto:hash(md5, list_to_binary(?BUCKET8)))/binary>>,
 
     %% %% This leaves a tombstone which messes up the storage calc
     ok = riakc_pb_socket:delete(Pid, Bucket, list_to_binary(CSKey)),
     %% logger:info("listkeys: ~p", [riakc_pb_socket:list_keys(Pid, Bucket)]),
 
-    ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(?BUCKET8, CSKey,
-                                                                Block, UserConfig)),
+    ?assertProp(version_id, "null", erlcloud_s3:put_object(?BUCKET8, CSKey, Block, UserConfig)),
 
     {ok, RiakObject0} = riakc_pb_socket:get(Pid, Bucket, list_to_binary(CSKey)),
     assure_num_siblings(Pid, Bucket, list_to_binary(CSKey), 1),
 
     Block2 = crypto:strong_rand_bytes(100),
-    ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(?BUCKET8, CSKey,
-                                                                Block2, UserConfig)),
+    ?assertProp(version_id, "null", erlcloud_s3:put_object(?BUCKET8, CSKey, Block2, UserConfig)),
 
     ok = riakc_pb_socket:delete_vclock(Pid, Bucket, list_to_binary(CSKey),
                                        riakc_obj:vclock(RiakObject0)),
@@ -198,7 +195,7 @@ store_object(Bucket, UserConfig) ->
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, UserConfig)),
     %% Put 100-byte object
     Block = crypto:strong_rand_bytes(100),
-    ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(Bucket, ?KEY, Block, UserConfig)),
+    ?assertProp(version_id, "null", erlcloud_s3:put_object(Bucket, ?KEY, Block, UserConfig)),
     ExpectedObjects = 1,
     ExpectedBytes = 100,
     {Bucket, ExpectedObjects, ExpectedBytes}.
@@ -209,8 +206,8 @@ delete_object(Bucket, UserConfig) ->
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, UserConfig)),
     %% Put 100-byte object
     Block = crypto:strong_rand_bytes(100),
-    ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(Bucket, ?KEY, Block, UserConfig)),
-    ?assertEqual([{delete_marker, false}, {version_id, "null"}], erlcloud_s3:delete_object(Bucket, ?KEY, UserConfig)),
+    ?assertProp(version_id, "null", erlcloud_s3:put_object(Bucket, ?KEY, Block, UserConfig)),
+    ?assertProp(version_id, "null", erlcloud_s3:delete_object(Bucket, ?KEY, UserConfig)),
     ExpectedObjects = 0,
     ExpectedBytes = 0,
     {Bucket, ExpectedObjects, ExpectedBytes}.
@@ -221,8 +218,8 @@ store_objects(Bucket, UserConfig) ->
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, UserConfig)),
     %% Put 100-byte object 10 times
     Block = crypto:strong_rand_bytes(100),
-    [?assertEqual([{version_id, "null"}],
-                  erlcloud_s3:put_object(Bucket, integer_to_list(Key), Block, UserConfig))
+    [?assertProp(version_id, "null",
+                 erlcloud_s3:put_object(Bucket, integer_to_list(Key), Block, UserConfig))
      || Key <- lists:seq(1, 10)],
     ExpectedObjects = 10,
     ExpectedBytes = 1000,
@@ -232,22 +229,21 @@ give_over_bucket(Bucket, UserConfig, AnotherUser) ->
     %% Create bucket, put/delete object, delete bucket finally
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, UserConfig)),
     Block = crypto:strong_rand_bytes(100),
-    ?assertEqual([{version_id, "null"}], erlcloud_s3:put_object(Bucket, ?KEY, Block, UserConfig)),
-    ?assertEqual([{delete_marker, false}, {version_id, "null"}], erlcloud_s3:delete_object(Bucket, ?KEY, UserConfig)),
+    ?assertProp(version_id, "null", erlcloud_s3:put_object(Bucket, ?KEY, Block, UserConfig)),
+    ?assertProp(version_id, "null", erlcloud_s3:delete_object(Bucket, ?KEY, UserConfig)),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(Bucket, UserConfig)),
 
     %% Another user re-create the bucket and put an object into it.
     ?assertEqual(ok, erlcloud_s3:create_bucket(Bucket, AnotherUser)),
     Block2 = crypto:strong_rand_bytes(100),
-    ?assertEqual([{version_id, "null"}],
-                 erlcloud_s3:put_object(Bucket, ?KEY, Block2, AnotherUser)),
+    ?assertProp(version_id, "null", erlcloud_s3:put_object(Bucket, ?KEY, Block2, AnotherUser)),
     {Bucket, undefined, undefined}.
 
 calc_storage_stats(CSNode) ->
     Begin = rtcs_dev:datetime(),
     %% FIXME: workaround for #766
     timer:sleep(1000),
-    Res = rtcs_exec:calculate_storage(1),
+    {ok, Res} = rtcs_exec:calculate_storage(1),
     logger:info("riak-cs-admin storage batch result: ~s", [Res]),
     ExpectRegexp = "Batch storage calculation started\.",
     ?assertMatch({match, _}, re:run(Res, ExpectRegexp)),

@@ -61,7 +61,7 @@ create_admin_user(Node) ->
     %% must match the values in client_tests/python/boto_test.py
 
     {UserConfig, Id} = create_user(rtcs_config:cs_port(Node), Email, User),
-    logger:info("Created Riak CS Admin account on node ~s:", [rtcs_dev:cs_node(Node)]),
+    logger:info("Created Riak CS Admin account on ~s:", [rtcs_dev:cs_node(Node)]),
     logger:info("KeyId     : ~s", [UserConfig#aws_config.access_key_id]),
     logger:info("KeySecret : ~s", [UserConfig#aws_config.secret_access_key]),
     logger:info("UserId    : ~s", [Id]),
@@ -72,7 +72,7 @@ create_user(Node, UserIndex) ->
     User = "Test User" ++ integer_to_list(UserIndex),
     Email = lists:flatten(io_lib:format("test_user_~b_~b@basho.com", [UserIndex, os:system_time(millisecond)])),
     {UserConfig, Id} = create_user(rtcs_config:cs_port(Node), Email, User),
-    logger:info("Created user ~s (~s):", [User, Email]),
+    logger:info("Created user ~s (~s) on ~s:", [User, Email, Node]),
     logger:info("KeyId     : ~s", [UserConfig#aws_config.access_key_id]),
     logger:info("KeySecret : ~s", [UserConfig#aws_config.secret_access_key]),
     logger:info("UserId    : ~s", [Id]),
