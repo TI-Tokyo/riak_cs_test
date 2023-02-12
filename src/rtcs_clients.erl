@@ -121,6 +121,7 @@ aws_config(Key, Secret, Port) ->
                 access_key_id = Key,
                 secret_access_key = Secret,
                 s3_scheme = "http://",
+                timeout = 30000,
                 hackney_client_options = #hackney_client_options{proxy = {"127.0.0.1", Port}}}.
 
 -spec aws_config(#aws_config{}, [{atom(), term()}]) -> #aws_config{}.
