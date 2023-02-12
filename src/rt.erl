@@ -112,6 +112,7 @@
          random_uniform/0,
          random_uniform/1,
          remove/2,
+         reset_log/1,
          riak/2,
          riak_repl/2,
          rpc_get_env/2,
@@ -1822,14 +1823,21 @@ post_result(TestResult, #rt_webhook{url=URL, headers=HookHeaders, name=Name}) ->
 setup_log_capture(Nodes) when is_list(Nodes) ->
     load_modules_on_nodes([riak_test_logger_backend], Nodes),
     [begin
-         {ok, _Pid} = rpc:call(Node, riak_test_logger_backend, start, []),
-         ok = rpc:call(Node,
-                       logger,
-                       add_handler,
-                       [capture_those_logs, riak_test_logger_backend, #{}])
+         case rpc:call(Node, riak_test_logger_backend, start, []) of
+             {ok, _Pid} ->
+                 ok = rpc:call(Node,
+                               logger,
+                               add_handler,
+                               [capture_those_logs, riak_test_logger_backend, #{}]);
+             {error, {already_started, _}} ->
+                 ok
+         end
      end || Node <- Nodes];
 setup_log_capture(Node) when not is_list(Node) ->
     setup_log_capture([Node]).
+
+reset_log(Node) ->
+    ok = rpc:call(Node, riak_test_logger_backend, clear, []).
 
 expect_in_log(Node, Pattern) ->
     {Delay, Retry} = get_retry_settings(),

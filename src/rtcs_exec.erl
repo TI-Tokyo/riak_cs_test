@@ -24,6 +24,7 @@
 -export([riakcmd/3,
          riakcscmd/3,
          riakcs_statuscmd/2,
+         riakcs_debugcmd/3,
          riak_bitcaskroot/2,
          riakcs_home/2,
          riakcs_etcpath/2,
@@ -67,8 +68,8 @@ riakcs_accesscmd(Path, N, Cmd) ->
 riakcs_storagecmd(Path, N, Cmd) ->
     lists:flatten(io_lib:format("~s-admin storage ~s", [riakcs_binpath(Path, N), Cmd])).
 
-%% riakcs_debugcmd(Path, N, Cmd) ->
-%%     lists:flatten(io_lib:format("~s-debug ~s", [riakcs_binpath(Path, N), Cmd])).
+riakcs_debugcmd(Path, N, Cmd) ->
+    lists:flatten(io_lib:format("~s-debug ~s", [riakcs_binpath(Path, N), Cmd])).
 
 riak_bitcaskroot(Prefix, N) ->
     lists:flatten(io_lib:format("~s/dev/dev~b/riak/data/bitcask", [Prefix, N])).

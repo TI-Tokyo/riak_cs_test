@@ -70,7 +70,7 @@ transition_to_mb(NodesInMaster, State) ->
     CSNodes = cs_suites:nodes_of(cs, State),
     BagConf = rtcs_bag:conf(NodesInMaster, disjoint),
 
-    rt:pmap(fun rtcs_dev:stop/2, CSNodes),
+    rt:pmap(fun rtcs_dev:stop/1, CSNodes),
     %% Because there are noises from poolboy shutdown at stopping riak-cs,
     %% truncate error log here and re-assert emptiness of error.log file later.
     rtcs_dev:truncate_error_log(1),
@@ -91,13 +91,13 @@ transition_to_mb(NodesInMaster, State) ->
 
     rt:setup_log_capture(hd(CSNodes)),
     rtcs_bag:set_weights(rtcs_bag:weights(disjoint)),
-    {0, ListWeightRes} = rtcs_bag:list_weight(),
+    ListWeightRes = rtcs_bag:list_weight(),
     logger:info("Weight disjoint: ~s", [ListWeightRes]),
     {ok, State}.
 
 set_uniform_weights(State) ->
     rtcs_bag:set_weights(uniform_all_weights()),
-    {0, ListWeightRes} = rtcs_bag:list_weight(),
+    ListWeightRes = rtcs_bag:list_weight(),
     logger:info("Weight disjoint: ~s", [ListWeightRes]),
     {ok, State}.
 

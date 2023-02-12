@@ -1,6 +1,7 @@
 %% -------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2016 Basho Technologies, Inc.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -23,7 +24,8 @@
 %% @doc `riak_test' module for testing multipart upload behavior.
 
 -export([confirm/0, upload_id_present/2]).
--include_lib("eunit/include/eunit.hrl").
+
+-include("rtcs.hrl").
 -include("riak_cs.hrl").
 
 -define(TEST_BUCKET, "riak-test-bucket").
@@ -37,15 +39,14 @@ confirm() ->
     {{UserConfig, _}, {_RiakNodes, _CSNodes}} = rtcs_dev:setup(1),
 
     logger:info("User is valid on the cluster, and has no buckets"),
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
+    ?assertNoBuckets(UserConfig),
 
     ?assertError({aws_error, {http_error, 404, _, _}}, erlcloud_s3:list_objects(?TEST_BUCKET, UserConfig)),
 
     logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
-    ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
-                 erlcloud_s3:list_buckets(UserConfig)),
+    ?assertHasBucket(?TEST_BUCKET, UserConfig),
 
     %% Test cases
     basic_upload_test_case(?TEST_BUCKET, ?TEST_KEY1, UserConfig),

@@ -243,7 +243,7 @@ verify_partial_gc_run(CSNode, RiakNodes,
          %% We have to clear log as the message 'Finished garbage
          %% col...' has been output many times before, during this
          %% test.
-         reset_log(CSNode),
+         rt:reset_log(CSNode),
 
          logger:debug("GC: (start, end) = (~p, ~p)", [S0, E0]),
          S = iso8601(S0),
@@ -283,7 +283,3 @@ iso8601(Timestamp) when is_integer(Timestamp) ->
     {{Y,M,D},{H,I,S}} = Datetime,
     io_lib:format("~4..0b~2..0b~2..0bT~2..0b~2..0b~2..0bZ",
                   [Y, M, D, H, I, S]).
-
-reset_log(Node) ->
-    ok = rpc:call(Node, riak_test_logger_backend, clear, []).
-

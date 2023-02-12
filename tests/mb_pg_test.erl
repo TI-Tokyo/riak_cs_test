@@ -49,7 +49,7 @@ confirm() ->
      {_EastALeader, EastANodes, _EastAName}} = hd(Pairs),
 
     UserWest = rtcs_admin:create_user(hd(WestANodes), 1),
-    UserEast = rtcs_admin:aws_config(UserWest,[{port, rtcs_config:cs_port(hd(EastANodes))}]),
+    UserEast = rtcs_clients:aws_config(UserWest,[{port, rtcs_config:cs_port(hd(EastANodes))}]),
 
     logger:info("Initialize weights by zero, without multibag"),
     set_zero_weight(),

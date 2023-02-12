@@ -33,7 +33,7 @@ confirm() ->
     {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs_dev:setup(2),
     ErrCSNode = lists:nth(?ErrNodeId, CSNodes),
     ErrNode = lists:nth(?ErrNodeId, RiakNodes),
-    ErrConfig = rtcs_admin:aws_config(UserConfig, [{port, rtcs_config:cs_port(ErrNode)}]),
+    ErrConfig = rtcs_clients:aws_config(UserConfig, [{port, rtcs_config:cs_port(ErrNode)}]),
 
     %% setup initial data
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET, UserConfig)),

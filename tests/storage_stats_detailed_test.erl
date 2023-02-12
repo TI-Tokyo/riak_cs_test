@@ -23,11 +23,9 @@
 
 -export([confirm/0]).
 
--include_lib("erlcloud/include/erlcloud_aws.hrl").
--include_lib("xmerl/include/xmerl.hrl").
--include_lib("eunit/include/eunit.hrl").
-
+-include("rtcs.hrl").
 -include("riak_cs.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 -define(BUCKET, "storage-stats-detailed").
 
@@ -38,6 +36,8 @@
 confirm() ->
     ExtraConf = [{cs, [{riak_cs, [{detailed_storage_calc, true}]}]}],
     SetupRes = {{AdminConfig, _}, {[RiakNode|_], [CSNode|_]}} = rtcs_dev:setup(1, ExtraConf),
+
+    rt:setup_log_capture(CSNode),
 
     rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
       CSNode, [RiakNode], [riak_cs_utils,
@@ -62,11 +62,10 @@ confirm() ->
     pass.
 
 assert_results_for_empty_bucket(AdminConfig, UserConfig, CSNode, Bucket) ->
-    rt:setup_log_capture(CSNode),
     {Begin, End} = storage_stats_test:calc_storage_stats(CSNode),
     {JsonStat, XmlStat} = storage_stats_test:storage_stats_request(
                             AdminConfig, UserConfig, Begin, End),
-    rtcs_dev:reset_log(CSNode),
+    rt:reset_log(CSNode),
     lists:foreach(fun(K) ->
                           assert_storage_json_stats(Bucket, K, 0, JsonStat),
                           assert_storage_xml_stats(Bucket, K, 0, XmlStat)
@@ -84,31 +83,28 @@ assert_results_for_empty_bucket(AdminConfig, UserConfig, CSNode, Bucket) ->
 
 setup_objects(UserConfig, Bucket) ->
     Block1 = crypto:strong_rand_bytes(100),
-    ?assertEqual([{version_id, "null"}],
-                 erlcloud_s3:put_object(Bucket, ?KEY1, Block1, UserConfig)),
+    ?assertProp(version_id, "null",
+                erlcloud_s3:put_object(Bucket, ?KEY1, Block1, UserConfig)),
     Block1Overwrite = crypto:strong_rand_bytes(300),
-    ?assertEqual([{version_id, "null"}],
-                 erlcloud_s3:put_object(Bucket, ?KEY1, Block1Overwrite, UserConfig)),
+    ?assertProp(version_id, "null",
+                erlcloud_s3:put_object(Bucket, ?KEY1, Block1Overwrite, UserConfig)),
     Block2 = crypto:strong_rand_bytes(200),
-    ?assertEqual([{version_id, "null"}],
-                 erlcloud_s3:put_object(Bucket, ?KEY2, Block2, UserConfig)),
-    ?assertEqual([{delete_marker, false}, {version_id, "null"}],
-                 erlcloud_s3:delete_object(Bucket, ?KEY2, UserConfig)),
+    ?assertProp(version_id, "null",
+                erlcloud_s3:put_object(Bucket, ?KEY2, Block2, UserConfig)),
+    ?assertProp(version_id, "null",
+                erlcloud_s3:delete_object(Bucket, ?KEY2, UserConfig)),
 
-    InitRes = erlcloud_s3_multipart:initiate_upload(
-                Bucket, ?KEY3, "text/plain", [], UserConfig),
-    UploadId = erlcloud_xml:get_text(
-                 "/InitiateMultipartUploadResult/UploadId", InitRes),
+    {ok, InitRes} = erlcloud_s3:start_multipart(
+                      Bucket, ?KEY3, [], [], UserConfig),
+    UploadId = proplists:get_value(uploadId, InitRes),
     MPBlocks = crypto:strong_rand_bytes(2*1024*1024),
-    {_RespHeaders1, _UploadRes1} = erlcloud_s3_multipart:upload_part(
-                                     Bucket, ?KEY3, UploadId, 1, MPBlocks, UserConfig),
-    {_RespHeaders2, _UploadRes2} = erlcloud_s3_multipart:upload_part(
-                                     Bucket, ?KEY3, UploadId, 2, MPBlocks, UserConfig),
+    {ok, _UploadRes1} = erlcloud_s3:upload_part(
+                          Bucket, ?KEY3, UploadId, 1, MPBlocks, [], UserConfig),
+    {ok, _UploadRes2} = erlcloud_s3:upload_part(
+                          Bucket, ?KEY3, UploadId, 2, MPBlocks, [], UserConfig),
     ok.
 
 assert_results_for_non_empty_bucket(AdminConfig, UserConfig, CSNode, Bucket) ->
-    rt:setup_log_capture(CSNode),
-
     {Begin, End} = storage_stats_test:calc_storage_stats(CSNode),
     logger:info("Admin user will get every fields..."),
     {JsonStat, XmlStat} = storage_stats_test:storage_stats_request(

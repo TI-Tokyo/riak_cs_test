@@ -184,7 +184,8 @@ list_weight() ->
 
 list_weight(N) ->
     Cmd = multibagcmd(rt_config:get(rtcs_config:cs_current()), N, io_lib:format("~s", [weight])),
-    rt:cmd(Cmd).
+    {ok, Res} = rt:cmd(Cmd),
+    Res.
 
 bag_weight(N, Kind, BagId, Weight) ->
     SubCmd = case Kind of
