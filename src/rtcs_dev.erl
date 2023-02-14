@@ -22,6 +22,7 @@
 
 -export([assert_error_log_empty/1, assert_error_log_empty/2,
          cmd/1, cmd/2,
+         create_or_restore_config_backups/2,
          cs_node/1,
          datetime/0, datetime/1,
          get_deps/0,
@@ -275,6 +276,9 @@ configure_clusters(#{num_nodes := NumNodes,
     end,
     Nodes.
 
+create_or_restore_config_backups(NumNodes, Vsn) when is_integer(NumNodes)->
+    create_or_restore_config_backups(
+      riak_nodes(NumNodes) ++ cs_nodes(NumNodes), Vsn);
 create_or_restore_config_backups(Nodes, Vsn) ->
     lists:foreach(
       fun(Node) ->

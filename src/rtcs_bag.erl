@@ -69,6 +69,7 @@ flavored_setup(#{num_nodes := NumNodes,
                  configs := CustomConfigs,
                  vsn := current = Vsn,
                  preconfigured := Preconfigured}) ->
+    rtcs_dev:create_or_restore_config_backups(NumNodes, Vsn),
     set_conf(NumNodes, BagFlavor),
     Singltons = 4,
     SetupResult = rtcs_dev:setupNxMsingles(NumNodes, Singltons, CustomConfigs, Vsn, Preconfigured),
