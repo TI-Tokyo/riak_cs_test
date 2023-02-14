@@ -133,7 +133,7 @@ transition_to_multibag_configuration(NodesInMaster, NodeList) ->
             end, NodeList),
     [ok = rt:wait_until_pingable(CSNode) || {CSNode, _RiakNode} <- NodeList],
     rtcs_bag:set_weights(rtcs_bag:weights(disjoint)),
-    {ok, _ListWeightRes} = rtcs_bag:list_weight(),
+    _ListWeightRes = rtcs_bag:list_weight(),
     ok.
 
 assert_gc_run(CSNode, UserConfig) ->
