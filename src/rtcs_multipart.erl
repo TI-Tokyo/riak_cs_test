@@ -22,7 +22,8 @@
 -module(rtcs_multipart).
 
 -export([multipart_upload/4,
-         upload_and_assert_part/6
+         upload_and_assert_part/6,
+ upload_id_present/2
         ]).
 
 -include_lib("eunit/include/eunit.hrl").
@@ -60,6 +61,10 @@ assert_part(Bucket, _Key, UploadId, Config, UploadRes) ->
     ?assert(lists:any(fun(P) -> proplists:get_value(uploadId, P) == UploadId end, Uploads)),
     ETag.
 
+
+upload_id_present(UploadId, UploadList) ->
+    [] /= [UploadData || UploadData <- UploadList,
+                         proplists:get_value(uploadId, UploadData) =:= UploadId].
 
 %% source_range(undefined) -> [];
 %% source_range({First, Last}) ->

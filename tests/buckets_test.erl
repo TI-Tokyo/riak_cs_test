@@ -103,7 +103,7 @@ verify_bucket_mpcleanup(UserConfig) ->
     lists:foreach(
       fun(UP) -> ?assertEqual(Key, proplists:get_value(key, UP)) end,
       Uploads1),
-    ?assert(mp_upload_test:upload_id_present(UploadId, Uploads1)),
+    ?assert(rtcs_multipart:upload_id_present(UploadId, Uploads1)),
 
     logger:info("deleting bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
