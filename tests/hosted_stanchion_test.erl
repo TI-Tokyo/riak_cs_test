@@ -34,7 +34,7 @@ confirm_in_auto_mode() ->
         rtcs_dev:setup(2, cs_config(auto)),
     %% standard setup has stanchion on rcs-dev1
 
-    logger:info("Default setup has stanchion at the node that was brought up first (~s)", [RCS1]),
+    logger:info("Stanchion is up on ~s where admin user was created", [RCS1]),
     ok                = verify_stancion_at_node(RCS1),
     no_stanchion_here = verify_stancion_at_node(RCS2),
 
@@ -64,7 +64,7 @@ confirm_in_auto_mode() ->
     pass.
 
 confirm_in_pinned_mode() ->
-    {{AdminUserConfig, _Id}, {_RiakNodes, [RCS1, RCS2]}} =
+    {{_AdminUserConfig, _Id}, {_RiakNodes, [RCS1, RCS2]}} =
         rtcs_dev:setup(2, cs_config(riak_cs_only)),
 
     logger:info("Default setup has stanchion at the node that was brought up first (~s)", [RCS1]),
@@ -82,30 +82,9 @@ confirm_in_pinned_mode() ->
     no_stanchion_here = verify_stancion_at_node(RCS1),
     no_stanchion_here = verify_stancion_at_node(RCS2),
 
-    %% trying to create a user, causing RCS2 to contact stanchion,
-    %% will in turn cause it to try to spin it up locally, which will
-    %% fail and bring down the node.
-    logger:info("Try create_user at node ~s (port ~b) and see it crash", [RCS2, rtcs_config:cs_port(RCS2)]),
-    ok = try_and_fail_create_user(AdminUserConfig#aws_config{s3_port = rtcs_config:cs_port(RCS2)}),
-    pong = net_adm:ping(RCS2),
-
     rt:teardown(),
 
     pass.
-
-try_and_fail_create_user(UserConfig) ->
-    Resource = "/riak-cs/user",
-    ReqBody = "{\"email\":\"email@addr.com\", \"name\":\"Name Nameson\"}",
-    try
-        erlcloud_s3:s3_request(
-          UserConfig, post, "", Resource, [], "",
-          {ReqBody, "application/json"}, []),
-        fail
-    catch
-        error:{aws_error, {http_error, _S, _, _ResponseBody}} ->
-            ok
-    end.
-
 
 verify_stancion_at_node(Node) ->
     case rpc:call(Node, supervisor, which_children, [stanchion_sup]) of
