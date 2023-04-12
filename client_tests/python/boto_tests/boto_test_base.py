@@ -32,7 +32,7 @@ import botocore
 import warnings
 warnings.simplefilter("ignore", ResourceWarning)
 
-class S3ApiVerificationTestBase(unittest.TestCase):
+class AmzTestBase(unittest.TestCase):
     host = None
     try:
         port=int(os.environ['CS_HTTP_PORT'])
@@ -42,9 +42,10 @@ class S3ApiVerificationTestBase(unittest.TestCase):
     user1 = None
     user2 = None
 
-    client = None
+    s3_client = None
+    iam_client = None
 
-    def make_client(self, user):
+    def make_clients(self, user):
         # setting proxies via config parameter is broken, so:
         os.environ['http_proxy'] = 'http://127.0.0.1:%d' % (int(os.environ.get('CS_HTTP_PORT')))
 
@@ -53,13 +54,20 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         else:
             sig_vsn = 's3'
         config = Config(signature_version = sig_vsn)
-        client = boto3.client('s3',
-                              use_ssl = False,
-                              aws_access_key_id = user['key_id'],
-                              aws_secret_access_key = user['key_secret'],
-                              config = config)
-        client.meta.events.register_first('before-sign.s3.PutBucketPolicy', add_json_ctype_header)
-        return client
+        s3_client = boto3.client('s3',
+                                      use_ssl = False,
+                                      aws_access_key_id = user['key_id'],
+                                      aws_secret_access_key = user['key_secret'],
+                                      config = config)
+        s3_client.meta.events.register_first('before-sign.s3.PutBucketPolicy', add_json_ctype_header)
+
+        iam_client = boto3.client('iam',
+                                       use_ssl = False,
+                                       aws_access_key_id = user['key_id'],
+                                       aws_secret_access_key = user['key_secret'],
+                                       config = config)
+        iam_client.meta.events.register_first('before-sign.s3.PutBucketPolicy', add_json_ctype_header)
+        return (s3_client, iam_client)
 
 
     @classmethod
@@ -90,7 +98,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         warnings.simplefilter("ignore", ResourceWarning)
 
     def setUp(self):
-        self.client = self.make_client(self.user1)
+        self.s3_client, self.iam_client = self.make_clients(self.user1)
 
     def tearDown(self):
         True # del self.client # doesn't help to prevent ResourceWarning exception (there's a filter trick for that)
@@ -98,14 +106,14 @@ class S3ApiVerificationTestBase(unittest.TestCase):
 
     def createBucket(self, bucket = None, client = None):
         if client is None:
-            client = self.client
+            client = self.s3_client
         if bucket is None:
             bucket = self.default_bucket
         return client.create_bucket(Bucket = bucket)
 
     def deleteBucket(self, bucket = None, client = None):
         if client is None:
-            client = self.client
+            client = self.s3_client
         if bucket is None:
             bucket = self.default_bucket
         try:
@@ -117,19 +125,19 @@ class S3ApiVerificationTestBase(unittest.TestCase):
 
     def listBuckets(self, client = None):
         if client is None:
-            client = self.client
+            client = self.s3_client
         return [b['Name'] for b in client.list_buckets()['Buckets']]
 
     def listKeys(self, bucket = None, client = None):
         if client is None:
-            client = self.client
+            client = self.s3_client
         if bucket is None:
             bucket = self.default_bucket
         return [k['Key'] for k in client.list_objects_v2(Bucket = bucket).get('Contents', [])]
 
     def listObjectVersions(self, bucket = None, client = None):
         if client is None:
-            client = self.client
+            client = self.s3_client
         if bucket is None:
             bucket = self.default_bucket
         vv = client.list_object_versions(Bucket = bucket)
@@ -137,7 +145,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
 
     def putObject(self, bucket = None, key = None, vsn = None, value = None, metadata = {}, client = None):
         if client is None:
-            client = self.client
+            client = self.s3_client
         if bucket is None:
             bucket = self.default_bucket
         if key is None:
@@ -160,7 +168,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
 
     def getObject(self, bucket = None, key = None, vsn = None, client = None):
         if client is None:
-            client = self.client
+            client = self.s3_client
         if bucket is None:
             bucket = self.default_bucket
         if key is None:
@@ -173,7 +181,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
 
     def deleteObject(self, bucket = None, key = None, vsn = None, client = None):
         if client is None:
-            client = self.client
+            client = self.s3_client
         if bucket is None:
             bucket = self.default_bucket
         if key is None:
@@ -186,7 +194,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
 
     def getBucketVersioning(self, bucket = None, client = None):
         if client is None:
-            client = self.client
+            client = self.s3_client
         ####boto3.set_stream_logger('')
         if bucket is None:
             bucket = self.default_bucket
@@ -199,7 +207,7 @@ class S3ApiVerificationTestBase(unittest.TestCase):
                             replSiblings = None,
                             client = None):
         if client is None:
-            client = self.client
+            client = self.s3_client
         if bucket is None:
             bucket = self.default_bucket
         if mfaDelete is None:
@@ -233,19 +241,19 @@ class S3ApiVerificationTestBase(unittest.TestCase):
               'Metadata': metadata}
         if acl:
             pp['ACL'] = acl
-        upload_id = self.client.create_multipart_upload(**pp)['UploadId']
+        upload_id = self.s3_client.create_multipart_upload(**pp)['UploadId']
         etags = []
         for index, val in list(enumerate(parts_list)):
-            res = self.client.upload_part(UploadId = upload_id,
-                                          Bucket = bucket,
-                                          Key = key,
-                                          Body = val,
-                                          PartNumber = index + 1)
+            res = self.s3_client.upload_part(UploadId = upload_id,
+                                             Bucket = bucket,
+                                             Key = key,
+                                             Body = val,
+                                             PartNumber = index + 1)
             etags += [{'ETag': res['ETag'], 'PartNumber': index + 1}]
-        result = self.client.complete_multipart_upload(UploadId = upload_id,
-                                                       Bucket = bucket,
-                                                       Key = key,
-                                                       MultipartUpload = {'Parts': etags})
+            result = self.s3_client.complete_multipart_upload(UploadId = upload_id,
+                                                              Bucket = bucket,
+                                                              Key = key,
+                                                              MultipartUpload = {'Parts': etags})
         return upload_id, result
 
     def multipart_md5_helper(self, bucket, parts, key_suffix = u''):

@@ -24,7 +24,7 @@
 from boto_test_base import *
 import uuid
 
-class VersioningTests(S3ApiVerificationTestBase):
+class VersioningTests(AmzTestBase):
 
     def test_set_bucket_versioning(self):
         bucket = str(uuid.uuid4())
@@ -169,23 +169,23 @@ class VersioningTests(S3ApiVerificationTestBase):
             self.assertEqual(e.response['Error']['Code'], 'AccessDenied')
 
         # grant read access to user2 on this object
-        self.client.put_object_acl(Bucket = bucket,
-                                   Key = self.default_key,
-                                   VersionId = v1,
-                                   AccessControlPolicy = {
-                                       'Grants': [
-                                           {
-                                               'Grantee': {
-                                                   'EmailAddress': self.user2["email"],
-                                                   'Type': 'CanonicalUser'
-                                               },
-                                               'Permission': 'READ'
-                                           }
-                                       ],
-                                       'Owner': {
-                                           'ID': self.user1["id"]
-                                       }
-                                   })
+        self.s3_client.put_object_acl(Bucket = bucket,
+                                      Key = self.default_key,
+                                      VersionId = v1,
+                                      AccessControlPolicy = {
+                                          'Grants': [
+                                              {
+                                                  'Grantee': {
+                                                      'EmailAddress': self.user2["email"],
+                                                      'Type': 'CanonicalUser'
+                                                  },
+                                                  'Permission': 'READ'
+                                              }
+                                          ],
+                                          'Owner': {
+                                              'ID': self.user1["id"]
+                                          }
+                                      })
         # now user2 can read
         self.assertEqual(self.getObject(bucket = bucket, vsn = v1, client = client2), self.data)
 
@@ -212,27 +212,27 @@ class VersioningTests(S3ApiVerificationTestBase):
             ]
         }
         #boto3.set_stream_logger('')
-        self.client.put_bucket_policy(Bucket = bucket,
-                                      Policy = json.dumps(policy))
+        self.s3_client.put_bucket_policy(Bucket = bucket,
+                                         Policy = json.dumps(policy))
 
         # grant read access to user2 on this object
-        self.client.put_object_acl(Bucket = bucket,
-                                   Key = self.default_key,
-                                   VersionId = v1,
-                                   AccessControlPolicy = {
-                                       'Grants': [
-                                           {
-                                               'Grantee': {
-                                                   'EmailAddress': self.user2["email"],
-                                                   'Type': 'CanonicalUser'
-                                               },
-                                               'Permission': 'WRITE'
-                                           }
-                                       ],
-                                       'Owner': {
-                                           'ID': self.user1["id"]
-                                       }
-                                   })
+        self.s3_client.put_object_acl(Bucket = bucket,
+                                      Key = self.default_key,
+                                      VersionId = v1,
+                                      AccessControlPolicy = {
+                                          'Grants': [
+                                              {
+                                                  'Grantee': {
+                                                      'EmailAddress': self.user2["email"],
+                                                      'Type': 'CanonicalUser'
+                                                  },
+                                                  'Permission': 'WRITE'
+                                              }
+                                          ],
+                                          'Owner': {
+                                              'ID': self.user1["id"]
+                                          }
+                                      })
 
 
         self.assertEqual(self.putObject(client = client2, bucket = bucket, vsn = v1, value = b'overwritten'), v1)

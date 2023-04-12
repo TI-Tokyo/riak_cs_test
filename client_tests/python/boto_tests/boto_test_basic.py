@@ -24,10 +24,10 @@
 from boto_test_base import *
 import botocore, json, uuid
 
-class BasicTests(S3ApiVerificationTestBase):
+class BasicTests(AmzTestBase):
     def test_auth(self):
         bad_user = json.loads('{"email":"baduser@example.me","display_name":"baduser","name":"user1","key_id":"bad_key","key_secret":"BadSecret","id":"bad_canonical_id"}')
-        bad_client = self.make_client(bad_user)
+        bad_client, _ = self.make_clients(bad_user)
         self.assertRaises(botocore.exceptions.ClientError, bad_client.list_buckets)
 
     def test_create_bucket(self):
@@ -54,9 +54,9 @@ class BasicTests(S3ApiVerificationTestBase):
         self.assertIn(self.default_key, self.listKeys())
         self.deleteObject()
         self.assertNotIn(self.default_key, self.listKeys())
-        self.assertRaises(self.client.exceptions.NoSuchKey,
-                          lambda: self.client.get_object(Bucket = self.default_bucket,
-                                                         Key = self.default_key).get('Body').read())
+        self.assertRaises(self.s3_client.exceptions.NoSuchKey,
+                          lambda: self.s3_client.get_object(Bucket = self.default_bucket,
+                                                            Key = self.default_key).get('Body').read())
         self.deleteBucket()
 
 
@@ -72,15 +72,15 @@ class BasicTests(S3ApiVerificationTestBase):
         got_keys = self.listKeys(bucket = bucket)
         self.assertEqual(keys.sort(), got_keys.sort())
 
-        result = self.client.delete_objects(Bucket = bucket,
-                                            Delete = {'Objects': [{'Key': k} for k in keys]})
+        result = self.s3_client.delete_objects(Bucket = bucket,
+                                               Delete = {'Objects': [{'Key': k} for k in keys]})
 
         self.assertEqual(keys, [k['Key'] for k in result['Deleted']])
         self.assertEqual([], result.get('Errors', []))
 
-        self.assertRaises(self.client.exceptions.NoSuchKey,
-                          lambda: self.client.get_object(Bucket = bucket,
-                                                         Key = keys[0]).get('Body').read())
+        self.assertRaises(self.s3_client.exceptions.NoSuchKey,
+                          lambda: self.s3_client.get_object(Bucket = bucket,
+                                                            Key = keys[0]).get('Body').read())
         self.deleteBucket(bucket = bucket)
 
     def test_delete_bucket(self):
@@ -93,7 +93,7 @@ class BasicTests(S3ApiVerificationTestBase):
     def test_get_bucket_acl(self):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
-        res = self.client.get_bucket_acl(Bucket = bucket)
+        res = self.s3_client.get_bucket_acl(Bucket = bucket)
         self.assertEqual(res['Owner'], {'DisplayName': 'admin', 'ID': self.user1['id']})
         self.verifyDictListsIdentical(res['Grants'],
                                       [userAcl(self.user1, 'FULL_CONTROL')])
@@ -102,9 +102,9 @@ class BasicTests(S3ApiVerificationTestBase):
     def test_set_bucket_acl(self):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
-        self.client.put_bucket_acl(Bucket = bucket,
+        self.s3_client.put_bucket_acl(Bucket = bucket,
                                    ACL = 'public-read')
-        res = self.client.get_bucket_acl(Bucket = bucket)
+        res = self.s3_client.get_bucket_acl(Bucket = bucket)
         self.assertEqual(res['Owner']['DisplayName'], self.user1['name'])
         self.assertEqual(res['Owner']['ID'], self.user1['id'])
         self.verifyDictListsIdentical(res['Grants'],
@@ -115,8 +115,8 @@ class BasicTests(S3ApiVerificationTestBase):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
         self.putObject(bucket = bucket)
-        res = self.client.get_object_acl(Bucket = bucket,
-                                         Key = self.default_key)
+        res = self.s3_client.get_object_acl(Bucket = bucket,
+                                            Key = self.default_key)
         self.assertEqual(res['Grants'], [userAcl(self.user1, 'FULL_CONTROL')])
         self.deleteBucket(bucket = bucket)
 
@@ -124,17 +124,17 @@ class BasicTests(S3ApiVerificationTestBase):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
         self.putObject(bucket = bucket)
-        self.client.put_object_acl(Bucket = bucket,
-                                   Key = self.default_key,
-                                   ACL = 'public-read')
-        res = self.client.get_object_acl(Bucket = bucket,
-                                         Key = self.default_key)
+        self.s3_client.put_object_acl(Bucket = bucket,
+                                      Key = self.default_key,
+                                      ACL = 'public-read')
+        res = self.s3_client.get_object_acl(Bucket = bucket,
+                                            Key = self.default_key)
         self.verifyDictListsIdentical(res['Grants'],
                                       [publicAcl('READ'), userAcl(self.user1, 'FULL_CONTROL')])
         self.deleteBucket(bucket = bucket)
 
 
-class SimpleCopyTest(S3ApiVerificationTestBase):
+class SimpleCopyTest(AmzTestBase):
 
     def test_put_copy_object(self):
         src_bucket = str(uuid.uuid4())
@@ -144,9 +144,9 @@ class SimpleCopyTest(S3ApiVerificationTestBase):
         target_bucket = str(uuid.uuid4())
         self.createBucket(bucket = target_bucket)
 
-        self.client.copy_object(Bucket = target_bucket,
-                                CopySource = '%s/%s' % (src_bucket, self.default_key),
-                                Key = self.default_key)
+        self.s3_client.copy_object(Bucket = target_bucket,
+                                   CopySource = '%s/%s' % (src_bucket, self.default_key),
+                                   Key = self.default_key)
 
         self.assertEqual(self.getObject(bucket = src_bucket), self.data)
         self.assertEqual(self.getObject(bucket = target_bucket), self.data)
@@ -163,9 +163,9 @@ class SimpleCopyTest(S3ApiVerificationTestBase):
         target_bucket = str(uuid.uuid4())
         self.createBucket(bucket = target_bucket)
 
-        self.client.copy_object(Bucket = target_bucket,
-                                CopySource = '%s/%s' % (src_bucket, self.default_key),
-                                Key = self.default_key)
+        self.s3_client.copy_object(Bucket = target_bucket,
+                                   CopySource = '%s/%s' % (src_bucket, self.default_key),
+                                   Key = self.default_key)
 
         self.assertEqual(self.getObject(bucket = src_bucket), self.data)
         self.assertEqual(self.getObject(bucket = target_bucket), self.data)
@@ -183,20 +183,20 @@ class SimpleCopyTest(S3ApiVerificationTestBase):
         self.createBucket(bucket = target_bucket)
 
         start_offset, end_offset = 0, 9
-        upload_id = self.client.create_multipart_upload(Bucket = target_bucket,
+        upload_id = self.s3_client.create_multipart_upload(Bucket = target_bucket,
                                                         Key = self.default_key)['UploadId']
-        res = self.client.upload_part_copy(Bucket = target_bucket,
-                                           Key = self.default_key,
-                                           PartNumber = 1,
-                                           UploadId = upload_id,
-                                           CopySource = "%s/%s" % (src_bucket, self.default_key),
-                                           CopySourceRange = "bytes=%d-%d" % (start_offset, end_offset))
+        res = self.s3_client.upload_part_copy(Bucket = target_bucket,
+                                              Key = self.default_key,
+                                              PartNumber = 1,
+                                              UploadId = upload_id,
+                                              CopySource = "%s/%s" % (src_bucket, self.default_key),
+                                              CopySourceRange = "bytes=%d-%d" % (start_offset, end_offset))
         etags = [{'ETag': res['CopyPartResult']['ETag'], 'PartNumber': 1}]
 
-        self.client.complete_multipart_upload(Bucket = target_bucket,
-                                              Key = self.default_key,
-                                              UploadId = upload_id,
-                                              MultipartUpload = {'Parts': etags})
+        self.s3_client.complete_multipart_upload(Bucket = target_bucket,
+                                                 Key = self.default_key,
+                                                 UploadId = upload_id,
+                                                 MultipartUpload = {'Parts': etags})
 
         self.assertEqual(self.data[start_offset:(end_offset+1)],
                          self.getObject(bucket = target_bucket))
@@ -212,19 +212,19 @@ class SimpleCopyTest(S3ApiVerificationTestBase):
         self.createBucket(bucket = target_bucket)
 
         start_offset, end_offset = 0, 9
-        upload2_id = self.client.create_multipart_upload(Bucket = target_bucket,
-                                                         Key = self.default_key)['UploadId']
-        res = self.client.upload_part_copy(Bucket = target_bucket,
-                                           Key = self.default_key,
-                                           PartNumber = 1,
-                                           UploadId = upload2_id,
-                                           CopySource = "%s/%s" % (src_bucket, self.default_key),
-                                           CopySourceRange = "bytes=%d-%d" % (start_offset, end_offset))
-        etags = [{'ETag': res['CopyPartResult']['ETag'], 'PartNumber': 1}]
-        self.client.complete_multipart_upload(Bucket = target_bucket,
+        upload2_id = self.s3_client.create_multipart_upload(Bucket = target_bucket,
+                                                            Key = self.default_key)['UploadId']
+        res = self.s3_client.upload_part_copy(Bucket = target_bucket,
                                               Key = self.default_key,
+                                              PartNumber = 1,
                                               UploadId = upload2_id,
-                                              MultipartUpload = {'Parts': etags})
+                                              CopySource = "%s/%s" % (src_bucket, self.default_key),
+                                              CopySourceRange = "bytes=%d-%d" % (start_offset, end_offset))
+        etags = [{'ETag': res['CopyPartResult']['ETag'], 'PartNumber': 1}]
+        self.s3_client.complete_multipart_upload(Bucket = target_bucket,
+                                                 Key = self.default_key,
+                                                 UploadId = upload2_id,
+                                                 MultipartUpload = {'Parts': etags})
 
         self.assertEqual(self.data[start_offset:(end_offset+1)],
                          self.getObject(bucket = target_bucket))
@@ -239,9 +239,9 @@ class SimpleCopyTest(S3ApiVerificationTestBase):
         target_bucket = str(uuid.uuid4())
         self.createBucket(bucket = target_bucket)
         try:
-            self.client.copy_object(Bucket = target_bucket,
-                                    Key = self.default_key,
-                                    CopySource = '%s/%s' % (src_bucket, 'not_existing'))
+            self.s3_client.copy_object(Bucket = target_bucket,
+                                       Key = self.default_key,
+                                       CopySource = '%s/%s' % (src_bucket, 'not_existing'))
             self.fail()
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'NoSuchKey')
@@ -250,7 +250,7 @@ class SimpleCopyTest(S3ApiVerificationTestBase):
         self.deleteBucket(bucket = target_bucket)
 
 
-class LargerFileUploadTest(S3ApiVerificationTestBase):
+class LargerFileUploadTest(AmzTestBase):
     "Larger, regular key uploads"
 
     def upload_helper(self, num_kilobytes):
@@ -260,7 +260,7 @@ class LargerFileUploadTest(S3ApiVerificationTestBase):
         file_obj = kb_file_gen(num_kilobytes)
         self.putObject(bucket = bucket,
                        value = file_obj)
-        got_object = self.client.get_object(Bucket = bucket, Key = self.default_key)
+        got_object = self.s3_client.get_object(Bucket = bucket, Key = self.default_key)
         actual_md5 = hashlib.md5(bytes(got_object['Body'].read())).hexdigest()
         self.assertEqual(md5_expected, actual_md5)
         self.assertEqual(md5_expected, remove_double_quotes(got_object['ETag']))
@@ -295,7 +295,7 @@ class LargerFileUploadTest(S3ApiVerificationTestBase):
 
 
 
-class UnicodeNamedObjectTest(S3ApiVerificationTestBase):
+class UnicodeNamedObjectTest(AmzTestBase):
     "test to check unicode object name works"
     utf8_default_key = u"utf8ファイル名.txt"
     #                     ^^^^^^^^^ filename in Japanese
@@ -320,17 +320,17 @@ class UnicodeNamedObjectTest(S3ApiVerificationTestBase):
 
 
 
-class ContentMd5Test(S3ApiVerificationTestBase):
+class ContentMd5Test(AmzTestBase):
     def test_catches_bad_md5(self):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
         s = b'not the real content'
         bad_md5 = hashlib.md5(s).hexdigest()
         try:
-            self.client.put_object(Bucket = bucket,
-                                   Key = self.default_key,
-                                   Body = 'this is different from the md5 we calculated',
-                                   ContentMD5 = bad_md5)
+            self.s3_client.put_object(Bucket = bucket,
+                                      Key = self.default_key,
+                                      Body = 'this is different from the md5 we calculated',
+                                      ContentMD5 = bad_md5)
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'InvalidDigest')
         self.deleteBucket(bucket = bucket)
@@ -347,10 +347,10 @@ class ContentMd5Test(S3ApiVerificationTestBase):
         bad_value = b'not the real content'
         bad_md5 = hashlib.md5(bad_value).hexdigest()
         try:
-            self.client.put_object(Bucket = bucket,
-                                   Key = self.default_key,
-                                   Body = 'this is different from the md5 we calculated',
-                                   ContentMD5 = bad_md5)
+            self.s3_client.put_object(Bucket = bucket,
+                                      Key = self.default_key,
+                                      Body = 'this is different from the md5 we calculated',
+                                      ContentMD5 = bad_md5)
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'InvalidDigest')
         self.assertEqual(self.getObject(bucket = bucket), value)

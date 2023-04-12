@@ -24,7 +24,7 @@
 from boto_test_base import *
 import json, uuid
 
-class MultiPartUploadTests(S3ApiVerificationTestBase):
+class MultiPartUploadTests(AmzTestBase):
     def test_small_strings_upload_1(self):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
@@ -59,8 +59,8 @@ class MultiPartUploadTests(S3ApiVerificationTestBase):
         actual_md5 = hashlib.md5(bytes(self.getObject(bucket = bucket,
                                                       key = key))).hexdigest()
         self.assertEqual(expected_md5, actual_md5)
-        res = self.client.get_object_acl(Bucket = bucket,
-                                         Key = key)
+        res = self.s3_client.get_object_acl(Bucket = bucket,
+                                            Key = key)
         self.assertEqual(res['Owner']['DisplayName'], self.user1['name'])
         self.assertEqual(res['Owner']['ID'], self.user1['id'])
         self.verifyDictListsIdentical(res['Grants'],
@@ -71,9 +71,9 @@ class MultiPartUploadTests(S3ApiVerificationTestBase):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
         key = 'test_standard_storage_class'
-        self.client.create_multipart_upload(Bucket = bucket,
-                                            Key = key)
-        uploads = self.client.list_multipart_uploads(Bucket = bucket)['Uploads']
+        self.s3_client.create_multipart_upload(Bucket = bucket,
+                                               Key = key)
+        uploads = self.s3_client.list_multipart_uploads(Bucket = bucket)['Uploads']
         for u in uploads:
             self.assertEqual(u['StorageClass'], 'STANDARD')
         self.deleteBucket(bucket = bucket)
@@ -91,9 +91,9 @@ class MultiPartUploadTests(S3ApiVerificationTestBase):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
         key = u'test_日本語キーのリスト'
-        self.client.create_multipart_upload(Bucket = bucket,
-                                            Key = key)
-        uploads = self.client.list_multipart_uploads(Bucket = bucket)['Uploads']
+        self.s3_client.create_multipart_upload(Bucket = bucket,
+                                               Key = key)
+        uploads = self.s3_client.list_multipart_uploads(Bucket = bucket)['Uploads']
         for u in uploads:
             self.assertEqual(u['Key'], key)
         self.deleteBucket(bucket = bucket)
@@ -108,21 +108,21 @@ class LargerMultipartFileUploadTest(S3ApiVerificationTestBase):
     def upload_parts_helper(self, zipped_parts_and_md5s, expected_md5):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
-        upload_id = self.client.create_multipart_upload(Bucket = bucket,
-                                                        Key = self.default_key)['UploadId']
+        upload_id = self.s3_client.create_multipart_upload(Bucket = bucket,
+                                                           Key = self.default_key)['UploadId']
         etags = []
         for idx, (part, md5_of_part) in enumerate(zipped_parts_and_md5s):
-            res = self.client.upload_part(UploadId = upload_id,
-                                          Bucket = bucket,
-                                          Key = self.default_key,
-                                          Body = part,
-                                          PartNumber = idx + 1)
+            res = self.s3_client.upload_part(UploadId = upload_id,
+                                             Bucket = bucket,
+                                             Key = self.default_key,
+                                             Body = part,
+                                             PartNumber = idx + 1)
             self.assertEqual(res['ETag'], '"' + md5_of_part + '"')
             etags += [{'ETag': res['ETag'], 'PartNumber': idx + 1}]
-        self.client.complete_multipart_upload(UploadId = upload_id,
-                                              Bucket = bucket,
-                                              Key = self.default_key,
-                                              MultipartUpload = {'Parts': etags})
+        self.s3_client.complete_multipart_upload(UploadId = upload_id,
+                                                 Bucket = bucket,
+                                                 Key = self.default_key,
+                                                 MultipartUpload = {'Parts': etags})
         actual_md5 = hashlib.md5(bytes(self.getObject(bucket = bucket))).hexdigest()
         self.assertEqual(expected_md5, actual_md5)
         self.deleteBucket(bucket = bucket)

@@ -24,7 +24,7 @@
 from boto_test_base import *
 import json, uuid
 
-class ObjectMetadataTest(S3ApiVerificationTestBase):
+class ObjectMetadataTest(AmzTestBase):
     "Test object metadata, e.g. Content-Encoding, x-amz-meta-*, for PUT/GET"
 
     metadata = {
@@ -70,8 +70,8 @@ class ObjectMetadataTest(S3ApiVerificationTestBase):
         self.deleteBucket(bucket = bucket)
 
     def assert_metadata(self, bucket, key):
-        res = self.client.get_object(Bucket = bucket,
-                                     Key = key)
+        res = self.s3_client.get_object(Bucket = bucket,
+                                        Key = key)
 
         hh = res['ResponseMetadata']['HTTPHeaders']
         md = res['Metadata']
@@ -92,15 +92,15 @@ class ObjectMetadataTest(S3ApiVerificationTestBase):
         self.assertEqual(md.get("Space-In-Value"), None)
 
     def change_metadata(self, bucket, key):
-        self.client.copy_object(Bucket = bucket,
-                                Key = key,
-                                CopySource = "%s/%s" % (bucket, key),
-                                MetadataDirective = 'REPLACE',
-                                Metadata = self.updated_metadata)
+        self.s3_client.copy_object(Bucket = bucket,
+                                   Key = key,
+                                   CopySource = "%s/%s" % (bucket, key),
+                                   MetadataDirective = 'REPLACE',
+                                   Metadata = self.updated_metadata)
 
     def assert_updated_metadata(self, bucket, key):
-        res = self.client.get_object(Bucket = bucket,
-                                     Key = key)
+        res = self.s3_client.get_object(Bucket = bucket,
+                                        Key = key)
 
         hh = res['ResponseMetadata']['HTTPHeaders']
         md = res['Metadata']

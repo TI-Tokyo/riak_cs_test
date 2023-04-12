@@ -24,15 +24,15 @@
 from boto_test_base import *
 import json, uuid
 
-class BucketPolicyTest(S3ApiVerificationTestBase):
+class BucketPolicyTest(AmzTestBase):
     "test bucket policy"
 
     def test_no_policy(self):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
-        self.client.delete_bucket_policy(Bucket = bucket)
+        self.s3_client.delete_bucket_policy(Bucket = bucket)
         try:
-            self.client.get_bucket_policy(Bucket = bucket)
+            self.s3_client.get_bucket_policy(Bucket = bucket)
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'NoSuchBucketPolicy')
         else:
@@ -41,8 +41,8 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
 
     def create_bucket_and_set_policy(self, bucket, policy):
         self.createBucket(bucket = bucket)
-        self.client.put_bucket_policy(Bucket = bucket,
-                                      Policy = json.dumps(policy))
+        self.s3_client.put_bucket_policy(Bucket = bucket,
+                                         Policy = json.dumps(policy))
 
     def test_put_policy_invalid_ip(self):
         bucket = str(uuid.uuid4())
@@ -81,7 +81,7 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
             ]
         }
         self.create_bucket_and_set_policy(bucket, policy)
-        got_policy = self.client.get_bucket_policy(Bucket = bucket)['Policy']
+        got_policy = self.s3_client.get_bucket_policy(Bucket = bucket)['Policy']
         self.assertEqual(policy, json.loads(got_policy))
         self.deleteBucket(bucket = bucket)
 
@@ -101,7 +101,7 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
             ]
         }
         self.create_bucket_and_set_policy(bucket, policy)
-        got_policy = self.client.get_bucket_policy(Bucket = bucket)['Policy']
+        got_policy = self.s3_client.get_bucket_policy(Bucket = bucket)['Policy']
         self.assertEqual(policy, json.loads(got_policy))
         self.deleteBucket(bucket = bucket)
 
@@ -163,8 +163,8 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
                 }
             ]
         }
-        self.client.put_bucket_policy(Bucket = bucket,
-                                      Policy = json.dumps(policy))
+        self.s3_client.put_bucket_policy(Bucket = bucket,
+                                         Policy = json.dumps(policy))
         self.getObject(bucket = bucket) ## throws nothing
         self.deleteBucket(bucket = bucket)
 
@@ -187,8 +187,8 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
             ]
         }
         try:
-            self.client.put_bucket_policy(Bucket = bucket,
-                                          Policy = json.dumps(policy))
+            self.s3_client.put_bucket_policy(Bucket = bucket,
+                                             Policy = json.dumps(policy))
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'MalformedPolicy')
         self.deleteBucket(bucket = bucket)
@@ -211,8 +211,8 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
                 }
             ]
         }
-        self.client.put_bucket_policy(Bucket = bucket,
-                                      Policy = json.dumps(policy))
+        self.s3_client.put_bucket_policy(Bucket = bucket,
+                                         Policy = json.dumps(policy))
         self.assertEqual(self.getObject(bucket = bucket), self.data)
 
         ## policy accepts anyone who comes with http
@@ -238,8 +238,8 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
                  }
             ]
         }
-        self.client.put_bucket_policy(Bucket = bucket,
-                                      Policy = json.dumps(policy))
+        self.s3_client.put_bucket_policy(Bucket = bucket,
+                                         Policy = json.dumps(policy))
 
         os.environ['http_proxy'] = ''
         conn = httplib2.Http()
@@ -276,8 +276,8 @@ class MultipartUploadTestsUnderPolicy(S3ApiVerificationTestBase):
                     "Condition":{"Bool":{"aws:SecureTransport":False}}
                  }
             ]}
-        self.client.put_bucket_policy(Bucket = bucket,
-                                      Policy = json.dumps(policy))
+        self.s3_client.put_bucket_policy(Bucket = bucket,
+                                         Policy = json.dumps(policy))
         upload_id, result = self.upload_multipart(bucket, key, parts)
         actual_md5 = hashlib.md5(bytes(self.getObject(bucket = bucket,
                                                       key = key))).hexdigest()
@@ -297,8 +297,8 @@ class MultipartUploadTestsUnderPolicy(S3ApiVerificationTestBase):
                 }
             ]
         }
-        self.client.put_bucket_policy(Bucket = bucket,
-                                      Policy = json.dumps(policy))
+        self.s3_client.put_bucket_policy(Bucket = bucket,
+                                         Policy = json.dumps(policy))
         try:
             self.upload_multipart(bucket, key, parts)
             self.fail()
