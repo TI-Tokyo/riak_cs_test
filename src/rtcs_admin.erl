@@ -92,10 +92,10 @@ create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
         rtcs_clients:s3_request(UserConfig,
                                 post, Resource, [], "",
                                 {ReqBody, "application/json"}, []),
-    logger:debug("ResBody: ~s", [ResBody]),
+    logger:debug("ResBody: ~p", [ResBody]),
     JsonData = mochijson2:decode(ResBody),
     [KeyId, KeySecret, Id] = [binary_to_list(rtcs_dev:json_get([K], JsonData)) ||
-                                 K <- [<<"key_id">>, <<"key_secret">>, <<"id">>]],
+                                 K <- [<<"key_id">>, <<"key_secret">>, <<"canonical_id">>]],
     {rtcs_clients:aws_config(KeyId, KeySecret, Port), Id}.
 
 -spec update_user(#aws_config{}, non_neg_integer(), string(), string(), string()) -> {non_neg_integer(), string()}.
