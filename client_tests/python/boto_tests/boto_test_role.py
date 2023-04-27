@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 ## ---------------------------------------------------------------------
 ##
-## Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved.
-##               2023 TI Tokyo    All Rights Reserved.
+## Copyright (c) 2023 TI Tokyo    All Rights Reserved.
 ##
 ## This file is provided to you under the Apache License,
 ## Version 2.0 (the "License"); you may not use this file
@@ -45,14 +44,14 @@ class RoleTest(AmzTestBase):
         ]
         #arn = "arn:aws:iam::123456789012:role/application_abc/component_xyz/S3Access"
 
-        boto3.set_stream_logger('')
-        role = self.iam_client.create_role(Path = path,
+        #boto3.set_stream_logger('')
+        resp = self.iam_client.create_role(Path = path,
                                            RoleName = role_name,
                                            AssumeRolePolicyDocument = assume_role_policy_document,
                                            Description = description,
                                            MaxSessionDuration = max_session_duration,
                                            PermissionsBoundary = permissions_boundary,
                                            Tags = tags)
-        self.assertEqual(role['Path'], path)
-        self.assertEqual(role['RoleName'], role_name)
-        self.assertEqual(role['Description'], description)
+        self.assertEqual(resp['Role']['Path'], path)
+        self.assertEqual(resp['Role']['RoleName'], role_name)
+        self.assertEqual(resp['Role']['Description'], description)
