@@ -26,32 +26,34 @@ import json, uuid
 class RoleTest(AmzTestBase):
     "test CRUD on roles"
 
-    def test_role_create(self):
-        path = "/application_abc/component_xyz/"
-        role_name = "VeryImportantRole"
-        assume_role_policy_document = """
-              {"Version":"2012-10-17","Statement":[{"Effect":"Allow",
-               "Principal":{"Service":["ec2.amazonaws.com"]},"Action":["sts:AssumeRole"]}]}
-        """
-        description = "Unless required by applicable law"
-        max_session_duration = 3600
-        permissions_boundary = "arn:aws:iam::123456789012:role/application_abc/component_xyz/S3AccessRestrictions"
-        tags = [
+    Role = {
+        'Path': "/application_abc/component_xyz/",
+        'RoleName': "VeryImportantRole",
+        'AssumeRolePolicyDocument': """
+        {"Version":"2012-10-17","Statement":[{"Effect":"Allow",
+        "Principal":{"Service":["ec2.amazonaws.com"]},"Action":["sts:AssumeRole"]}]}
+        """,
+        'Description': "Unless required by applicable law",
+        'MaxSessionDuration': 3600,
+        'PermissionsBoundary': "arn:aws:iam::123456789012:role/application_abc/component_xyz/S3AccessRestrictions",
+        'Tags': [
             {
                 'Key': "Key1",
                 'Value': "Value1"
             }
         ]
+    }
+
+    def test_role_create(self):
         #arn = "arn:aws:iam::123456789012:role/application_abc/component_xyz/S3Access"
 
         #boto3.set_stream_logger('')
-        resp = self.iam_client.create_role(Path = path,
-                                           RoleName = role_name,
-                                           AssumeRolePolicyDocument = assume_role_policy_document,
-                                           Description = description,
-                                           MaxSessionDuration = max_session_duration,
-                                           PermissionsBoundary = permissions_boundary,
-                                           Tags = tags)
-        self.assertEqual(resp['Role']['Path'], path)
-        self.assertEqual(resp['Role']['RoleName'], role_name)
-        self.assertEqual(resp['Role']['Description'], description)
+        resp = self.iam_client.create_role(**self.Role)
+        self.assertEqual(resp['Role']['Path'], self.Role['Path'])
+        self.assertEqual(resp['Role']['RoleName'], self.Role['RoleName'])
+        self.assertEqual(resp['Role']['Description'], self.Role['Description'])
+
+        resp = self.iam_client.get_role(RoleName = self.Role['RoleName'])
+        self.assertEqual(resp['Role']['Path'], self.Role['Path'])
+        self.assertEqual(resp['Role']['RoleName'], self.Role['RoleName'])
+        self.assertEqual(resp['Role']['Description'], self.Role['Description'])
