@@ -3,7 +3,7 @@
 ## ---------------------------------------------------------------------
 ##
 ## Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved.
-##               2021 TI Tokyo    All Rights Reserved.
+##               2021-2023 TI Tokyo    All Rights Reserved.
 ##
 ## This file is provided to you under the Apache License,
 ## Version 2.0 (the "License"); you may not use this file
@@ -48,6 +48,7 @@ class BucketPolicyTest(AmzTestBase):
         bucket = str(uuid.uuid4())
         policy = {
             "Version":"2020-10-17",
+            "ID": str(uuid.uuid4()),
             "Statement":[
                 {
                     "Sid":"Stmtaaa",
@@ -69,6 +70,7 @@ class BucketPolicyTest(AmzTestBase):
         bucket = str(uuid.uuid4())
         policy = {
             "Version":"2008-10-17",
+            "ID": str(uuid.uuid4()),
             "Statement":[
                 {
                     "Sid":"Stmtaaa",
@@ -89,6 +91,7 @@ class BucketPolicyTest(AmzTestBase):
         bucket = str(uuid.uuid4())
         policy = {
             "Version":"2012-10-17",
+            "ID": str(uuid.uuid4()),
             "Statement":[
                 {
                     "Sid":"Stmtaaa",
@@ -109,6 +112,7 @@ class BucketPolicyTest(AmzTestBase):
         bucket = str(uuid.uuid4())
         policy = {
             "Version":"somebadversion",
+            "ID": str(uuid.uuid4()),
             "Statement":[
                 {
                     "Sid":"Stmtaaa",
@@ -127,9 +131,11 @@ class BucketPolicyTest(AmzTestBase):
         self.deleteBucket(bucket = bucket)
 
     def test_ip_addr_policy(self):
+        #boto3.set_stream_logger('')
         bucket = str(uuid.uuid4())
         policy = {
             "Version":"2008-10-17",
+            "ID": str(uuid.uuid4()),
             "Statement":[
                 {
                     "Sid":"Stmtaaa",
@@ -152,6 +158,7 @@ class BucketPolicyTest(AmzTestBase):
 
         policy = {
             "Version":"2008-10-17",
+            "ID": str(uuid.uuid4()),
             "Statement":[
                 {
                     "Sid":"Stmtaaa",
@@ -175,6 +182,7 @@ class BucketPolicyTest(AmzTestBase):
 
         policy = {
             "Version":"2008-10-17",
+            "ID": str(uuid.uuid4()),
             "Statement":[
                 {
                     "Sid":"Stmtaaa0",
@@ -200,6 +208,7 @@ class BucketPolicyTest(AmzTestBase):
 
         policy = {
             "Version":"2008-10-17",
+            "ID": str(uuid.uuid4()),
             "Statement":[
                 {
                     "Sid":"Stmtaaa0",
@@ -227,6 +236,7 @@ class BucketPolicyTest(AmzTestBase):
         ## anyone without https may not do any operation
         policy = {
             "Version":"2008-10-17",
+            "ID": str(uuid.uuid4()),
             "Statement":[
                 {
                     "Sid":"Stmtaaa0",
@@ -251,7 +261,7 @@ class BucketPolicyTest(AmzTestBase):
         # self.deleteBucket(bucket = bucket)
 
 
-class MultipartUploadTestsUnderPolicy(S3ApiVerificationTestBase):
+class MultipartUploadTestsUnderPolicy(AmzTestBase):
 
     def test_small_strings_upload_1(self):
         bucket = str(uuid.uuid4())
@@ -266,6 +276,7 @@ class MultipartUploadTestsUnderPolicy(S3ApiVerificationTestBase):
         ## anyone may PUT this object
         policy = {
             "Version":"2008-10-17",
+            "ID": str(uuid.uuid4()),
             "Statement":[
                 {
                     "Sid":"Stmtaaa0",
@@ -286,6 +297,7 @@ class MultipartUploadTestsUnderPolicy(S3ApiVerificationTestBase):
         ## anyone without https may not do any operation
         policy = {
             "Version":"2008-10-17",
+            "ID": str(uuid.uuid4()),
             "Statement":[
                 {
                     "Sid":"Stmtaaa0",
