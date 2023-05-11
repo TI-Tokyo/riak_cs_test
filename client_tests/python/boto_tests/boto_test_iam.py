@@ -101,8 +101,8 @@ ZOpx4swtgGdeoSpeRyrtMvRwdcciNBp9UZome44qZAYH1iqrpmmjsfI9pJItsgWu
 </MetadataProvider>
     """
     SAMLProvider = {
-        'Name': "Шиномонтаж",
-        'SAMLMetadataDocument': str(base64.b64encode(bytes(IdPMetadata, 'utf-8'))),
+        'Name': "CarpatDream",
+        'SAMLMetadataDocument': str(base64.b64encode(bytes(IdPMetadata, 'utf-8')))[2:-1],
         'Tags': [
             {
                 'Key': "Key1",
@@ -117,3 +117,4 @@ ZOpx4swtgGdeoSpeRyrtMvRwdcciNBp9UZome44qZAYH1iqrpmmjsfI9pJItsgWu
     def test_saml_provider(self):
         boto3.set_stream_logger('')
         resp = self.iam_client.create_saml_provider(**self.SAMLProvider)
+        pprint.pp(resp)
