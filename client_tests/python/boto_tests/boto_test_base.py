@@ -55,17 +55,17 @@ class AmzTestBase(unittest.TestCase):
             sig_vsn = 's3'
         config = Config(signature_version = sig_vsn)
         s3_client = boto3.client('s3',
-                                      use_ssl = False,
-                                      aws_access_key_id = user['key_id'],
-                                      aws_secret_access_key = user['key_secret'],
-                                      config = config)
+                                 use_ssl = False,
+                                 aws_access_key_id = user['key_id'],
+                                 aws_secret_access_key = user['key_secret'],
+                                 config = config)
         s3_client.meta.events.register_first('before-sign.s3.PutBucketPolicy', add_json_ctype_header)
 
         iam_client = boto3.client('iam',
-                                       use_ssl = False,
-                                       aws_access_key_id = user['key_id'],
-                                       aws_secret_access_key = user['key_secret'],
-                                       config = config)
+                                  use_ssl = False,
+                                  aws_access_key_id = user['key_id'],
+                                  aws_secret_access_key = user['key_secret'],
+                                  config = config)
         iam_client.meta.events.register_first('before-sign.s3.PutBucketPolicy', add_json_ctype_header)
         return (s3_client, iam_client)
 
