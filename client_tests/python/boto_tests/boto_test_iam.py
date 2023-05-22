@@ -21,7 +21,7 @@
 ## ---------------------------------------------------------------------
 
 from boto_test_base import *
-import json, uuid, base64
+import json, uuid, base64, datetime
 import pprint
 
 class RoleTest(AmzTestBase):
@@ -31,8 +31,16 @@ class RoleTest(AmzTestBase):
         'Path': "/application_abc/component_xyz/",
         'RoleName': "VeryImportantRole",
         'AssumeRolePolicyDocument': """
-        {"Version":"2012-10-17","Statement":[{"Effect":"Allow",
-        "Principal":{"Service":["ec2.amazonaws.com"]},"Action":["sts:AssumeRole"]}]}
+{
+    "Version": "2012-10-17",
+    "Statement": {
+        "Sid": "RoleForCognito",
+        "Effect": "Allow",
+        "Principal": {"Federated": "cognito-identity.amazonaws.com"},
+        "Action": "sts:AssumeRoleWithWebIdentity",
+        "Condition": {"StringEquals": {"cognito-identity.amazonaws.com:aud": "us-east:12345678-ffff-ffff-ffff-123456"}}
+    }
+}
         """,
         'Description': "Unless required by applicable law",
         'MaxSessionDuration': 3600,
@@ -44,31 +52,48 @@ class RoleTest(AmzTestBase):
             },
             {
                 'Key': "Key2",
-                'Value': "Value3"
+                'Value': "OOOOOOOOOOOOOOOOOO"
             }
         ]
     }
 
     def test_role_crud(self):
-        #arn = "arn:aws:iam::123456789012:role/application_abc/component_xyz/S3Access"
-
-        boto3.set_stream_logger('')
         resp = self.iam_client.create_role(**self.Role)
         self.assertEqual(resp['Role']['Path'], self.Role['Path'])
         self.assertEqual(resp['Role']['RoleName'], self.Role['RoleName'])
         self.assertEqual(resp['Role']['Description'], self.Role['Description'])
+        self.assertEqual(resp['Role']['Tags'], self.Role['Tags'])
+        # print("CreateRole result:")
+        # pprint.pp(resp)
+        # print()
 
+        #boto3.set_stream_logger('')
         resp = self.iam_client.get_role(RoleName = self.Role['RoleName'])
+        # print("GetRole result:")
+        # pprint.pp(resp)
+        # print()
         self.assertEqual(resp['Role']['Path'], self.Role['Path'])
         self.assertEqual(resp['Role']['RoleName'], self.Role['RoleName'])
         self.assertEqual(resp['Role']['Description'], self.Role['Description'])
 
         resp = self.iam_client.list_roles(PathPrefix = "/")
+        # print("ListRoles result:")
+        # pprint.pp(resp)
+        # print()
         self.assertEqual(len(resp['Roles']), 1)
         self.assertEqual(resp['Roles'][0]['RoleName'], self.Role['RoleName'])
 
-        self.iam_client.delete_role(RoleName = self.Role['RoleName'])
-        resp = self.iam_client.get_role(RoleName = self.Role['RoleName'])
+        resp = self.iam_client.delete_role(RoleName = self.Role['RoleName'])
+        # print("DeleteRole result:")
+        # pprint.pp(resp)
+        # print()
+
+        resp = self.iam_client.list_roles(PathPrefix = "/")
+        # print("After deletion, ListRoles result again:")
+        # pprint.pp(resp)
+        # print()
+        self.assertEqual(len(resp['Roles']), 0)
+
 
 class SAMLProviderTest(AmzTestBase):
     "SAML Provider ops"
@@ -115,6 +140,41 @@ ZOpx4swtgGdeoSpeRyrtMvRwdcciNBp9UZome44qZAYH1iqrpmmjsfI9pJItsgWu
         ]
     }
     def test_saml_provider(self):
-        boto3.set_stream_logger('')
         resp = self.iam_client.create_saml_provider(**self.SAMLProvider)
+        self.assertIn(self.SAMLProvider['Name'], resp['SAMLProviderArn'])
+
+        arn = resp['SAMLProviderArn']
+        resp = self.iam_client.get_saml_provider(SAMLProviderArn = arn)
+
+        self.assertEqual(resp['CreateDate'].date(), datetime.date.today())
+        self.assertEqual(resp['Tags'], self.SAMLProvider['Tags'])
+
+        resp = self.iam_client.list_saml_providers()
+        pprint.pp(resp)
+
+        resp = self.iam_client.delete_saml_provider(SAMLProviderArn = arn)
+
+    def test_assume_role(self):
+        #boto3.set_stream_logger('')
+        resp = self.sts_client.assume_role_with_saml(
+            RoleArn='arn:aws:iam::123456789012:role/TestSaml',
+            PrincipalArn='arn:aws:iam::123456789012:saml-provider/SAML-test ',
+            SAMLAssertion="""VERYLONGENCODEDASSERTIONEXAMPLExzYW1sOkF1ZGllbmNl
+PmJsYW5rPC9zYW1sOkF1ZGllbmNlPjwvc2FtbDpBdWRpZW5jZVJlc3RyaWN0aW9u
+Pjwvc2FtbDpDb25kaXRpb25zPjxzYW1sOlN1YmplY3Q+PHNhbWw6TmFtZUlEIEZv
+cm1hdD0idXJuOm9hc2lzOm5hbWVzOnRjOlNBTUw6Mi4wOm5hbWVpZC1mb3JtYXQ6
+dHJhbnNpZW50Ij5TYW1sRXhhbXBsZTwvc2FtbDpOYW1lSUQ+PHNhbWw6U3ViamVj
+dENvbmZpcm1hdGlvbiBNZXRob2Q9InVybjpvYXNpczpuYW1lczp0YzpTQU1MOjIu
+MDpjbTpiZWFyZXIiPjxzYW1sOlN1YmplY3RDb25maXJtYXRpb25EYXRhIE5vdE9u
+T3JBZnRlcj0iMjAxOS0xMS0wMVQyMDoyNTowNS4xNDVaIiBSZWNpcGllbnQ9Imh0
+dHBzOi8vc2lnbmluLmF3cy5hbWF6b24uY29tL3NhbWwiLz48L3NhbWw6U3ViamVj
+dENvbmZpcm1hdGlvbj48L3NhbWw6U3ViamVjdD48c2FtbDpBdXRoblN0YXRlbWVu
+dCBBdXRoPD94bWwgdmpSZXNwb25zZT4=""",
+            PolicyArns=[
+                {
+                    'arn': 'arn:aws:iam::123456789012:policy/SpecificallyWhereItMatters'
+                },
+            ],
+            Policy = 'arn:aws:iam::123456789012:policy/WhereItMattersGenerally',
+            DurationSeconds = 1230)
         pprint.pp(resp)

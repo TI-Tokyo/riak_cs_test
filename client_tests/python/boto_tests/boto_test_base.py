@@ -66,8 +66,12 @@ class AmzTestBase(unittest.TestCase):
                                   aws_access_key_id = user['key_id'],
                                   aws_secret_access_key = user['key_secret'],
                                   config = config)
-        iam_client.meta.events.register_first('before-sign.s3.PutBucketPolicy', add_json_ctype_header)
-        return (s3_client, iam_client)
+        sts_client = boto3.client('sts',
+                                  use_ssl = False,
+                                  aws_access_key_id = user['key_id'],
+                                  aws_secret_access_key = user['key_secret'],
+                                  config = config)
+        return (s3_client, iam_client, sts_client)
 
 
     @classmethod
@@ -90,6 +94,7 @@ class AmzTestBase(unittest.TestCase):
                          "display_name": "Mr Admin",
                          "key_id": key_id, "key_secret": key_secret, "id": user_id}
 
+        #boto3.set_stream_logger('')
         cls.user2 = create_user(cls.host, cls.port, "user2", str(uuid.uuid4()) + "@example.me")
         cls.default_bucket = str(uuid.uuid4())
         cls.default_key = str(uuid.uuid4())
@@ -98,7 +103,7 @@ class AmzTestBase(unittest.TestCase):
         warnings.simplefilter("ignore", ResourceWarning)
 
     def setUp(self):
-        self.s3_client, self.iam_client = self.make_clients(self.user1)
+        self.s3_client, self.iam_client, self.sts_client = self.make_clients(self.user1)
 
     def tearDown(self):
         True # del self.client # doesn't help to prevent ResourceWarning exception (there's a filter trick for that)
