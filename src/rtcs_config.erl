@@ -71,7 +71,6 @@ stanchion_port() -> 8085.
 
 riak_conf() ->
     [{"ring_size", "8"},
-     {"buckets.default.allow_mult", "true"},
      {"buckets.default.merge_strategy", "2"}].
 
 riak_config(CustomConfig) ->
