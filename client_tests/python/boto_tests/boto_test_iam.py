@@ -21,6 +21,7 @@
 ## ---------------------------------------------------------------------
 
 from boto_test_base import *
+from botocore.client import Config
 import json, uuid, base64, datetime
 import pprint
 
@@ -150,15 +151,13 @@ ZOpx4swtgGdeoSpeRyrtMvRwdcciNBp9UZome44qZAYH1iqrpmmjsfI9pJItsgWu
         self.assertEqual(resp['Tags'], self.SAMLProvider['Tags'])
 
         resp = self.iam_client.list_saml_providers()
-        pprint.pp(resp)
 
         resp = self.iam_client.delete_saml_provider(SAMLProviderArn = arn)
 
     def test_assume_role(self):
-        #boto3.set_stream_logger('')
         resp = self.sts_client.assume_role_with_saml(
             RoleArn='arn:aws:iam::123456789012:role/TestSaml',
-            PrincipalArn='arn:aws:iam::123456789012:saml-provider/SAML-test ',
+            PrincipalArn='arn:aws:iam::123456789012:saml-provider/SAML-test',
             SAMLAssertion="""VERYLONGENCODEDASSERTIONEXAMPLExzYW1sOkF1ZGllbmNl
 PmJsYW5rPC9zYW1sOkF1ZGllbmNlPjwvc2FtbDpBdWRpZW5jZVJlc3RyaWN0aW9u
 Pjwvc2FtbDpDb25kaXRpb25zPjxzYW1sOlN1YmplY3Q+PHNhbWw6TmFtZUlEIEZv
@@ -177,4 +176,13 @@ dCBBdXRoPD94bWwgdmpSZXNwb25zZT4=""",
             ],
             Policy = 'arn:aws:iam::123456789012:policy/WhereItMattersGenerally',
             DurationSeconds = 1230)
+
+        boto3.set_stream_logger('')
+        config = Config()
+        new_client = boto3.client('s3',
+                                  use_ssl = False,
+                                  aws_access_key_id = resp['Credentials']['AccessKeyId'],
+                                  aws_secret_access_key = resp['Credentials']['SecretAccessKey'],
+                                  config = config)
+        resp = new_client.create_bucket(Bucket = "cando")
         pprint.pp(resp)
