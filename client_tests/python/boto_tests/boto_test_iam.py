@@ -58,6 +58,7 @@ class RoleTest(AmzTestBase):
         ]
     }
     role_arn = None
+    saml_provider_arn = None
 
     def test_role_crud(self):
         resp = self.iam_client.create_role(**self.RoleSpecs)
@@ -238,7 +239,7 @@ facing addresses if this IdP is hosted behind a reverse proxy.  -->
 
     SAMLAssertion = """
 <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="pfxba020796-590f-97ee-1d61-2fe77151ab31" Version="2.0" IssueInstant="2014-07-17T01:01:48Z" Destination="http://sp.example.com/demo1/index.php?acs" InResponseTo="ONELOGIN_4fee3b046395c4e751011e97f8900b5273d56685">
-  <saml:Issuer>http://idp.example.com/metadata.php</saml:Issuer><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+  <saml:Issuer>https://samltest.id/saml/idp/metadata.php</saml:Issuer><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
   <ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
     <ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
   <ds:Reference URI="#pfxba020796-590f-97ee-1d61-2fe77151ab31"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>kRWKZEafAZX6ZtWl0J+v073jxug=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>EFYcALAzoXEHlvMTPn2BkPAnIqYaQln1lwBUsZHBhv6bB4E7XuxsEZdj1ddFwkyEQSG8PQ1XwvnsxO9gsOS2MPve2Ih2DAY3RJalAxvt7FS5q6AEEKSgbKojfg8UHCenjd9i9/Uzdh7M5zzYdwidy1fy9TYixQD8bEL4m6JsID4=</ds:SignatureValue>
@@ -247,25 +248,34 @@ facing addresses if this IdP is hosted behind a reverse proxy.  -->
     <samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/>
   </samlp:Status>
   <saml:Assertion xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xs="http://www.w3.org/2001/XMLSchema" ID="_d71a3a8e9fcc45c9e9d248ef7049393fc8f04e5f75" Version="2.0" IssueInstant="2014-07-17T01:01:48Z">
-    <saml:Issuer>http://idp.example.com/metadata.php</saml:Issuer>
+    <saml:Issuer>http://samltest.id/saml/metadata.php</saml:Issuer>
     <saml:Subject>
       <saml:NameID SPNameQualifier="http://sp.example.com/demo1/metadata.php" Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">_ce3d2948b4cf20146dee0a0b3dd6f69b6cf86f62d7</saml:NameID>
       <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
         <saml:SubjectConfirmationData NotOnOrAfter="2024-01-18T06:21:48Z" Recipient="http://sp.example.com/demo1/index.php?acs" InResponseTo="ONELOGIN_4fee3b046395c4e751011e97f8900b5273d56685"/>
       </saml:SubjectConfirmation>
     </saml:Subject>
+
     <saml:Conditions NotBefore="2014-07-17T01:01:18Z" NotOnOrAfter="2024-01-18T06:21:48Z">
       <saml:AudienceRestriction>
         <saml:Audience>http://sp.example.com/demo1/metadata.php</saml:Audience>
       </saml:AudienceRestriction>
     </saml:Conditions>
+
     <saml:AuthnStatement AuthnInstant="2014-07-17T01:01:48Z" SessionNotOnOrAfter="2024-07-17T09:01:48Z" SessionIndex="_be9967abd904ddcae3c0eb4189adbe3f71e327cf93">
       <saml:AuthnContext>
         <saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:Password</saml:AuthnContextClassRef>
       </saml:AuthnContext>
     </saml:AuthnStatement>
+
     <saml:AttributeStatement>
-      <saml:Attribute Name="uid" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic">
+      <saml:Attribute Name="https://aws.amazon.com/SAML/Attributes/RoleSessionName">
+        <saml:AttributeValue xsi:type="xs:string">NipToTheLoo</saml:AttributeValue>
+      </saml:Attribute>
+    <saml:Attribute Name="https://aws.amazon.com/SAML/Attributes/SessionDuration">
+      <saml:AttributeValue>1800</saml:AttributeValue>
+    </saml:Attribute>
+    <saml:Attribute Name="uid" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic">
         <saml:AttributeValue xsi:type="xs:string">test</saml:AttributeValue>
       </saml:Attribute>
       <saml:Attribute Name="mail" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:basic">
@@ -297,8 +307,19 @@ facing addresses if this IdP is hosted behind a reverse proxy.  -->
     def test_assume_role(self):
         resp = self.iam_client.create_role(**self.RoleSpecs)
         self.role_arn = resp['Role']['Arn']
+        print("create_role response:")
+        pprint.pp(resp)
 
         boto3.set_stream_logger('')
+        resp = self.iam_client.create_saml_provider(**self.SAMLProvider)
+        self.saml_provider_arn = resp['SAMLProviderArn']
+        print("create_saml_provider response:")
+        pprint.pp(resp)
+
+        resp = self.iam_client.get_saml_provider(SAMLProviderArn = self.saml_provider_arn)
+        print("get_saml_provider response:")
+        pprint.pp(resp)
+
         resp = self.sts_client.assume_role_with_saml(
             RoleArn = self.role_arn,
             PrincipalArn='arn:aws:iam::123456789012:saml-provider/SAML-test',
