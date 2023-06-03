@@ -21,7 +21,7 @@
 ##
 ## ---------------------------------------------------------------------
 
-import os, httplib2, json, unittest, uuid, hashlib, time
+import os, httplib2, json, unittest, uuid, hashlib, time, pprint
 from file_generator import FileGenerator
 
 import boto3
@@ -384,3 +384,20 @@ class FileGenTest(unittest.TestCase):
         self.assertEqual(2048, f.pos)
         self.assertEqual(b'', f.read(1))
         self.assertEqual(b'', f.read(1))
+
+
+def from_file(fname):
+    with open(fname, 'rb') as f:
+        return str(f.read())
+
+def mpp(blurb, thing):
+    if os.environ.get('RCST_VERBOSE'):
+        if int(os.environ.get('RCST_VERBOSE')) > 0:
+            print(blurb)
+            pprint.pp(thing)
+            print
+
+def mpl():
+    if os.environ.get('RCST_VERBOSE'):
+        if int(os.environ.get('RCST_VERBOSE')) > 1:
+            boto3.set_stream_logger('')

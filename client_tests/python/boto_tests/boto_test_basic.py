@@ -31,27 +31,29 @@ class BasicTests(AmzTestBase):
         self.assertRaises(botocore.exceptions.ClientError, bad_client.list_buckets)
 
     def test_create_bucket(self):
+        #boto3.set_stream_logger('')
         self.createBucket()
         self.assertIn(self.default_bucket, self.listBuckets())
         self.deleteBucket()
 
     def test_put_object(self, key = None):
+        bucket = str(uuid.uuid4())
         if key is None:
             key = self.default_key
-        self.createBucket()
-        self.putObject(key = key)
-        self.assertIn(key, self.listKeys())
-        self.assertEqual(self.data, self.getObject(key = key))
-        self.deleteBucket()
+        self.createBucket(bucket = bucket)
+        self.putObject(bucket = bucket, key = key)
+        self.assertIn(key, self.listKeys(bucket = bucket))
+        self.assertEqual(self.data, self.getObject(bucket = bucket, key = key))
+        self.deleteBucket(bucket = bucket)
 
     def test_put_object_with_trailing_slash(self):
         self.test_put_object(self.default_key + '/')
 
     def test_delete_object(self):
-        #boto3.set_stream_logger('')
         self.createBucket()
         self.putObject()
         self.assertIn(self.default_key, self.listKeys())
+        #boto3.set_stream_logger('')
         self.deleteObject()
         self.assertNotIn(self.default_key, self.listKeys())
         self.assertRaises(self.s3_client.exceptions.NoSuchKey,
@@ -156,6 +158,7 @@ class SimpleCopyTest(AmzTestBase):
         self.deleteBucket(bucket = target_bucket)
 
     def test_put_copy_object_from_mp(self):
+        #boto3.set_stream_logger('')
         src_bucket = str(uuid.uuid4())
         self.createBucket(bucket = src_bucket)
         upload_id, result = self.upload_multipart(src_bucket, self.default_key, [self.data])
