@@ -387,13 +387,15 @@ class FileGenTest(unittest.TestCase):
 
 
 def from_file(fname):
-    with open(fname, 'rb') as f:
+    with open(fname, 'r') as f:
         return str(f.read())
 
 def mpp(blurb, thing):
     if os.environ.get('RCST_VERBOSE'):
         if int(os.environ.get('RCST_VERBOSE')) > 0:
+            print("=========================")
             print(blurb)
+            print("-------------------------")
             pprint.pp(thing)
             print
 

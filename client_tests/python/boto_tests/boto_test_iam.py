@@ -69,7 +69,6 @@ class RoleTest(AmzTestBase):
         self.assertEqual(resp['Role']['Tags'], self.RoleSpecs['Tags'])
         mpp("CreateRole result:", resp)
 
-        boto3.set_stream_logger('')
         resp = self.iam_client.get_role(RoleName = self.RoleSpecs['RoleName'])
         mpp("GetRole result:", resp)
 
@@ -109,6 +108,7 @@ class RoleTest(AmzTestBase):
     SAMLAssertion = from_file("saml_assertion.xml")
 
     def test_saml_provider(self):
+        mpl()
         resp = self.iam_client.create_saml_provider(**self.SAMLProvider)
         self.assertIn(self.SAMLProvider['Name'], resp['SAMLProviderArn'])
 
@@ -119,24 +119,30 @@ class RoleTest(AmzTestBase):
         self.assertEqual(resp['Tags'], self.SAMLProvider['Tags'])
 
         resp = self.iam_client.list_saml_providers()
+        mpp('ListSAMLProviders:', resp)
+        self.assertEqual(len(resp['SAMLProviderList']), 1)
 
         resp = self.iam_client.delete_saml_provider(SAMLProviderArn = arn)
+
+        resp = self.iam_client.list_saml_providers()
+        mpp('ListSAMLProviders:', resp)
+        self.assertEqual(len(resp['SAMLProviderList']), 0)
 
     def test_assume_role(self):
         mpl()
         resp = self.iam_client.create_role(**self.RoleSpecs)
         self.role_arn = resp['Role']['Arn']
-        print("create_role response:")
-        pprint.pp(resp)
+        mpp("create_role response:", resp)
+
+        resp = self.iam_client.list_roles(PathPrefix = "/")
+        mpp("ListRoles response:", resp)
 
         resp = self.iam_client.create_saml_provider(**self.SAMLProvider)
         self.saml_provider_arn = resp['SAMLProviderArn']
-        print("create_saml_provider response:")
-        pprint.pp(resp)
+        mpp("create_saml_provider response:", resp)
 
         resp = self.iam_client.get_saml_provider(SAMLProviderArn = self.saml_provider_arn)
-        print("get_saml_provider response:")
-        pprint.pp(resp)
+        mpp("get_saml_provider response:", resp)
 
         resp = self.sts_client.assume_role_with_saml(
             RoleArn = self.role_arn,
@@ -149,7 +155,7 @@ class RoleTest(AmzTestBase):
             ],
             Policy = 'arn:aws:iam::123456789012:policy/WhereItMattersGenerally',
             DurationSeconds = 1230)
-        pprint.pp(resp)
+        mpp("assume_role_with_saml response:", resp)
 
         config = Config()
         new_client = boto3.client('s3',
@@ -158,8 +164,8 @@ class RoleTest(AmzTestBase):
                                   aws_secret_access_key = resp['Credentials']['SecretAccessKey'],
                                   config = config)
         resp = new_client.list_buckets()
-        pprint.pp(resp)
+        mpp("new_client.list_buckets response:", resp)
 
-        self.iam_client.delete_role(RoleName = self.RoleSpecs['RoleName'])
-        self.iam_client.delete_saml_provider(SAMLProviderArn = self.saml_provider_arn)
+        mpp("Deleting role:", self.iam_client.delete_role(RoleName = self.RoleSpecs['RoleName']))
+        mpp("Deleting SAML provider:", self.iam_client.delete_saml_provider(SAMLProviderArn = self.saml_provider_arn))
 
