@@ -27,7 +27,7 @@ import botocore, json, uuid
 class BasicTests(AmzTestBase):
     def test_auth(self):
         bad_user = json.loads('{"email":"baduser@example.me","display_name":"baduser","name":"user1","key_id":"bad_key","key_secret":"BadSecret","id":"bad_canonical_id"}')
-        bad_client, _ = self.make_clients(bad_user)
+        bad_client, _, _ = self.make_clients(bad_user)
         self.assertRaises(botocore.exceptions.ClientError, bad_client.list_buckets)
 
     def test_create_bucket(self):

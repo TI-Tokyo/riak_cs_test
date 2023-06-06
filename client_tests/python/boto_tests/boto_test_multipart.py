@@ -99,7 +99,7 @@ class MultiPartUploadTests(AmzTestBase):
         self.deleteBucket(bucket = bucket)
 
 
-class LargerMultipartFileUploadTest(S3ApiVerificationTestBase):
+class LargerMultipartFileUploadTest(AmzTestBase):
     """
     Larger, multipart file uploads - to pass this test,
     requires '{enforce_multipart_part_size, false},' entry at riak_cs's app.config
