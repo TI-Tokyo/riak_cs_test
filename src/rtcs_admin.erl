@@ -56,16 +56,17 @@ create_user_rpc(Node, Key, Secret) ->
 
 -spec create_admin_user(atom()) -> {#aws_config{}, binary()}.
 create_admin_user(Node) ->
-    User = "admin",
-    Email = "admin@me.com",
-    %% must match the values in client_tests/python/boto_test.py
+    create_admin_with_policy(Node).
+create_admin_with_policy(Node) ->
+    Port = rtcs_config:cs_port(Node),
+    Cmd = io_lib:format("~s/dev/dev1/riak-cs/priv/tools/create-admin -p ~b -q",
+                        [rtcs_config:devpath(cs, current), Port]),
+    {ok, Stdout} = rtcs_dev:cmd(Cmd),
+    #{key_id := KeyId,
+      key_secret := KeySecret,
+      canonical_id := CanonicalId} = jsx:decode(Stdout, [{labels, atom}]),
+    {rtcs_clients:aws_config(KeyId, KeySecret, Port), CanonicalId}.
 
-    {UserConfig, Id} = create_user(rtcs_config:cs_port(Node), Email, User),
-    logger:info("Created Riak CS Admin account on ~s:", [rtcs_dev:cs_node(Node)]),
-    logger:info("KeyId     : ~s", [UserConfig#aws_config.access_key_id]),
-    logger:info("KeySecret : ~s", [UserConfig#aws_config.secret_access_key]),
-    logger:info("UserId    : ~s", [Id]),
-    {UserConfig, Id}.
 
 -spec create_user(atom(), non_neg_integer()) -> #aws_config{}.
 create_user(Node, UserIndex) ->
@@ -97,6 +98,8 @@ create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
     [KeyId, KeySecret, Id] = [binary_to_list(rtcs_dev:json_get([K], JsonData)) ||
                                  K <- [<<"key_id">>, <<"key_secret">>, <<"canonical_id">>]],
     {rtcs_clients:aws_config(KeyId, KeySecret, Port), Id}.
+
+
 
 -spec update_user(#aws_config{}, non_neg_integer(), string(), string(), string()) -> {non_neg_integer(), string()}.
 update_user(UserConfig, _Port, Resource, ContentType, UpdateDoc) ->
