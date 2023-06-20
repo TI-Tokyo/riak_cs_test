@@ -1,12 +1,15 @@
 {application, riak_test,
  [
-  {description, "Testing Infrastructure for Riak"},
+  {description, "Testing Infrastructure for Riak CS"},
   {vsn, git},
   {registered, []},
   {applications, [
                   kernel,
                   stdlib,
                   erlcloud,
+                  jsx,
+                  mochiweb,
+                  webmachine,
                   hackney,
                   rcs_common
                  ]},
