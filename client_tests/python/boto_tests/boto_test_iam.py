@@ -61,7 +61,8 @@ class RoleTest(AmzTestBase):
     saml_provider_arn = None
 
     def test_role_crud(self):
-        mpl()
+        self.clean_up_iam_entities()
+
         resp = self.iam_client.create_role(**self.RoleSpecs)
         self.assertEqual(resp['Role']['Path'], self.RoleSpecs['Path'])
         self.assertEqual(resp['Role']['RoleName'], self.RoleSpecs['RoleName'])
@@ -129,7 +130,8 @@ class RoleTest(AmzTestBase):
         self.assertEqual(len(resp['SAMLProviderList']), 0)
 
     def test_assume_role(self):
-        mpl()
+        self.clean_up_iam_entities()
+
         resp = self.iam_client.create_role(**self.RoleSpecs)
         self.role_arn = resp['Role']['Arn']
         mpp("create_role response:", resp)
@@ -146,14 +148,15 @@ class RoleTest(AmzTestBase):
 
         resp = self.sts_client.assume_role_with_saml(
             RoleArn = self.role_arn,
-            PrincipalArn='arn:aws:iam::123456789012:saml-provider/SAML-test',
+            PrincipalArn = self.saml_provider_arn,
             SAMLAssertion = str(base64.b64encode(bytes(self.SAMLAssertion, 'utf-8')))[2:-1],
-            PolicyArns=[
+            PolicyArns = [
                 {
-                    'arn': 'arn:aws:iam::123456789012:policy/SpecificallyWhereItMatters'
+                    'arn': 'arn:aws:iam::123456789012:policy/ExtraPolicyThis',
+                    'arn': 'arn:aws:iam::123456789013:policy/ExtraPolicyThat'
                 },
             ],
-            Policy = 'arn:aws:iam::123456789012:policy/WhereItMattersGenerally',
+            Policy = 'arn:aws:iam::123456789012:policy/MyVeryPersonalInlinePolicy',
             DurationSeconds = 1230)
         mpp("assume_role_with_saml response:", resp)
 
@@ -169,3 +172,17 @@ class RoleTest(AmzTestBase):
         mpp("Deleting role:", self.iam_client.delete_role(RoleName = self.RoleSpecs['RoleName']))
         mpp("Deleting SAML provider:", self.iam_client.delete_saml_provider(SAMLProviderArn = self.saml_provider_arn))
 
+    def clean_up_iam_entities(self):
+        resp = self.iam_client.list_saml_providers()
+        for r in resp['SAMLProviderList']:
+            self.iam_client.delete_saml_provider(SAMLProviderArn = r['Arn'])
+
+        resp = self.iam_client.list_roles()
+        mpp("eeee", resp)
+        for r in resp['Roles']:
+            mpp("kkk", self.iam_client.delete_role(RoleName = r['RoleName']))
+
+        try:
+            self.iam_client.delete_role(RoleName = self.RoleSpecs['RoleName'])
+        except:
+            pass

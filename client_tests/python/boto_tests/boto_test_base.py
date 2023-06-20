@@ -94,13 +94,13 @@ class AmzTestBase(unittest.TestCase):
                          "display_name": "Mr Admin",
                          "key_id": key_id, "key_secret": key_secret, "id": user_id}
 
-        #boto3.set_stream_logger('')
         cls.user2 = create_user(cls.host, cls.port, "user2", str(uuid.uuid4()) + "@example.me")
         cls.default_bucket = str(uuid.uuid4())
         cls.default_key = str(uuid.uuid4())
         cls.data = mineCoins()
 
         warnings.simplefilter("ignore", ResourceWarning)
+        mpl()
 
     def setUp(self):
         self.s3_client, self.iam_client, self.sts_client = self.make_clients(self.user1)
