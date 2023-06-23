@@ -62,9 +62,7 @@ create_admin_with_policy(Node) ->
     Cmd = io_lib:format("~s/dev/dev1/riak-cs/priv/tools/create-admin -p ~b -q",
                         [rtcs_config:devpath(cs, current), Port]),
     {ok, Stdout} = rtcs_dev:cmd(Cmd),
-    #{key_id := KeyId,
-      key_secret := KeySecret,
-      canonical_id := CanonicalId} = jsx:decode(Stdout, [{labels, atom}]),
+    [KeyId, KeySecret, CanonicalId] = string:tokens(lists:droplast(binary_to_list(Stdout)), " "),
     {rtcs_clients:aws_config(KeyId, KeySecret, Port), CanonicalId}.
 
 
