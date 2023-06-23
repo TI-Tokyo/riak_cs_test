@@ -26,8 +26,6 @@ import json, uuid, base64, datetime
 import pprint
 
 class RoleTest(AmzTestBase):
-    "CRUD on roles"
-
     RoleSpecs = {
         'Path': "/application_abc/component_xyz/",
         'RoleName': "VeryImportantRole",
@@ -93,7 +91,7 @@ class RoleTest(AmzTestBase):
     IdPMetadata = from_file("idp_metadata.xml")
     SAMLProvider = {
         'Name': "CarpatDream",
-        'SAMLMetadataDocument': str(base64.b64encode(bytes(IdPMetadata, 'utf-8')))[2:-1],
+        'SAMLMetadataDocument': IdPMetadata,
         'Tags': [
             {
                 'Key': "Key1",
@@ -106,10 +104,37 @@ class RoleTest(AmzTestBase):
         ]
     }
 
+
     SAMLAssertion = from_file("saml_assertion.xml")
 
-    def test_saml_provider(self):
-        mpl()
+    def test_policies(self):
+        self.clean_up_iam_entities()
+
+        resp = self.iam_client.create_role(**self.RoleSpecs)
+
+        resp = self.iam_client.create_policy()
+        self.assertIn(self.SAMLProvider['Name'], resp['SAMLProviderArn'])
+
+        arn = resp['SAMLProviderArn']
+        resp = self.iam_client.get_saml_provider(SAMLProviderArn = arn)
+
+        self.assertEqual(resp['CreateDate'].date(), datetime.date.today())
+        self.assertEqual(resp['Tags'], self.SAMLProvider['Tags'])
+
+        resp = self.iam_client.list_saml_providers()
+        mpp('ListSAMLProviders:', resp)
+        self.assertEqual(len(resp['SAMLProviderList']), 1)
+
+        resp = self.iam_client.delete_saml_provider(SAMLProviderArn = arn)
+
+        resp = self.iam_client.list_saml_providers()
+        mpp('ListSAMLProviders:', resp)
+        self.assertEqual(len(resp['SAMLProviderList']), 0)
+
+
+    def test_saml_provider_crud(self):
+        self.clean_up_iam_entities()
+
         resp = self.iam_client.create_saml_provider(**self.SAMLProvider)
         self.assertIn(self.SAMLProvider['Name'], resp['SAMLProviderArn'])
 
@@ -128,6 +153,7 @@ class RoleTest(AmzTestBase):
         resp = self.iam_client.list_saml_providers()
         mpp('ListSAMLProviders:', resp)
         self.assertEqual(len(resp['SAMLProviderList']), 0)
+
 
     def test_assume_role(self):
         self.clean_up_iam_entities()
