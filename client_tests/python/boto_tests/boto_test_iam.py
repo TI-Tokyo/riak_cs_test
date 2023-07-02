@@ -80,7 +80,6 @@ class RoleTest(AmzTestBase):
         """,
         'Description': "Unless required by applicable law",
         'MaxSessionDuration': 3600,
-        'PermissionsBoundary': "arn:aws:iam::123456789012:role/application_abc/component_xyz/S3AccessRestrictions",
         'Tags': [
             {
                 'Key': "Key1",
