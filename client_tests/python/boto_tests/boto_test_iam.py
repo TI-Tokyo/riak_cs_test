@@ -69,13 +69,15 @@ class RoleTest(AmzTestBase):
         'AssumeRolePolicyDocument': """
 {
     "Version": "2012-10-17",
-    "Statement": {
-        "Sid": "RoleForCognito",
-        "Effect": "Allow",
-        "Principal": {"Federated": "cognito-identity.amazonaws.com"},
-        "Action": "sts:AssumeRoleWithWebIdentity",
-        "Condition": {"StringEquals": {"cognito-identity.amazonaws.com:aud": "us-east:12345678-ffff-ffff-ffff-123456"}}
-    }
+    "Statement": [
+        {
+            "Sid": "RoleForCognito",
+            "Effect": "Allow",
+            "Principal": {"Federated": "cognito-identity.amazonaws.com"},
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Condition": {"StringEquals": {"cognito-identity.amazonaws.com:aud": "us-east:12345678-ffff-ffff-ffff-123456"}}
+        }
+    ]
 }
         """,
         'Description': "Unless required by applicable law",
@@ -94,7 +96,7 @@ class RoleTest(AmzTestBase):
     role_arn = None
     saml_provider_arn = None
 
-    def test_role_crud(self):
+    def test_roles(self):
         self.clean_up_iam_entities()
 
         resp = self.iam_client.create_role(**self.RoleSpecs)
@@ -123,6 +125,66 @@ class RoleTest(AmzTestBase):
         mpp("After deletion, ListRoles result again:", resp)
         self.assertEqual(len(resp['Roles']), 0)
 
+    PolicyDocument = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Principal": "*",
+                "Effect": "Allow",
+                "Action": "s3:ListAllMyBuckets",
+                "Resource": "arn:aws:s3:::*"
+            },
+            {
+                "Principal": "*",
+                "Effect": "Allow",
+                "Action": [
+                    "s3:Get*",
+                    "s3:List*"
+                ],
+                "Resource": [
+                    "arn:aws:s3:::EXAMPLE-BUCKET",
+                    "arn:aws:s3:::EXAMPLE-BUCKET/*"
+                ]
+            }
+        ]
+    }
+    PolicySpecs = {
+        'PolicyName': "PolicyOne",
+        'Path': "/not/root",
+        'PolicyDocument': json.dumps(PolicyDocument),
+        'Description': "Fine print",
+        'Tags': [
+            {
+                'Key': "stringkey",
+                'Value': "stringvalue"
+            }
+        ]
+    }
+
+    def test_policies(self):
+        self.clean_up_iam_entities()
+
+        resp = self.iam_client.create_role(**self.RoleSpecs)
+
+        resp = self.iam_client.create_policy(**self.PolicySpecs)
+        p = resp['Policy']
+        self.assertIn(self.PolicySpecs['PolicyName'], p['PolicyName'])
+        self.assertEqual(p['CreateDate'].date(), datetime.date.today())
+        self.assertEqual(p['Tags'], self.PolicySpecs['Tags'])
+        arn = p['Arn']
+
+        resp = self.iam_client.get_policy(PolicyArn = arn)
+        mpp("GetPolicy: ", resp)
+
+        resp = self.iam_client.list_policies()
+        mpp('ListPolicies:', resp)
+        self.assertIn(self.PolicySpecs['PolicyName'], [n['PolicyName'] for n in resp['Policies']])
+
+        resp = self.iam_client.delete_policy(PolicyArn = arn)
+
+        resp = self.iam_client.list_policies()
+        self.assertNotIn(self.PolicySpecs['PolicyName'], [n['PolicyName'] for n in resp['Policies']])
+
 
     IdPMetadata = from_file("idp_metadata.xml")
     SAMLProvider = {
@@ -143,32 +205,7 @@ class RoleTest(AmzTestBase):
 
     SAMLAssertion = from_file("saml_assertion.xml")
 
-    def test_policies(self):
-        self.clean_up_iam_entities()
-
-        resp = self.iam_client.create_role(**self.RoleSpecs)
-
-        resp = self.iam_client.create_policy()
-        self.assertIn(self.SAMLProvider['Name'], resp['SAMLProviderArn'])
-
-        arn = resp['SAMLProviderArn']
-        resp = self.iam_client.get_saml_provider(SAMLProviderArn = arn)
-
-        self.assertEqual(resp['CreateDate'].date(), datetime.date.today())
-        self.assertEqual(resp['Tags'], self.SAMLProvider['Tags'])
-
-        resp = self.iam_client.list_saml_providers()
-        mpp('ListSAMLProviders:', resp)
-        self.assertEqual(len(resp['SAMLProviderList']), 1)
-
-        resp = self.iam_client.delete_saml_provider(SAMLProviderArn = arn)
-
-        resp = self.iam_client.list_saml_providers()
-        mpp('ListSAMLProviders:', resp)
-        self.assertEqual(len(resp['SAMLProviderList']), 0)
-
-
-    def test_saml_provider_crud(self):
+    def test_saml_providers(self):
         self.clean_up_iam_entities()
 
         resp = self.iam_client.create_saml_provider(**self.SAMLProvider)
@@ -221,6 +258,7 @@ class RoleTest(AmzTestBase):
             Policy = 'arn:aws:iam::123456789012:policy/MyVeryPersonalInlinePolicy',
             DurationSeconds = 1230)
         mpp("assume_role_with_saml response:", resp)
+        assumed_role_user_key_id = resp['Credentials']['AccessKeyId']
 
         config = Config()
         new_client = boto3.client('s3',
@@ -240,9 +278,12 @@ class RoleTest(AmzTestBase):
             self.iam_client.delete_saml_provider(SAMLProviderArn = r['Arn'])
 
         resp = self.iam_client.list_roles()
-        mpp("eeee", resp)
         for r in resp['Roles']:
-            mpp("kkk", self.iam_client.delete_role(RoleName = r['RoleName']))
+            self.iam_client.delete_role(RoleName = r['RoleName'])
+
+        resp = self.iam_client.list_policies()
+        for r in resp['Policies']:
+            self.iam_client.delete_policy(PolicyArn = r['Arn'])
 
         try:
             self.iam_client.delete_role(RoleName = self.RoleSpecs['RoleName'])
