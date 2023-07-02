@@ -255,10 +255,10 @@ class AmzTestBase(unittest.TestCase):
                                              Body = val,
                                              PartNumber = index + 1)
             etags += [{'ETag': res['ETag'], 'PartNumber': index + 1}]
-            result = self.s3_client.complete_multipart_upload(UploadId = upload_id,
-                                                              Bucket = bucket,
-                                                              Key = key,
-                                                              MultipartUpload = {'Parts': etags})
+        result = self.s3_client.complete_multipart_upload(UploadId = upload_id,
+                                                          Bucket = bucket,
+                                                          Key = key,
+                                                          MultipartUpload = {'Parts': etags})
         return upload_id, result
 
     def multipart_md5_helper(self, bucket, parts, key_suffix = u''):
