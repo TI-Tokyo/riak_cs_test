@@ -25,6 +25,43 @@ from botocore.client import Config
 import json, uuid, base64, datetime
 import pprint
 
+class UserTest(AmzTestBase):
+
+    UserSpecs = {
+        'UserName': "Johnny1273eecs3c2",
+        'Tags': [
+            {
+                'Key': "Key1",
+                'Value': "Value1"
+            }
+        ]
+    }
+
+    def test_users(self):
+        resp = self.iam_client.create_user(**self.UserSpecs)
+        mpp("CreateUser result:", resp)
+        self.assertEqual(resp['User']['UserName'], self.UserSpecs['UserName'])
+        self.assertEqual(resp['User']['Tags'], self.UserSpecs['Tags'])
+        self.assertIn(self.UserSpecs['UserName'], resp['User']['Arn'])
+
+        resp = self.iam_client.get_user(UserName = self.UserSpecs['UserName'])
+        mpp("GetUser response", resp)
+        self.assertEqual(resp['User']['UserName'], self.UserSpecs['UserName'])
+        self.assertEqual(resp['User']['Tags'], self.UserSpecs['Tags'])
+        self.assertIn(self.UserSpecs['UserName'], resp['User']['Arn'])
+
+        resp = self.iam_client.list_users()
+        mpp("ListUsers result:", resp)
+        self.assertIn(self.UserSpecs['UserName'], [n['UserName'] for n in resp['Users']])
+
+        resp = self.iam_client.delete_user(UserName = self.UserSpecs['UserName'])
+        mpp("DeleteUser result:", resp)
+
+        resp = self.iam_client.list_users()
+        self.assertNotIn(self.UserSpecs['UserName'], [n['UserName'] for n in resp['Users']])
+
+
+
 class RoleTest(AmzTestBase):
     RoleSpecs = {
         'Path': "/application_abc/component_xyz/",

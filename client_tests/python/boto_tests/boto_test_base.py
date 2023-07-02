@@ -53,7 +53,8 @@ class AmzTestBase(unittest.TestCase):
             sig_vsn = 's3v4'
         else:
             sig_vsn = 's3'
-        config = Config(signature_version = sig_vsn)
+        config = Config(signature_version = sig_vsn,
+                        parameter_validation = False)
         s3_client = boto3.client('s3',
                                  use_ssl = False,
                                  aws_access_key_id = user['key_id'],
@@ -295,6 +296,17 @@ def create_user(host, port, name, email):
     resp, content = conn.request(url, "POST",
                                  headers = {"Content-Type": "application/json"},
                                  body = json.dumps({"email": email, "name": name}))
+    conn.close()
+    return json.loads(content)
+
+def get_user(host, port, key):
+    os.environ['http_proxy'] = ''
+    url = 'http://%s:%d/riak-cs/user/%s' % (host, port, key)
+    conn = httplib2.Http()
+    resp, content = conn.request(url, "GET",
+                                 headers = {"Content-Type": "application/json"})
+    print("resp:", resp)
+    print("content:", content)
     conn.close()
     return json.loads(content)
 
