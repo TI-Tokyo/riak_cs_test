@@ -63,19 +63,20 @@ class UserTest(AmzTestBase):
 
 
 class RoleTest(AmzTestBase):
+
     RoleSpecs = {
-        'Path': "/application_abc/component_xyz/",
+        'Path': "/",
         'RoleName': "VeryImportantRole",
         'AssumeRolePolicyDocument': """
 {
     "Version": "2012-10-17",
     "Statement": [
         {
-            "Sid": "RoleForCognito",
+            "Sid": "RoleForFunAndProfit",
             "Effect": "Allow",
-            "Principal": {"Federated": "cognito-identity.amazonaws.com"},
-            "Action": "sts:AssumeRoleWithWebIdentity",
-            "Condition": {"StringEquals": {"cognito-identity.amazonaws.com:aud": "us-east:12345678-ffff-ffff-ffff-123456"}}
+            "Principal": "*",
+            "Action": [ "iam:ListUsers" ],
+            "Resource": "*"
         }
     ]
 }
@@ -142,8 +143,7 @@ class RoleTest(AmzTestBase):
                     "s3:List*"
                 ],
                 "Resource": [
-                    "arn:aws:s3:::EXAMPLE-BUCKET",
-                    "arn:aws:s3:::EXAMPLE-BUCKET/*"
+                    "*"
                 ]
             }
         ]
@@ -233,17 +233,17 @@ class RoleTest(AmzTestBase):
 
         resp = self.iam_client.create_role(**self.RoleSpecs)
         self.role_arn = resp['Role']['Arn']
-        mpp("create_role response:", resp)
+        mpp("CreateRole response:", resp)
 
         resp = self.iam_client.list_roles(PathPrefix = "/")
         mpp("ListRoles response:", resp)
 
         resp = self.iam_client.create_saml_provider(**self.SAMLProvider)
         self.saml_provider_arn = resp['SAMLProviderArn']
-        mpp("create_saml_provider response:", resp)
+        mpp("CreateSAMLProvider response:", resp)
 
         resp = self.iam_client.get_saml_provider(SAMLProviderArn = self.saml_provider_arn)
-        mpp("get_saml_provider response:", resp)
+        mpp("GetSAMLProvider response:", resp)
 
         resp = self.sts_client.assume_role_with_saml(
             RoleArn = self.role_arn,
@@ -255,19 +255,18 @@ class RoleTest(AmzTestBase):
                     'arn': 'arn:aws:iam::123456789013:policy/ExtraPolicyThat'
                 },
             ],
-            Policy = 'arn:aws:iam::123456789012:policy/MyVeryPersonalInlinePolicy',
             DurationSeconds = 1230)
         mpp("assume_role_with_saml response:", resp)
         assumed_role_user_key_id = resp['Credentials']['AccessKeyId']
 
-        config = Config()
-        new_client = boto3.client('s3',
+        config = Config(signature_version = 's3v4')
+        new_client = boto3.client('iam',
                                   use_ssl = False,
                                   aws_access_key_id = resp['Credentials']['AccessKeyId'],
                                   aws_secret_access_key = resp['Credentials']['SecretAccessKey'],
                                   config = config)
-        resp = new_client.list_buckets()
-        mpp("new_client.list_buckets response:", resp)
+        resp = new_client.list_users()
+        mpp("new_client.list_users response:", resp)
 
         mpp("Deleting role:", self.iam_client.delete_role(RoleName = self.RoleSpecs['RoleName']))
         mpp("Deleting SAML provider:", self.iam_client.delete_saml_provider(SAMLProviderArn = self.saml_provider_arn))
