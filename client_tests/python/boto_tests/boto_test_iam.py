@@ -267,6 +267,8 @@ class RoleTest(AmzTestBase):
                                   config = config)
         resp = new_client.list_users()
         mpp("new_client.list_users response:", resp)
+        self.assertIn("admin", [n['UserName'] for n in resp['Users']])
+        self.assertIn("user2", [n['UserName'] for n in resp['Users']])
 
         mpp("Deleting role:", self.iam_client.delete_role(RoleName = self.RoleSpecs['RoleName']))
         mpp("Deleting SAML provider:", self.iam_client.delete_saml_provider(SAMLProviderArn = self.saml_provider_arn))
