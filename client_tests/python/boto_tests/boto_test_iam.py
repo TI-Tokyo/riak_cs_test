@@ -25,7 +25,7 @@ from botocore.client import Config
 import json, uuid, base64, datetime
 import pprint
 
-class UserTest(AmzTestBase):
+class IAMTest(AmzTestBase):
 
     UserSpecs = {
         'UserName': "Johnny1273eecs3c2",
@@ -59,10 +59,6 @@ class UserTest(AmzTestBase):
 
         resp = self.iam_client.list_users()
         self.assertNotIn(self.UserSpecs['UserName'], [n['UserName'] for n in resp['Users']])
-
-
-
-class RoleTest(AmzTestBase):
 
     RoleSpecs = {
         'Path': "/",
@@ -98,8 +94,6 @@ class RoleTest(AmzTestBase):
     saml_provider_arn = None
 
     def test_roles(self):
-        self.clean_up_iam_entities()
-
         resp = self.iam_client.create_role(**self.RoleSpecs)
         self.assertEqual(resp['Role']['Path'], self.RoleSpecs['Path'])
         self.assertEqual(resp['Role']['RoleName'], self.RoleSpecs['RoleName'])
@@ -142,9 +136,7 @@ class RoleTest(AmzTestBase):
                     "s3:Get*",
                     "s3:List*"
                 ],
-                "Resource": [
-                    "*"
-                ]
+                "Resource": "*"
             }
         ]
     }
@@ -161,9 +153,7 @@ class RoleTest(AmzTestBase):
         ]
     }
 
-    def test_policies(self):
-        self.clean_up_iam_entities()
-
+    def test_policies_crud(self):
         resp = self.iam_client.create_role(**self.RoleSpecs)
 
         resp = self.iam_client.create_policy(**self.PolicySpecs)
@@ -184,6 +174,44 @@ class RoleTest(AmzTestBase):
 
         resp = self.iam_client.list_policies()
         self.assertNotIn(self.PolicySpecs['PolicyName'], [n['PolicyName'] for n in resp['Policies']])
+
+        self.iam_client.delete_role(RoleName = self.RoleSpecs['RoleName'])
+
+    def test_policies_attach(self):
+        resp = self.iam_client.create_user(**self.UserSpecs)
+
+        resp = self.iam_client.list_attached_user_policies(
+            UserName = self.UserSpecs['UserName'])
+        mpp("before attaching, ListAttachedUserPolicies:", resp)
+        self.assertEqual(resp['AttachedPolicies'], [])
+
+        resp = self.iam_client.create_policy(**self.PolicySpecs)
+        policy_arn = resp['Policy']['Arn']
+
+        res = self.iam_client.attach_user_policy(
+            UserName = self.UserSpecs['UserName'],
+            PolicyArn = policy_arn
+        )
+
+        resp = self.iam_client.list_attached_user_policies(
+            UserName = self.UserSpecs['UserName'])
+        mpp("after attaching ListAttachedUserPolicies:", resp)
+        self.assertIn((policy_arn, self.PolicySpecs['PolicyName']),
+                      [(n['PolicyArn'], n['PolicyName']) for n in resp['AttachedPolicies']])
+
+        with self.assertRaises(Exception):
+            self.iam_client.delete_user(UserName = self.UserSpecs['UserName'])
+
+        resp = self.iam_client.detach_user_policy(
+            UserName = self.UserSpecs['UserName'],
+            PolicyArn = policy_arn
+        )
+        resp = self.iam_client.list_attached_user_policies(
+            UserName = self.UserSpecs['UserName'])
+        self.assertEqual(resp['AttachedPolicies'], [])
+
+        self.iam_client.delete_policy(PolicyArn = policy_arn)
+        self.iam_client.delete_user(UserName = self.UserSpecs['UserName'])
 
 
     IdPMetadata = from_file("idp_metadata.xml")
@@ -206,8 +234,6 @@ class RoleTest(AmzTestBase):
     SAMLAssertion = from_file("saml_assertion.xml")
 
     def test_saml_providers(self):
-        self.clean_up_iam_entities()
-
         resp = self.iam_client.create_saml_provider(**self.SAMLProvider)
         self.assertIn(self.SAMLProvider['Name'], resp['SAMLProviderArn'])
 
@@ -229,8 +255,6 @@ class RoleTest(AmzTestBase):
 
 
     def test_assume_role(self):
-        self.clean_up_iam_entities()
-
         resp = self.iam_client.create_role(**self.RoleSpecs)
         self.role_arn = resp['Role']['Arn']
         mpp("CreateRole response:", resp)
@@ -285,8 +309,3 @@ class RoleTest(AmzTestBase):
         resp = self.iam_client.list_policies()
         for r in resp['Policies']:
             self.iam_client.delete_policy(PolicyArn = r['Arn'])
-
-        try:
-            self.iam_client.delete_role(RoleName = self.RoleSpecs['RoleName'])
-        except:
-            pass
