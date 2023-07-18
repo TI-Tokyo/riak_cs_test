@@ -155,11 +155,15 @@ class VersioningTests(AmzTestBase):
         self.putBucketVersioning(bucket = bucket,
                                  status = 'Enabled')
 
-        client2 = self.make_client(self.user2)
+        client2 = boto3.client('s3',
+                               use_ssl = False,
+                               aws_access_key_id = self.user2['key_id'],
+                               aws_secret_access_key = self.user2['key_secret'],
+                               config = Config(signature_version = 's3v4'))
 
         v1 = self.putObject(bucket = bucket)
 
-        # user1 can read the object he created
+        # user1 can read the object she created
         self.assertEqual(self.getObject(bucket = bucket, vsn = v1), self.data)
         # but user2 cannot
         try:
