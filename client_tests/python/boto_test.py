@@ -2,7 +2,7 @@
 ## ---------------------------------------------------------------------
 ##
 ## Copyright (c) 2007-2013 Basho Technologies, Inc.  All Rights Reserved.
-##               2021 TI Tokyo    All Rights Reserved.
+##               2021-2023 TI Tokyo    All Rights Reserved.
 ##
 ## This file is provided to you under the Apache License,
 ## Version 2.0 (the "License"); you may not use this file
@@ -26,7 +26,7 @@ from boto_test_versioning import VersioningTests
 from boto_test_multipart import MultiPartUploadTests, LargerMultipartFileUploadTest
 from boto_test_policy import BucketPolicyTest, MultipartUploadTestsUnderPolicy
 from boto_test_metadata import ObjectMetadataTest
-from boto_test_iam import RoleTest, SAMLProviderTest
+from boto_test_iam import IAMTest
 import unittest
 
 if __name__ == "__main__":

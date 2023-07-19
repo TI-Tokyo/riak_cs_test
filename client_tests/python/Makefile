@@ -1,15 +1,10 @@
-.PHONY: boto_tests ceph_tests
+.PHONY: test all
+.DEFAULT: all
 
-all:
-	$(MAKE) -C ./boto_tests
-	$(MAKE) -C ./ceph_tests
+all: test
 
-boto_tests:
-	$(MAKE) -C ./boto_tests
+test:
+	@python boto_test.py
 
-ceph_tests:
-	$(MAKE) -C ./ceph_tests
-
-clean:
-	$(MAKE) -C ./boto_tests clean
-	$(MAKE) -C ./ceph_tests clean
+test-auth-v2: $(DEPS)
+	@env CS_AUTH=auth-v2 python boto_test.py

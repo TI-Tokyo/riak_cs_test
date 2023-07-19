@@ -91,8 +91,8 @@ class MultiPartUploadTests(AmzTestBase):
         bucket = str(uuid.uuid4())
         self.createBucket(bucket = bucket)
         key = u'test_日本語キーのリスト'
-        self.s3_client.create_multipart_upload(Bucket = bucket,
-                                               Key = key)
+        mpp("create_multipart_upload:", self.s3_client.create_multipart_upload(Bucket = bucket,
+                                                                               Key = key))
         uploads = self.s3_client.list_multipart_uploads(Bucket = bucket)['Uploads']
         for u in uploads:
             self.assertEqual(u['Key'], key)
