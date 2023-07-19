@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 ## ---------------------------------------------------------------------
 ##
-## Copyright (c) 2021 TI Tokyo. All Rights Reserved.
+## Copyright (c) 2021-2023 TI Tokyo. All Rights Reserved.
 ##
 ## This file is provided to you under the Apache License,
 ## Version 2.0 (the "License"); you may not use this file
@@ -22,7 +22,7 @@
 import unittest
 import httplib2, json
 import uuid, hashlib, base64
-import os, time, tempfile, pathlib, subprocess, re
+import os, time, tempfile, pathlib, subprocess, re, pprint
 
 class S3CmdException(Exception):
     pass
@@ -88,9 +88,14 @@ class S3ApiVerificationTestBase(unittest.TestCase):
     def c(self, args):
         os.environ['http_proxy'] = '127.0.0.1:%d' % (self.port)
         args = ["s3cmd", "--config=%s" % (self.s3cmd_cf)] + args
-        completed = subprocess.run(args,
-                                   capture_output = True,
-                                   encoding = "utf8")
+        try:
+            mpp("cmd: ", args)
+            completed = subprocess.run(args,
+                                       capture_output = True,
+                                       encoding = "utf8")
+            mpp("output: ", completed.stdout)
+        except Exception as e:
+            mpp("Exception:", e)
         if completed.returncode != 0:
             raise S3CmdException(completed)
         return completed
@@ -765,6 +770,14 @@ class SimpleCopyTest(S3ApiVerificationTestBase):
         self.assertEqual(ee.returncode, 12)
         self.assertEqual(ee.stderr, 'WARNING: Key not found s3://%s/%s\n' % (self.bucket0, self.key0))
 
+def mpp(blurb, thing):
+    if os.environ.get('RCST_VERBOSE'):
+        if int(os.environ.get('RCST_VERBOSE')) > 0:
+            print("=========================")
+            print(blurb)
+            print("-------------------------")
+            pprint.pp(thing)
+            print
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
