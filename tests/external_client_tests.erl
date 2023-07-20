@@ -45,6 +45,14 @@ confirm() ->
            {"USER_ID",               AdminUserId}],
 
     ok = erlcloud_s3:create_bucket(?EXTRA_TEST_BUCKET, UserConfig),
+    %% this is how I debug individual clients/cases:
+    %% 1. Uncomment the sleep below:
+    %% timer:sleep(3333333333),
+    %% cd ../client_tests/python and do something like:
+    %% you@localhost:/path/to/riak_cs_test/client_tests/python $ AWS_ACCESS_KEY_ID=8SFYPUPEUCS599HZG-X0 \
+    %%       AWS_SECRET_ACCESS_KEY=kySUm9lCtsbAzjiAZtF3an1QrbbmaAFV0bYuTQ \
+    %%       USER_ID=9337d19ad75800a10b171f4bf1e4eeeadfec3eb432a15f3a75d528ebf9d3921d \
+    %%       CS_HTTP_PORT=15018  RCST_VERBOSE=1 python -m unittest boto_test_versioning
 
     case rtcs_dev:cmd({spawn_executable, os:find_executable("make")},
                       [{cd, "client_tests"}, {env, Env}, {args, Args}]) of

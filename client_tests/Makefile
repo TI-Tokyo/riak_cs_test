@@ -1,10 +1,10 @@
 .PHONY: test-client test-clojure test-boto test-erlang test-ruby test-php test-go
 
 # clients to fix: test-clojure test-erlang
-test-client: test-boto test-php test-go test-ruby test-s3cmd
+test-client: test-boto test-s3cmd test-php test-go test-ruby
 
 test-boto:
-	@cd python && ${MAKE} boto_tests
+	@cd python && ${MAKE}
 
 test-ruby:
 	@cd ruby && bundle config set --local path 'vendor' && \

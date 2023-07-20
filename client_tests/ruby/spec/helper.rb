@@ -5,7 +5,7 @@ require 'tempfile'
 def s3_conf
   {
     http_proxy: cs_uri,
-    endpoint: cs_uri,
+    endpoint: "http://s3.us-west-2.amazonaws.com",
     http_read_timeout: 2000
   }
 end

@@ -3,6 +3,7 @@ source "https://rubygems.org"
 gem "aws-sdk", "~>3"
 gem "uuid", "~>2.3"
 gem "rake", "~>13.0"
+gem "ox"
 
 group :test do
   gem "rspec", "~>3.12"

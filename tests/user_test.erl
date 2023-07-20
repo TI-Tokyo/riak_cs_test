@@ -26,6 +26,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -define(TEST_BUCKET, "riak-test-bucket").
 -define(JSON, "application/json").
