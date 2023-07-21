@@ -27,6 +27,7 @@
 -export([confirm/0]).
 
 -include("rtcs.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 -define(TEST_BUCKET, "riak-test-bucket").
 -define(TEST_KEY1, "riak_test_key1").
@@ -76,17 +77,17 @@ too_large_upload_part_test_case(Bucket, Key, Config) ->
     Uploads = proplists:get_value(uploads, MPU),
     ?assert(lists:any(fun(P) -> proplists:get_value(uploadId, P) == UploadId end, Uploads)),
 
-    logger:info("Uploading an oversize part"),
-    ?assertEqual(
-       {error, {http_error, 400, undefined,
-                iolist_to_binary(
-                  ["<?xml version=\"1.0\" encoding=\"UTF-8\"?><Error><Code>EntityTooLarge</Code>"
-                   "<Message>Your proposed upload exceeds the maximum allowed object size.</Message>"
-                   "<Resource>/",Bucket,"/",Key,"</Resource><RequestId></RequestId></Error>"])}},
+    {error, {http_error, 400, undefined, RespBody}} =
        erlcloud_s3:upload_part(Bucket, Key,
                                UploadId,
                                1, generate_part_data(61, 2000),
-                               [], Config)),
+                               [], Config),
+    {Xml, _} = xmerl_scan:string(binary_to_list(RespBody)),
+    [#xmlElement{content = [#xmlText{value = "EntityTooLarge"}]}] =
+        xmerl_xpath:string("/Error/Code", Xml, []),
+    [#xmlElement{content = [#xmlText{value = Resource}]}] =
+        xmerl_xpath:string("/Error/Resource", Xml, []),
+    ?assert(0 < string:str(Resource, "/" ++ Bucket ++ "/objects/" ++ Key)),
     ok.
 
 too_large_object_put_test_case(Bucket, Key, Config) ->
