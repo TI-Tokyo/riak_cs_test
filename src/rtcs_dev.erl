@@ -133,20 +133,20 @@ setup(NumNodes, Configs, Vsn) ->
     Flavor = rt_config:get(flavor, basic),
     logger:info("Flavor: ~p", [Flavor]),
 
-    {_, [CSNode0|_]} = Nodes =
+    Nodes =
         flavored_setup(#{num_nodes => NumNodes,
                          flavor => Flavor,
                          config_spec => Configs,
                          vsn => Vsn}),
 
-    AdminConfig = make_admin(Configs, NumNodes, Vsn, CSNode0),
+    AdminConfig = setup_admin_user(NumNodes, Vsn),
 
     {AdminConfig, Nodes}.
 
 
 setup2x2(Configs) ->
-    {_, [CSNode0|_]} = Nodes = setup2x2_2(Configs),
-    AdminConfig = make_admin(Configs, 4, current, CSNode0),
+    Nodes = setup2x2_2(Configs),
+    AdminConfig = setup_admin_user(4, current),
     {AdminConfig, Nodes}.
 
 setup2x2_2(Configs) ->
@@ -309,29 +309,7 @@ cluster_devpath(Node, Vsn) ->
 
 
 
-make_admin(ConfigFun, NumNodes, Vsn, CSNode0) when is_function(ConfigFun) ->
-    make_admin([], NumNodes, Vsn, CSNode0);
-make_admin(Configs, NumNodes, Vsn, CSNode0) ->
-    case ssl_options(Configs) of
-        [] ->
-            setup_admin_user(NumNodes, Vsn);
-        _SSLOpts ->
-            rtcs_admin:create_user_rpc(CSNode0, "admin-key", "admin-secret")
-    end.
-
-ssl_options(Config) ->
-    case proplists:get_value(cs, Config) of
-        undefined -> [];
-        RiakCS ->
-           case proplists:get_value(riak_cs, RiakCS) of
-               undefined -> [];
-               CSConfig ->
-                   proplists:get_value(ssl, CSConfig, [])
-           end
-    end.
-
-setup_admin_user(NumNodes, Vsn)
-  when Vsn =:= current orelse Vsn =:= previous ->
+setup_admin_user(NumNodes, Vsn) ->
 
     logger:info("Setting up admin user", []),
     %% Create admin user and set in cs and stanchion configs

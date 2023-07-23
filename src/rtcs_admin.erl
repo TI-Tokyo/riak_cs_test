@@ -25,7 +25,6 @@
          create_user/2,
          create_user/3,
          create_user/4,
-         create_user_rpc/3,
          create_admin_user/1,
          update_user/5,
          get_user/4,
@@ -44,15 +43,6 @@ storage_stats_json_request(AdminConfig, UserConfig, Begin, End) ->
     logger:debug("Storage samples[json]: ~p", [Samples]),
     {struct, Slice} = latest(Samples, undefined),
     by_bucket_list(Slice, []).
-
-%% Kludge for SSL testing
-create_user_rpc(Node, Key, Secret) ->
-    User = "admin",
-    Email = "admin@me.com",
-
-    %% You know this is a kludge, user creation via RPC
-    _Res = rpc:call(Node, riak_cs_user, create_user, [User, Email, Key, Secret]),
-    {rtcs_clients:aws_config(Key, Secret, rtcs_config:cs_port(1)), undefined}.
 
 -spec create_admin_user(atom()) -> {#aws_config{}, binary()}.
 create_admin_user(Node) ->

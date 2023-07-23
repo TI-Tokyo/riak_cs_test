@@ -24,8 +24,14 @@
 
 confirm() ->
     {ok, _} = application:ensure_all_started(ssl),
+    {{UserConfig, _}, {_, [CSNode0]}} = rtcs_dev:setup(1),
+    rtcs_dev:stop(CSNode0),
     CSConfig = [{ssl, [{certfile, "./etc/cert.pem"}, {keyfile, "./etc/key.pem"}]}],
-    {{UserConfig, _}, _} = rtcs_dev:setup(1, [{cs, [{riak_cs, CSConfig}]}]),
+    rtcs_config:set_configs(1,
+                            rtcs_config:configs([{cs, [{riak_cs, CSConfig}]}], current),
+                            current),
+    rtcs_dev:start(CSNode0),
+
     % logger:info("UserConfig: ~p", [UserConfig]),
     ok = verify_cs1025(UserConfig),
     pass.
