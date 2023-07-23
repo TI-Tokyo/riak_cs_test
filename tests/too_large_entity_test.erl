@@ -87,7 +87,7 @@ too_large_upload_part_test_case(Bucket, Key, Config) ->
         xmerl_xpath:string("/Error/Code", Xml, []),
     [#xmlElement{content = [#xmlText{value = Resource}]}] =
         xmerl_xpath:string("/Error/Resource", Xml, []),
-    ?assert(0 < string:str(Resource, "/" ++ Bucket ++ "/objects/" ++ Key)),
+    ?assert(0 < string:str(Resource, "/" ++ Bucket ++ "/" ++ Key)),
     ok.
 
 too_large_object_put_test_case(Bucket, Key, Config) ->
