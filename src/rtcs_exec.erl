@@ -112,35 +112,25 @@ exec_priv_escript(N, Command, ScriptOptions, #{by := By} = Options) ->
                               EscriptPath ++ " " ++ ScriptOptions)
           end,
 
-    logger:info("Running ~s", [Env ++ " " ++ Cmd]),
     os:cmd(Env ++ " " ++ Cmd).
-
-%% show_stanchion_cs(N) -> show_stanchion_cs(N, current).
-
-%% show_stanchion_cs(N, Vsn) ->
-%%     Cmd = riakcs_stanchioncmd(rtcs_config:devpath(cs, Vsn), N, "show"),
-%%     logger:info("Running ~s", [Cmd]),
-%%     os:cmd(Cmd).
 
 flush_access(N) -> flush_access(N, current).
 
 flush_access(N, Vsn) ->
     Cmd = riakcs_accesscmd(rtcs_config:devpath(cs, Vsn), N, "flush"),
-    logger:info("Running ~s", [Cmd]),
     rtcs_dev:cmd(Cmd).
 
 gc(N, SubCmd) -> gc(N, SubCmd, current).
 
 gc(N, SubCmd, Vsn) ->
     Cmd = riakcs_gccmd(rtcs_config:devpath(cs, Vsn), N, SubCmd),
-    logger:info("Running ~s", [Cmd]),
     rtcs_dev:cmd(Cmd).
 
-calculate_storage(N) -> calculate_storage(N, current).
+calculate_storage(N) ->
+    calculate_storage(N, current).
 
 calculate_storage(N, Vsn) ->
     Cmd = riakcs_storagecmd(rtcs_config:devpath(cs, Vsn), N, "batch -r"),
-    logger:info("Running ~s", [Cmd]),
     rtcs_dev:cmd(Cmd).
 
 enable_proxy_get(SrcNode, Vsn, SinkCluster) ->
