@@ -43,7 +43,7 @@ verify_multipart_upload_response() ->
     NumParts = 3,
     PartSize = (5 * 1024 * 1024),
 
-    {{AdminConfig, _}, _} = rtcs_dev:setup(1, [{cs, [{riak_cs, [{cs_root_host, Host}]}]}]),
+    {{AdminConfig, _}, _} = rtcs_dev:setup(1, [{cs, [{riak_cs, [{s3_root_host, Host}]}]}]),
     Config = AdminConfig#aws_config{s3_host = Host},
 
     logger:info("creating bucket ~p", [Bucket]),
