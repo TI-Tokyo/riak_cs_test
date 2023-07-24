@@ -272,11 +272,11 @@ connect_clusters13(LeaderA, ANodes, BPort, Name) ->
     logger:info("Connecting to ~p", [Name]),
     connect_cluster13(LeaderA, "127.0.0.1", BPort),
     ?assertEqual(ok, wait_for_connection13(LeaderA, Name)),
-    repl_util:enable_realtime(LeaderA, Name),
+    enable_realtime(LeaderA, Name),
     rt:wait_until_ring_converged(ANodes),
-    repl_util:start_realtime(LeaderA, Name),
+    start_realtime(LeaderA, Name),
     rt:wait_until_ring_converged(ANodes),
-    repl_util:enable_fullsync(LeaderA, Name),
+    enable_fullsync(LeaderA, Name),
     rt:wait_until_ring_converged(ANodes),
     ?assertEqual(ok, wait_for_connection13(LeaderA, Name)),
     rt:wait_until_ring_converged(ANodes).
@@ -284,9 +284,9 @@ connect_clusters13(LeaderA, ANodes, BPort, Name) ->
 disconnect_clusters13(LeaderA, ANodes, Name) ->
     logger:info("Disconnecting from ~p", [Name]),
     disconnect_cluster13(LeaderA, Name),
-    repl_util:disable_realtime(LeaderA, Name),
+    disable_realtime(LeaderA, Name),
     rt:wait_until_ring_converged(ANodes),
-    repl_util:stop_realtime(LeaderA, Name),
+    stop_realtime(LeaderA, Name),
     rt:wait_until_ring_converged(ANodes),
     ?assertEqual(ok, wait_until_no_connection13(LeaderA)),
     rt:wait_until_ring_converged(ANodes).
