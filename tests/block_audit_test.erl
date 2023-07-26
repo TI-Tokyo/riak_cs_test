@@ -60,19 +60,13 @@ confirm1() ->
     Home = rtcs_exec:riakcs_home(rtcs_config:devpath(cs, current), 1),
     file:delete(filename:join([Home, "riak-cs", "maybe-orphaned-blocks"])),
     file:delete(filename:join([Home, "riak-cs", "actual-orphaned-blocks"])),
-    Res1 = rtcs_exec:exec_priv_escript(
-             1, "internal/block_audit.erl",
-             "-h 127.0.0.1 -p 10017 -dd", #{by => cs}),
-    logger:debug("block_audit.erl log:", []),
-    [ logger:debug("~s", [L]) || L <- string:tokens(Res1, "\n") ],
-    logger:debug("block_audit.erl log:============= END"),
+    {ok, _} = rtcs_exec:exec_priv_escript(
+                1, "internal/block_audit.erl",
+                "-h 127.0.0.1 -p 10017 -dd", #{by => cs}),
     fake_false_orphans(RiakNodes, FalseOrphans1 ++ FalseOrphans2),
-    Res2 = rtcs_exec:exec_priv_escript(
-             1, "internal/ensure_orphan_blocks.erl",
-             "-h 127.0.0.1 -p 10017 -dd", #{by => cs}),
-    logger:debug("ensure_orphan_blocks.erl log:", []),
-    [ logger:debug("~s", [L]) || L <- string:tokens(Res2, "\n") ],
-    logger:debug("ensure_orphan_blocks.erl log:============= END"),
+    {ok, _} = rtcs_exec:exec_priv_escript(
+                1, "internal/ensure_orphan_blocks.erl",
+                "-h 127.0.0.1 -p 10017 -dd", #{by => cs}),
     assert_result(?BUCKET1),
     assert_result(?BUCKET2),
 
