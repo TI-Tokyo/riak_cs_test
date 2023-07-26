@@ -1,6 +1,7 @@
 %% -------------------------------------------------------------------
 %%
 %% Copyright (c) 2015 Basho Technologies, Inc.
+%%               2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -18,11 +19,11 @@
 %%
 %%-------------------------------------------------------------------
 
--module(riak_cs_riak_client_intercepts).
+-module(riak_cs_user_intercepts).
 -compile(export_all).
 -compile(nowarn_export_all).
 
--define(M, riak_cs_riak_client_orig).
+-define(M, riak_cs_user_orig).
 
 get_user_timeout(_MasterPbc, _Key) ->
     {error, timeout}.
