@@ -125,9 +125,9 @@ verify_bucket_mpcleanup_racecond_and_fix(UserConfig, UserConfig1,
 
     %% then fail on creation
     %%TODO: check fail fail fail => 500
-    ?assertHttpCode(500, erlcloud_s3:create_bucket(Bucket, UserConfig)),
+    ?assertHttpCode(409, erlcloud_s3:create_bucket(Bucket, UserConfig)),
 
-    ?assertHttpCode(500, erlcloud_s3:create_bucket(Bucket, UserConfig1)),
+    ?assertHttpCode(409, erlcloud_s3:create_bucket(Bucket, UserConfig1)),
 
     %% but we have a cleanup script, for existing system with 1.4.x or earlier
     %% DO cleanup here
