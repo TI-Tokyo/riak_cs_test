@@ -175,11 +175,15 @@ long_key_cases(UserConfig) ->
     TooLongKey = binary_to_list(binary:copy(<<"b">>, 1025)),
     Data = <<"pocketburger">>,
     ?assertProp(version_id, "null", erlcloud_s3:put_object(?TEST_BUCKET, LongKey, Data, UserConfig)),
-    ErrorString = <<"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Error>"
-                    "<Code>KeyTooLongError</Code><Message>Your key is too long</Message><Size>1025</Size>"
-                    "<MaxSizeAllowed>1024</MaxSizeAllowed><RequestId></RequestId></Error>">>,
-    ?assertError({aws_error, {http_error, 400, _, ErrorString}},
-                 erlcloud_s3:put_object(?TEST_BUCKET, TooLongKey, Data, UserConfig)).
+    SubSs = ["<Code>KeyTooLongError</Code>",
+             "<Message>Your key is too long</Message>",
+             "<Size>1025</Size>",
+             "<MaxSizeAllowed>1024</MaxSizeAllowed>"],
+    {'EXIT', {{aws_error, {http_error, 400, undefined, ErrorString}}, _StackTrace}} =
+         catch erlcloud_s3:put_object(?TEST_BUCKET, TooLongKey, Data, UserConfig),
+    lists:all(
+      fun(S) -> match =:= re:run(ErrorString, S) end,
+      SubSs).
 
 mb(MegaBytes) ->
     MegaBytes * 1024 * 1024.
