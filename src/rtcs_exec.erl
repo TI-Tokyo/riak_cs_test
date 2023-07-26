@@ -96,9 +96,6 @@ exec_priv_escript(N, Command, ScriptOptions) ->
     exec_priv_escript(N, Command, ScriptOptions, #{by => riak}).
 
 exec_priv_escript(N, Command, ScriptOptions, #{by := By} = Options) ->
-    Env = lists:foldl(
-            fun({Var, Val}, Q) -> io_lib:format("~s=~s ~s", [Var, Val, Q]) end,
-            "", maps:get(env, Options, [])),
     ExecuterPrefix = rtcs_config:devpath(By, current),
     Cmd = case By of
               cs ->
@@ -112,7 +109,7 @@ exec_priv_escript(N, Command, ScriptOptions, #{by := By} = Options) ->
                               EscriptPath ++ " " ++ ScriptOptions)
           end,
 
-    os:cmd(Env ++ " " ++ Cmd).
+    rtcs_dev:cmd(Cmd, [{env, maps:get(env, Options, [])}]).
 
 flush_access(N) -> flush_access(N, current).
 
