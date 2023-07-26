@@ -118,7 +118,7 @@ assert_access_stats(Format, UserConfig, {Begin, End, ClientStats}) ->
     StatsKey = lists:flatten(["usage/", KeyId, "/a", FormatInstruction, "/",
                               Begin, "/", End, "/"]),
     GetResult = erlcloud_s3:get_object("riak-cs", StatsKey, UserConfig),
-    logger:debug("GET Access stats response: ~p", [GetResult]),
+    logger:info("GET Access stats response: ~p", [GetResult]),
     Content = proplists:get_value(content, GetResult),
     Samples = node_samples_from_content(Format, "rcs-dev1@127.0.0.1", Content),
     logger:debug("Access samples (~s): ~p", [Format, Samples]),
@@ -171,8 +171,8 @@ client_result(Key, ResultSet) ->
 
 node_samples_from_content(json, Node, Content) ->
     Usage = jsx:decode(Content, [{return_maps, false}]),
+    logger:info("ListOfNodeStats: ~p", [Content]),
     ListOfNodeStats = rtcs_dev:json_get([<<"Access">>, <<"Nodes">>], Usage),
-    logger:debug("ListOfNodeStats: ~p", [ListOfNodeStats]),
     NodeBin = list_to_binary(Node),
     [NodeStats | _] = lists:dropwhile(
                         fun(NodeStats) ->

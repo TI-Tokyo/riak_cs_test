@@ -200,7 +200,7 @@ verify_gc_run(Node, GCKey) ->
                             ++ "b/k:v \"" ++ ?TEST_BUCKET ++ "/" ++ ?TEST_KEY_BAD_STATE
                             ++ ":null\""),
     true = rt:expect_in_log(Node,
-                            "Finished garbage collection: \\d+ seconds, "
+                            "Finished garbage collection: \\d+ msec, "
                             "\\d batch_count, 0 batch_skips, "
                             "7 manif_count, 4 block_count"),
     ok.
@@ -210,7 +210,7 @@ verify_gc_run2(Node) ->
     logger:info("Check collected count =:= 101, 1 from setup_obj, "
                 "100 from put_more_bad_keys."),
     true = rt:expect_in_log(Node,
-                            "Finished garbage collection: \\d+ seconds, "
+                            "Finished garbage collection: \\d+ msec, "
                             "\\d+ batch_count, 0 batch_skips, "
                             "101 manif_count, 101 block_count"),
     ok.
@@ -252,7 +252,7 @@ verify_partial_gc_run(CSNode, RiakNodes,
          rtcs_exec:gc(1, BatchCmd),
 
          true = rt:expect_in_log(CSNode,
-                                 "Finished garbage collection: \\d+ seconds, "
+                                 "Finished garbage collection: \\d+ msec, "
                                  "\\d+ batch_count, 0 batch_skips, "
                                  "\\d+ manif_count, \\d+ block_count")
      end || {S0, E0} <- Starts],
