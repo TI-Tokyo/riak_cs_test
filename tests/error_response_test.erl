@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2016 Basho Technologies, Inc.  All Rights Reserved.
+%%               2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -40,16 +41,25 @@ confirm() ->
     SingleBlock = crypto:strong_rand_bytes(400),
     erlcloud_s3:put_object(?BUCKET, ?KEY, SingleBlock, UserConfig),
 
-    %% vefity response for timeout during getting a user.
-    rt_intercept:add(ErrCSNode, {riak_cs_riak_client, [{{get_user, 2}, get_user_timeout}]}),
-    ?assertHttpCode(503, erlcloud_s3:get_object(?BUCKET, ?KEY, ErrConfig)),
+    %% verify response for timeout during getting a user.
+    rt_intercept:add(ErrCSNode, {riak_cs_user, [{{get_user, 2}, get_user_timeout}]}),
+    {'EXIT', {{aws_error, {http_error, 503, undefined, ErrorString}}, _StackTrace}} =
+        catch erlcloud_s3:get_object(?BUCKET, ?KEY, ErrConfig),
+    SubSs = ["<Code>ServiceUnavailable</Code>"],
+    lists:all(
+      fun(S) -> match =:= re:run(ErrorString, S) end,
+      SubSs),
+
     rt_intercept:clean(ErrCSNode, riak_cs_riak_client),
 
-    %% vefity response for timeout during getting block.
-    %% FIXME: This should be http_error 503
     rt_intercept:add(ErrCSNode, {riak_cs_block_server, [{{get_block_local, 6}, get_block_local_timeout}]}),
-    ?assertError({aws_error, {socket_error, {hackney_error,{closed,<<>>}}}},
-                 erlcloud_s3:get_object(?BUCKET, ?KEY, ErrConfig)),
+    {'EXIT', {{aws_error, {http_error, 503, undefined, ErrorString2}}, _}} =
+        catch erlcloud_s3:get_object(?BUCKET, ?KEY, ErrConfig),
+    SubSs = ["<Code>ServiceUnavailable</Code>"],
+    lists:all(
+      fun(S) -> match =:= re:run(ErrorString2, S) end,
+      SubSs),
+
     rt_intercept:clean(ErrCSNode, riak_cs_block_server),
 
     pass.
