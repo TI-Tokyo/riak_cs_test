@@ -55,7 +55,7 @@ confirm() ->
     %%       CS_HTTP_PORT=15018  RCST_VERBOSE=1 python -m unittest boto_test_versioning
 
     case rtcs_dev:cmd({spawn_executable, os:find_executable("make")},
-                      [{cd, "client_tests"}, {env, Env}, {args, Args}]) of
+                      [{cd, "tests/external_clients"}, {env, Env}, {args, Args}]) of
         {ok, _} ->
             pass;
         {error, Reason} ->
