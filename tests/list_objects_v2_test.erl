@@ -28,18 +28,12 @@
 -include_lib("eunit/include/eunit.hrl").
 
 confirm() ->
-    {{UserConfig, _}, {RiakNodes, CSNodes}} =
-        rtcs_dev:setup(2, [{cs, [{riak_cs, [{fold_objects_for_list_keys, true}]}]}]),
-    assert_v2_is_default(CSNodes),
-    pass = list_objects_test_helper:test(UserConfig),
+    {{UserConfig, _}, {RiakNodes, [_CSNode|_]}} =
+        rtcs_dev:setup(1),
 
     ok = list_to_non_existent_bucket_many_times(RiakNodes),
+    list_objects_test_helper:test(UserConfig).
 
-    pass.
-
-assert_v2_is_default(CSNodes) ->
-    true = rpc:call(hd(CSNodes), riak_cs_list_objects_utils, fold_objects_for_list_keys, []),
-    ok.
 
 list_to_non_existent_bucket_many_times(RiakNodes) ->
     [?assertEqual("404",
