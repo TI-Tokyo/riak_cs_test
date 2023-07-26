@@ -41,7 +41,7 @@
 storage_stats_json_request(AdminConfig, UserConfig, Begin, End) ->
     Samples = samples_from_json_request(AdminConfig, UserConfig, {Begin, End}),
     logger:debug("Storage samples[json]: ~p", [Samples]),
-    {struct, Slice} = latest(Samples, undefined),
+    Slice = latest(Samples, undefined),
     by_bucket_list(Slice, []).
 
 -spec create_admin_user(atom()) -> {#aws_config{}, binary()}.
@@ -81,8 +81,7 @@ create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
         rtcs_clients:s3_request(UserConfig,
                                 post, Resource, [], "",
                                 {ReqBody, "application/json"}, []),
-    logger:debug("ResBody: ~p", [ResBody]),
-    JsonData = mochijson2:decode(ResBody),
+    JsonData = jsx:decode(list_to_binary(ResBody), [{return_maps, false}]),
     [KeyId, KeySecret, Id] = [binary_to_list(rtcs_dev:json_get([K], JsonData)) ||
                                  K <- [<<"key_id">>, <<"key_secret">>, <<"canonical_id">>]],
     {rtcs_clients:aws_config(KeyId, KeySecret, Port), Id}.
@@ -158,8 +157,8 @@ by_bucket_list([{<<"StartTime">>, _} | Rest], Acc) ->
     by_bucket_list(Rest, Acc);
 by_bucket_list([{<<"EndTime">>, _} | Rest], Acc) ->
     by_bucket_list(Rest, Acc);
-by_bucket_list([{BucketBin, {struct,[{<<"Objects">>, Objs},
-                                     {<<"Bytes">>, Bytes}]}} | Rest],
+by_bucket_list([{BucketBin, [{<<"Objects">>, Objs},
+                             {<<"Bytes">>, Bytes}]} | Rest],
                Acc) ->
     by_bucket_list(Rest, [{binary_to_list(BucketBin), {Objs, Bytes}}|Acc]).
 
@@ -167,6 +166,6 @@ samples_from_json_request(AdminConfig, UserConfig, {Begin, End}) ->
     KeyId = UserConfig#aws_config.access_key_id,
     StatsKey = string:join(["usage", KeyId, "bj", Begin, End], "/"),
     GetResult = erlcloud_s3:get_object("riak-cs", StatsKey, AdminConfig),
-    Usage = mochijson2:decode(proplists:get_value(content, GetResult)),
+    Usage = jsx:decode(proplists:get_value(content, GetResult), [{return_maps, false}]),
     rtcs_dev:json_get([<<"Storage">>, <<"Samples">>], Usage).
 

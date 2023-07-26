@@ -514,7 +514,7 @@ json_get(Key, Json) when is_binary(Key) ->
     json_get([Key], Json);
 json_get([], Json) ->
     Json;
-json_get([Key | Keys], {struct, JsonProps}) ->
+json_get([Key | Keys], JsonProps) ->
     case lists:keyfind(Key, 1, JsonProps) of
         false ->
             notfound;

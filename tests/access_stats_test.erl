@@ -170,7 +170,7 @@ client_result(Key, ResultSet) ->
     proplists:get_value(Key, ResultSet, 0).
 
 node_samples_from_content(json, Node, Content) ->
-    Usage = mochijson2:decode(Content),
+    Usage = jsx:decode(Content, [{return_maps, false}]),
     ListOfNodeStats = rtcs_dev:json_get([<<"Access">>, <<"Nodes">>], Usage),
     logger:debug("ListOfNodeStats: ~p", [ListOfNodeStats]),
     NodeBin = list_to_binary(Node),

@@ -300,7 +300,7 @@ samples_from_json_request(SignUserConfig, UserConfig, {Begin, End}) ->
     StatsKey = string:join(["usage", KeyId, "bj", Begin, End], "/"),
     GetResult = erlcloud_s3:get_object("riak-cs", StatsKey, SignUserConfig),
     logger:debug("GET Storage stats response[json]: ~p", [GetResult]),
-    Usage = mochijson2:decode(proplists:get_value(content, GetResult)),
+    Usage = jsx:decode(proplists:get_value(content, GetResult), [{return_maps, false}]),
     logger:debug("Usage Response[json]: ~p", [Usage]),
     rtcs_dev:json_get([<<"Storage">>, <<"Samples">>], Usage).
 
