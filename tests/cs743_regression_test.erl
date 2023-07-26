@@ -64,7 +64,7 @@ assert_storage_stats(UserConfig, Begin, End) ->
     StatsKey = lists:flatten(["usage/", KeyId, "/bj/", Begin, "/", End, "/"]),
     GetResult = erlcloud_s3:get_object("riak-cs", StatsKey, UserConfig),
     logger:info("Storage stats response: ~p", [GetResult]),
-    Usage = mochijson2:decode(proplists:get_value(content, GetResult)),
+    Usage = jsx:decode(proplists:get_value(content, GetResult), [{return_maps, false}]),
     logger:info("Storage Usage: ~p", [Usage]),
     Samples = rtcs_dev:json_get([<<"Storage">>, <<"Samples">>], Usage),
 
