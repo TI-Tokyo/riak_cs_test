@@ -25,21 +25,21 @@
 -include("rtcs.hrl").
 
 confirm() ->
-    {{UserConfig, _}, {RiakNodes, _CSNodes}} = rtcs_dev:setup(1),
+    {{UserConfig, _}, _} = rtcs_dev:setup(1),
 
     logger:info("Confirming initial stats"),
-    confirm_initial_stats(cs, UserConfig, rtcs_config:cs_port(hd(RiakNodes))),
-    confirm_initial_stats(stanchion, UserConfig, rtcs_config:stanchion_port()),
+    confirm_initial_stats(cs, UserConfig),
+    confirm_initial_stats(stanchion, UserConfig),
 
     do_some_api_calls(UserConfig, "bucket1", "bucket2"),
 
     logger:info("Confirming stats after some operations"),
-    confirm_stats(cs, UserConfig, rtcs_config:cs_port(hd(RiakNodes))),
-    confirm_stats(stanchion, UserConfig, rtcs_config:stanchion_port()),
+    confirm_stats(cs, UserConfig),
+    confirm_stats(stanchion, UserConfig),
     pass.
 
-confirm_initial_stats(cs, UserConfig, Port) ->
-    StatData = query_stats(cs, UserConfig, Port),
+confirm_initial_stats(cs, UserConfig) ->
+    StatData = query_stats(cs, UserConfig),
     logger:debug("length(StatData) = ~p", [length(StatData)]),
     ?assert(1125 < length(StatData)),
     [begin
@@ -70,8 +70,8 @@ confirm_initial_stats(cs, UserConfig, Port) ->
     ?assertEqual(rtcs_config:bucket_list_pool_size(),
                  proplists:get_value(<<"bucket_list_pool_workers">>, StatData));
 
-confirm_initial_stats(stanchion, UserConfig, Port) ->
-    Stats = query_stats(stanchion, UserConfig, Port),
+confirm_initial_stats(stanchion, UserConfig) ->
+    Stats = query_stats(stanchion, UserConfig),
     logger:debug("length(Stats) = ~p", [length(Stats)]),
     ?assert(130 < length(Stats)),
     [begin
@@ -89,7 +89,7 @@ confirm_initial_stats(stanchion, UserConfig, Port) ->
                          "riakc_list_all_manifest_keys"
                         ]],
     confirm_stat_count(Stats, <<"user_create_one">>, 1),
-    confirm_stat_count(Stats, <<"riakc_put_cs_user_one">>, 1),
+    confirm_stat_count(Stats, <<"riakc_put_cs_user_one">>, 2),
 
     ?assert(proplists:is_defined(<<"waiting_time_mean">>, Stats)),
     ?assert(proplists:is_defined(<<"waiting_time_median">>, Stats)),
@@ -99,20 +99,20 @@ confirm_initial_stats(stanchion, UserConfig, Port) ->
     ?assert(proplists:is_defined(<<"sys_process_count">>, Stats)),
     ok.
 
-confirm_stats(cs, UserConfig, Port) ->
+confirm_stats(cs, UserConfig) ->
     confirm_status_cmd("service_get_in_one"),
-    Stats = query_stats(cs, UserConfig, Port),
+    Stats = query_stats(cs, UserConfig),
     confirm_stat_count(Stats, <<"service_get_out_one">>, 2),
     confirm_stat_count(Stats, <<"object_get_out_one">>, 1),
     confirm_stat_count(Stats, <<"object_put_out_one">>, 1),
     confirm_stat_count(Stats, <<"object_delete_out_one">>, 1);
-confirm_stats(stanchion, UserConfig, Port) ->
+confirm_stats(stanchion, UserConfig) ->
     confirm_status_cmd("bucket_create_one"),
-    Stats = query_stats(stanchion, UserConfig, Port),
+    Stats = query_stats(stanchion, UserConfig),
     confirm_stat_count(Stats, <<"user_create_one">>, 1),
     confirm_stat_count(Stats, <<"bucket_create_one">>, 2),
     confirm_stat_count(Stats, <<"bucket_delete_one">>, 1),
-    confirm_stat_count(Stats, <<"riakc_put_cs_user_one">>, 4),
+    confirm_stat_count(Stats, <<"riakc_put_cs_user_one">>, 5),
     confirm_stat_count(Stats, <<"riakc_put_cs_bucket_one">>, 3),
     %% this heavy list/gets can be reduced to ONE per delete-bucket (/-o-)/ ⌒ ┤
     confirm_stat_count(Stats, <<"riakc_list_all_manifest_keys_one">>, 2),
@@ -133,25 +133,17 @@ do_some_api_calls(UserConfig, Bucket1, Bucket2) ->
     ?assertEqual(ok, erlcloud_s3:delete_bucket(Bucket2, UserConfig)),
     ok.
 
-query_stats(Type, UserConfig, Port) ->
-    logger:debug("Querying stats to ~p", [Type]),
-    Date = httpd_util:rfc1123_date(),
-    {Resource, SignType} = case Type of
-                               cs -> {"/riak-cs/stats", s3};
-                               stanchion -> {"/stats", velvet}
-                           end,
-    Cmd="curl -s -H 'Date: " ++ Date ++ "' -H 'Authorization: " ++
-        rtcs_admin:make_authorization(SignType, "GET", Resource, [], UserConfig, Date, []) ++
-        "' http://localhost:" ++
-        integer_to_list(Port) ++ Resource,
-    logger:info("Stats query cmd: ~p", [Cmd]),
-    Output = os:cmd(Cmd),
-    logger:debug("Stats output=~p",[Output]),
-    {struct, JsonData} = mochijson2:decode(Output),
-    JsonData.
+query_stats(Type, UserConfig) ->
+    logger:info("Querying stats from ~p", [Type]),
+    Resource = case Type of
+                   cs -> "/riak-cs/stats";
+                   stanchion -> "/stats"
+               end,
+    {ok, Output} = rtcs_clients:curl_request(UserConfig, "GET", Resource, [], [], Type),
+    jsx:decode(Output, [{return_maps, false}]).
 
 confirm_stat_count(StatData, StatType, ExpectedCount) ->
-    logger:debug("confirm_stat_count for ~p", [StatType]),
+    logger:info("confirm_stat_count for ~p", [StatType]),
     ?assertEqual(ExpectedCount, proplists:get_value(StatType, StatData)).
 
 confirm_status_cmd(ExpectedToken) ->

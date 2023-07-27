@@ -21,7 +21,7 @@
 -module(rtcs_clients).
 
 -export([s3_request/7,
-         curl_request/4, curl_request/5,
+         curl_request/4, curl_request/5, curl_request/6,
          aws_config/2, aws_config/3
         ]).
 
@@ -140,13 +140,28 @@ aws_config(UserConfig, [{secret, Secret}|Props]) ->
 -spec curl_request(#aws_config{}, method(), string(), [header()]) ->
           {ok, iodata() | {error, term()}}.
 curl_request(UserConfig, Method, Resource, AmzHeaders) ->
-    curl_request(UserConfig, Method, Resource, AmzHeaders, []).
-curl_request(#aws_config{hackney_client_options = #hackney_client_options{proxy = {_, Port}}} = UserConfig,
-             Method, Resource, AmzHeaders, PostData) ->
+    curl_request(UserConfig, Method, Resource, AmzHeaders, [], cs).
+
+-spec curl_request(#aws_config{}, method(), string(), [header()], string()) ->
+          {ok, iodata() | {error, term()}}.
+curl_request(UserConfig, Method, Resource, AmzHeaders, PostData) ->
+    curl_request(UserConfig, Method, Resource, AmzHeaders, PostData, cs).
+
+-spec curl_request(#aws_config{}, method(), string(), [header()], string(), cs | stanchion) ->
+          {ok, iodata() | {error, term()}}.
+curl_request(#aws_config{hackney_client_options = #hackney_client_options{proxy = {_, CSPort}}} = UserConfig,
+             Method, Resource, AmzHeaders, PostData, Type) ->
+    {Port, Prefix} =
+        case Type of
+            cs ->
+                {CSPort, s3};
+            stanchion ->
+                {rtcs_config:stanchion_port(), velvet}
+        end,
     ContentType = "application/octet-stream",
     Date = httpd_util:rfc1123_date(),
     Auth = rtcs_admin:make_authorization(
-             Method, Resource, ContentType, UserConfig, Date, AmzHeaders),
+             Prefix, Method, Resource, ContentType, UserConfig, Date, AmzHeaders),
     HeaderArgs = [io_lib:format("-H '~s: ~s' ", [K, V]) ||
                      {K, V} <- [{"Date", Date}, {"Authorization", Auth},
                                 {"Content-Type", ContentType} | AmzHeaders]],
