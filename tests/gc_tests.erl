@@ -185,10 +185,10 @@ put_more_bad_keys(Pbc, [GCKey|Rest], BadGCKeys) ->
 
 repair_gc_bucket(RiakNodeID) ->
     PbPort = integer_to_list(rtcs_config:pb_port(RiakNodeID)),
-    [] = rtcs_exec:exec_priv_escript(
-           1, "repair_gc_bucket.erl",
-           "--host 127.0.0.1 --port " ++ PbPort ++ " --leeway-seconds 1 --page-size 5",
-           #{by => cs}),
+    {ok, <<>>} = rtcs_exec:exec_priv_escript(
+                   1, "repair_gc_bucket.erl",
+                   "--host 127.0.0.1 --port " ++ PbPort ++ " --leeway-seconds 1 --page-size 5",
+                   #{by => cs}),
     ok.
 
 verify_gc_run(Node, GCKey) ->
