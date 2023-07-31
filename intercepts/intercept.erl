@@ -57,6 +57,7 @@
 %%             E.g. `[{{update_perform,2}, sleep_update_perform}]'
 -spec add(module(), module(), mapping(), string()) -> ok.
 add(Target, Intercept, Mapping, OutDir) ->
+    logger:notice("adding intercept mapping ~p for ~s", [Mapping, Target]),
     Original = ?ORIGINAL(Target),
     TargetAC = get_abstract_code(Target),
 

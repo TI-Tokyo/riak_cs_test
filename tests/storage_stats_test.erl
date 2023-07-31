@@ -280,26 +280,23 @@ storage_stats_request(SignUserConfig, UserConfig, Begin, End) ->
 
 storage_stats_json_request(SignUserConfig, UserConfig, Begin, End) ->
     Samples = samples_from_json_request(SignUserConfig, UserConfig, {Begin, End}),
-    logger:debug("Storage samples[json]: ~p", [Samples]),
     ?assertEqual(1, length(Samples)),
     [Sample] = Samples,
-    logger:info("Storage sample[json]: ~p", [Sample]),
+    logger:debug("Storage sample[json]: ~p", [Sample]),
     Sample.
 
 storage_stats_xml_request(SignUserConfig, UserConfig, Begin, End) ->
     Samples = samples_from_xml_request(SignUserConfig, UserConfig, {Begin, End}),
-    logger:debug("Storage samples[xml]: ~p", [Samples]),
     ?assertEqual(1, length(Samples)),
     [Sample] = Samples,
     ParsedSample = to_proplist_stats(Sample),
-    logger:info("Storage sample[xml]: ~p", [ParsedSample]),
+    logger:debug("Storage sample[xml]: ~p", [ParsedSample]),
     ParsedSample.
 
 samples_from_json_request(SignUserConfig, UserConfig, {Begin, End}) ->
     KeyId = UserConfig#aws_config.access_key_id,
     StatsKey = string:join(["usage", KeyId, "bj", Begin, End], "/"),
     GetResult = erlcloud_s3:get_object("riak-cs", StatsKey, SignUserConfig),
-    logger:debug("GET Storage stats response[json]: ~p", [GetResult]),
     Usage = jsx:decode(proplists:get_value(content, GetResult), [{return_maps, false}]),
     logger:debug("Usage Response[json]: ~p", [Usage]),
     rtcs_dev:json_get([<<"Storage">>, <<"Samples">>], Usage).
@@ -308,7 +305,6 @@ samples_from_xml_request(SignUserConfig, UserConfig, {Begin, End}) ->
     KeyId = UserConfig#aws_config.access_key_id,
     StatsKey = string:join(["usage", KeyId, "bx", Begin, End], "/"),
     GetResult = erlcloud_s3:get_object("riak-cs", StatsKey, SignUserConfig),
-    logger:debug("GET Storage stats response[xml]: ~p", [GetResult]),
     {Usage, _Rest} = xmerl_scan:string(binary_to_list(proplists:get_value(content, GetResult))),
     logger:debug("Usage Response[xml]: ~p", [Usage]),
     xmerl_xpath:string("//Storage/Samples/Sample",Usage).
