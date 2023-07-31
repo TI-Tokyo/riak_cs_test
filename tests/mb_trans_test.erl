@@ -152,7 +152,7 @@ assert_gc_run(CSNode, UserConfig) ->
     rt:setup_log_capture(CSNode),
     rtcs_exec:gc(1, "batch 1"),
     true = rt:expect_in_log(CSNode,
-                            "Finished garbage collection: \\d+ seconds, "
+                            "Finished garbage collection: \\d+ msec, "
                             "\\d+ batch_count, \\d+ batch_skips, "
                             "\\d+ manif_count, \\d+ block_count"),
     ok.
