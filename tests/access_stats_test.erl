@@ -118,7 +118,7 @@ assert_access_stats(Format, UserConfig, {Begin, End, ClientStats}) ->
     StatsKey = lists:flatten(["usage/", KeyId, "/a", FormatInstruction, "/",
                               Begin, "/", End, "/"]),
     GetResult = erlcloud_s3:get_object("riak-cs", StatsKey, UserConfig),
-    logger:info("GET Access stats response: ~p", [GetResult]),
+    logger:debug("GET Access stats response: ~p", [GetResult]),
     Content = proplists:get_value(content, GetResult),
     Samples = node_samples_from_content(Format, "rcs-dev1@127.0.0.1", Content),
     logger:debug("Access samples (~s): ~p", [Format, Samples]),
@@ -150,7 +150,14 @@ assert_access_stats(Format, UserConfig, {Begin, End, ClientStats}) ->
     pass.
 
 verify_stats_lost_logging(UserConfig, RiakNodes, CSNodes) ->
-    KeyId = UserConfig#aws_config.access_key_id,
+    %% Fetch the user record using the user's own credentials
+    {200, UserJson} =
+        rtcs_admin:get_user(
+          UserConfig, rtcs_config:cs_port(hd(CSNodes)),
+          "/riak-cs/user", "application/json"),
+    #{<<"arn">> := Arn} =
+        jsx:decode(list_to_binary(UserJson)),
+
     %% one second ought to be enough
     _ = generate_some_accesses(UserConfig, 1),
     %% kill riak
@@ -161,7 +168,7 @@ verify_stats_lost_logging(UserConfig, RiakNodes, CSNodes) ->
     %% check logs, at same node with flush_access_stats
     CSNode = hd(CSNodes),
     logger:info("Checking log in ~p", [CSNode]),
-    ExpectLine = io_lib:format("lost access stat: User=~s, Slice=", [KeyId]),
+    ExpectLine = io_lib:format("lost access stat: User=~s, Slice=", [Arn]),
     logger:debug("expected log line: ~s", [ExpectLine]),
     true = rt:expect_in_log(CSNode, ExpectLine),
     pass.
@@ -171,7 +178,7 @@ client_result(Key, ResultSet) ->
 
 node_samples_from_content(json, Node, Content) ->
     Usage = jsx:decode(Content, [{return_maps, false}]),
-    logger:info("ListOfNodeStats: ~p", [Content]),
+    logger:debug("ListOfNodeStats: ~p", [Content]),
     ListOfNodeStats = rtcs_dev:json_get([<<"Access">>, <<"Nodes">>], Usage),
     NodeBin = list_to_binary(Node),
     [NodeStats | _] = lists:dropwhile(
