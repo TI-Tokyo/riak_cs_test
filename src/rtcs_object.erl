@@ -31,7 +31,7 @@ upload(UserConfig, normal, B, K) ->
     erlcloud_s3:put_object(B, K, Content, UserConfig),
     {B, K, Content};
 upload(UserConfig, multipart, B, K) ->
-    Content = rtcs_multipart:multipart_upload(B, K, [mb(10), 400], UserConfig),
+    Content = rtcs_multipart:multipart_upload(B, K, [mb(10), 200], UserConfig),
     {B, K, Content};
 upload(UserConfig, {normal_partial, CL, Actual}, B, K) when is_list(K),
                                                             CL >= Actual ->
@@ -79,7 +79,7 @@ upload(UserConfig, multipart_copy, B, DstK, SrcK) ->
                           B, DstK, UploadId, 1, B, SrcK, {0, mb(5)-1}, UserConfig),
     Etag1 = rtcs_multipart:assert_part(B, DstK, UploadId, 1, UserConfig, RespHeaders1),
     {RespHeaders2, _} = rtcs_multipart:upload_part_copy(
-                          B, DstK, UploadId, 2, B, SrcK, {mb(5), mb(10)+400-1}, UserConfig),
+                          B, DstK, UploadId, 2, B, SrcK, {mb(5), mb(10)+200-1}, UserConfig),
     Etag2 = rtcs_multipart:assert_part(B, DstK, UploadId, 2, UserConfig, RespHeaders2),
 
     EtagList = [ {1, Etag1}, {2, Etag2} ],
