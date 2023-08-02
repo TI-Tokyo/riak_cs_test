@@ -53,7 +53,8 @@ confirm() ->
     %% Run riak-cs-debug before cuttlefish generates configs.
     TarGz1 = exec_cs_debug(),
     List1 = trim_dir_prefix(list_files(TarGz1)),
-    ?assertContainsAll(minimum_necessary_files(), List1),
+    logger:info("Verifying debug contents before first run..."),
+    ?assertContainsAll(minimum_offline_necessary_files(), List1),
     ok = file:delete(TarGz1),
 
     _ = rtcs_dev:setup(1),
@@ -141,7 +142,7 @@ trim_dir_prefix(Files) ->
               end
               ,Files).
 
-minimum_necessary_files()  ->
+minimum_offline_necessary_files()  ->
     [
      "config/advanced.config",
      "config/riak-cs.conf",
@@ -159,18 +160,13 @@ minimum_necessary_files()  ->
      "commands/netstat_i",
      "commands/netstat_rn",
      "commands/ps",
-     "commands/riak_cs_gc_status",
-     "commands/riak_cs_ping",
-     "commands/riak_cs_status",
-     "commands/riak_cs_storage_status",
-     "commands/riak_cs_version",
      "commands/sysctl",
      "commands/uname",
      "commands/w"
     ].
 
 minimum_necessary_files_after_boot()  ->
-    minimum_necessary_files() ++
+    minimum_offline_necessary_files() ++
     [
      "logs/platform_log_dir/console.log",
      "logs/platform_log_dir/run_erl.log",
