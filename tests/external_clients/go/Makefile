@@ -35,7 +35,7 @@ env:
 gof3r: $(GOPATH)/bin/gof3r
 
 $(GOPATH)/bin/gof3r: env
-	go get github.com/rlmcpherson/s3gof3r/gof3r
+	go install github.com/rlmcpherson/s3gof3r/gof3r@latest
 
 $(RANDFILE):
 	mkdir -p $(TMPDIR)
