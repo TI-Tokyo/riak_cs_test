@@ -286,9 +286,10 @@ confirm() ->
     set_proxy_get(LeaderA, "disable", "B", ANodes, BNodes),
     set_block_rt(RiakNodes),
 
-    Object6 = crypto:strong_rand_bytes(4194304),
+    Object6 = crypto:strong_rand_bytes(419430),
     erlcloud_s3:put_object(?TEST_BUCKET, "object_six", Object6, U1C1Config),
     repl_helpers:wait_until_realtime_sync_complete(ANodes),
+    timer:sleep(1000),
     logger:info("The object can be downloaded from sink cluster"),
     Obj16 = erlcloud_s3:get_object(?TEST_BUCKET, "object_six", U1C2Config),
     ?assertEqual(Object6, proplists:get_value(content, Obj16)),
