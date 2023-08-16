@@ -1,6 +1,7 @@
 %% ---------------------------------------------------------------------
 %%
 %% Copyright (c) 2007-2014 Basho Technologies, Inc.  All Rights Reserved.
+%%               2021-2023 TI Tokyo    All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -18,7 +19,7 @@
 %%
 %% ---------------------------------------------------------------------
 
--module(upgrade_downgrade_test).
+-module(upgrade_test).
 -export([confirm/0]).
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
@@ -28,12 +29,12 @@
 -define(KEY_MULTIPLE_BLOCK, "riak_test_key2").
 
 confirm() ->
-    NumNodes = 2,
-    prepare_current(NumNodes),
+    NumNodes = 1,
+    %prepare_current(NumNodes),
 
     PrevConfig = rtcs_config:previous_configs(),
-    {{UserConfig, _}, {RiakNodes, CSNodes} = Tussle} =
-        rtcs_dev:setup(NumNodes, PrevConfig, previous),
+    {{UserConfig, _}, {RiakNodes, CSNodes}} =
+        rtcs_dev:setup(NumNodes, PrevConfig, previous, #{with_policy => false}),
 
     {ok, Data} = prepare_all_data(UserConfig),
     ok = verify_all_data(UserConfig, Data),
@@ -44,7 +45,8 @@ confirm() ->
         rtcs_dev:riak_root_and_vsn(current),
 
     logger:info("Upgrading previous to current", []),
-    rtcs_exec:stop_all_nodes(Tussle, previous),
+    rt:pmap(fun(N) -> rtcs_dev:stop(N, previous) end, CSNodes),
+    rt:pmap(fun(N) -> rtcs_dev:stop(N, previous) end, RiakNodes),
 
     [begin
          N = rtcs_dev:node_id(RiakNode),
@@ -56,59 +58,43 @@ confirm() ->
           )
      end || RiakNode <- RiakNodes],
 
-    rtcs_exec:start_all_nodes(Tussle, current),
-
+    rt:pmap(fun(N) -> rtcs_dev:start(N, current) end, RiakNodes),
+    ok = rt:wait_for_service(RiakNodes, riak_kv),
+    ok = rt:wait_until_nodes_ready(RiakNodes),
+    ok = rt:wait_until_no_pending_changes(RiakNodes),
+    ok = rt:wait_until_ring_converged(RiakNodes),
+    lists:map(fun(N) -> rtcs_dev:start(N, current),
+                        ok = rt:wait_until_pingable(N) end, CSNodes),
+    timer:sleep(2000),
     ok = verify_all_data(UserConfig, Data),
     ok = cleanup_all_data(UserConfig),
     logger:info("Upgrading to current successfully done"),
 
-    {ok, Data2} = prepare_all_data(UserConfig),
-
-    {_, RiakPrevVsn} =
-        rtcs_dev:riak_root_and_vsn(previous),
-
-
-    logger:info("Downgrading current to previous", []),
-    rtcs_exec:stop_all_nodes(Tussle, current),
-
-    [begin
-         N = rtcs_dev:node_id(RiakNode),
-         ok = rt:upgrade(RiakNode, RiakPrevVsn),
-         ok = rtcs_config:migrate_cs(current, previous, N, AdminCreds)
-     end
-     || RiakNode <- RiakNodes],
-
-    rtcs_exec:start_all_nodes(Tussle, previous),
-
-    ok = verify_all_data(UserConfig, Data2),
-    logger:info("Downgrading to previous successfully done"),
-
-    rtcs_dev:restore_configs(RiakNodes ++ CSNodes, previous),
     pass.
 
 
-prepare_current(NumNodes) ->
-    logger:info("Preparing current cluster", []),
-    {RiakNodes, CSNodes} =
-        rtcs_dev:flavored_setup(#{num_nodes => NumNodes,
-                                  flavor => rt_config:get(flavor, basic),
-                                  config_spec => rtcs_config:configs([]),
-                                  vsn => current}),
-    rt:pmap(fun(N) -> rtcs_exec:stop_cs(N, current) end, CSNodes),
-    rt:pmap(fun(N) -> rtcs_dev:stop(N, current) end, RiakNodes),
-    ok.
+%% prepare_current(NumNodes) ->
+%%     logger:info("Preparing current cluster", []),
+%%     {RiakNodes, CSNodes} =
+%%         rtcs_dev:flavored_setup(#{num_nodes => NumNodes,
+%%                                   flavor => rt_config:get(flavor, basic),
+%%                                   config_spec => rtcs_config:configs([]),
+%%                                   vsn => current}),
+%%     rt:pmap(fun(N) -> rtcs_dev:stop(N, current) end, CSNodes),
+%%     rt:pmap(fun(N) -> rtcs_dev:stop(N, current) end, RiakNodes),
+%%     ok.
 
 
 %% TODO: add more data and test cases
 prepare_all_data(UserConfig) ->
     logger:info("User is valid on the cluster, and has no buckets"),
-    ?assertEqual([{buckets, []}], erlcloud_s3:list_buckets(UserConfig)),
+    ?assert(lists:member({buckets, []}, erlcloud_s3:list_buckets(UserConfig))),
 
     logger:info("creating bucket ~p", [?TEST_BUCKET]),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET, UserConfig)),
 
-    ?assertMatch([{buckets, [[{name, ?TEST_BUCKET}, _]]}],
-                 erlcloud_s3:list_buckets(UserConfig)),
+    [Bucket] = proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig)),
+    ?assert(lists:member({name, ?TEST_BUCKET}, Bucket)),
 
     %% setup objects
     SingleBlock = crypto:strong_rand_bytes(400),

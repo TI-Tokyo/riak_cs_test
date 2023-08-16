@@ -334,7 +334,7 @@ migrate(From, To, N, AdminCreds) when
       (From =:= current andalso To =:= previous)
       orelse ( From =:= previous andalso To =:= current) ->
     Config0 = read_config(From, N),
-    Config1 = migrate_config(From, To, Config0),
+    Config1 = migrate_config(From, To, Config0, cs),
     Prefix = devpath(cs, To),
     logger:debug("migrating ~s => ~s", [devpath(cs, From), Prefix]),
     update_cs_config(Prefix, N, Config1, AdminCreds).
