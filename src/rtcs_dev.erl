@@ -40,9 +40,10 @@
          riak_root_and_vsn/1,
          set_advanced_conf/2,
          set_conf/2,
-         setup/1, setup/2, setup/3,
+         setup/1, setup/2, setup/3, setup/4,
          setup2x2/1,
          setupNxMsingles/2, setupNxMsingles/4,
+         flavored_setup/1,
          setup_admin_user/2,
          setup_clusters/1,
          setup_harness/2,
@@ -130,6 +131,9 @@ setup(NumNodes, Configs) ->
     setup(NumNodes, Configs, current).
 
 setup(NumNodes, Configs, Vsn) ->
+    setup(NumNodes, Configs, Vsn, #{}).
+
+setup(NumNodes, Configs, Vsn, Options) ->
     Flavor = rt_config:get(flavor, basic),
     logger:info("Flavor: ~p", [Flavor]),
 
@@ -139,7 +143,7 @@ setup(NumNodes, Configs, Vsn) ->
                          config_spec => Configs,
                          vsn => Vsn}),
 
-    AdminConfig = setup_admin_user(NumNodes, Vsn),
+    AdminConfig = setup_admin_user(NumNodes, Vsn, Options),
 
     {AdminConfig, Nodes}.
 
@@ -206,7 +210,7 @@ setup_clusters(#{config_spec := Configs,
                              initial_config => Configs,
                              vsn => Vsn}),
 
-    clean_data_dir(RiakNodes, "*"),
+    clean_data_dir(RiakNodes, Vsn, "*"),
 
     rt:pmap(fun(N) -> start(N, Vsn) end, RiakNodes),
     rt:wait_for_service(RiakNodes, riak_kv),
@@ -225,8 +229,8 @@ setup_clusters(#{config_spec := Configs,
 
     Nodes.
 
-clean_data_dir(Nodes, SubDir) when is_list(Nodes) ->
-    DataDirs = [node_path(Node) ++ "/data/" ++ SubDir || Node <- Nodes],
+clean_data_dir(Nodes, Vsn, SubDir) when is_list(Nodes) ->
+    DataDirs = [node_path(Node, Vsn) ++ "/data/" ++ SubDir || Node <- Nodes],
     lists:foreach(fun rm_rf/1, DataDirs).
 
 rm_rf(Dir) ->
@@ -310,12 +314,14 @@ cluster_devpath(Node, Vsn) ->
 
 
 setup_admin_user(NumNodes, Vsn) ->
+    setup_admin_user(NumNodes, Vsn, #{}).
+setup_admin_user(NumNodes, Vsn, Options) ->
 
     logger:info("Setting up admin user", []),
     %% Create admin user and set in cs and stanchion configs
-    {AdminCreds, AdminUId} = rtcs_admin:create_admin_user(1),
-    #aws_config{access_key_id=KeyID,
-                secret_access_key=KeySecret} = AdminCreds,
+    {AdminCreds, AdminUId} = rtcs_admin:create_admin_user(1, Options),
+    #aws_config{access_key_id = KeyID,
+                secret_access_key = KeySecret} = AdminCreds,
 
     AdminConf = [{admin_key, KeyID}]
         ++ case Vsn of
@@ -459,8 +465,6 @@ update_app_config_file(ConfigFile, Config) ->
     ok.
 
 
-node_path(Node) ->
-    node_path(Node, current).
 node_path(Node, Vsn)
   when is_atom(Node) andalso (Vsn == current orelse Vsn == previous) ->
     ClusterDevpath = cluster_devpath(Node, Vsn),

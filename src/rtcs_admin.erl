@@ -25,7 +25,7 @@
          create_user/2,
          create_user/3,
          create_user/4,
-         create_admin_user/1,
+         create_admin_user/1, create_admin_user/2,
          update_user/5,
          get_user/4,
          list_users/4,
@@ -46,7 +46,14 @@ storage_stats_json_request(AdminConfig, UserConfig, Begin, End) ->
 
 -spec create_admin_user(atom()) -> {#aws_config{}, binary()}.
 create_admin_user(Node) ->
-    create_admin_with_policy(Node).
+    create_admin_user(Node, #{with_policy => true}).
+create_admin_user(Node, Options) ->
+    case maps:get(with_policy, Options, true) of
+        true ->
+            create_admin_with_policy(Node);
+        false ->
+            create_admin_pre_3_2_way(Node)
+    end.
 create_admin_with_policy(Node) ->
     Port = rtcs_config:cs_port(Node),
     Cmd = io_lib:format("~s/dev/dev1/riak-cs/priv/tools/create-admin -p ~b -q",
@@ -54,6 +61,19 @@ create_admin_with_policy(Node) ->
     {ok, Stdout} = rtcs_dev:cmd(Cmd),
     [KeyId, KeySecret, CanonicalId] = string:tokens(lists:droplast(binary_to_list(Stdout)), " "),
     {rtcs_clients:aws_config(KeyId, KeySecret, Port), CanonicalId}.
+
+create_admin_pre_3_2_way(Node) ->
+    User = "admin",
+    Email = "admin@me.com",
+    %% must match the values in client_tests/python/boto_test.py
+
+    {UserConfig, Id} = create_user(rtcs_config:cs_port(Node), Email, User),
+    logger:info("Created Riak CS Admin account on ~s:", [rtcs_dev:cs_node(Node)]),
+    logger:info("KeyId     : ~s", [UserConfig#aws_config.access_key_id]),
+    logger:info("KeySecret : ~s", [UserConfig#aws_config.secret_access_key]),
+    logger:info("UserId    : ~s", [Id]),
+    {UserConfig, Id}.
+
 
 
 -spec create_user(atom(), non_neg_integer()) -> #aws_config{}.
@@ -83,7 +103,7 @@ create_user(Port, UserConfig = #aws_config{}, EmailAddr, Name) ->
                                 {ReqBody, "application/json"}, []),
     JsonData = jsx:decode(list_to_binary(ResBody), [{return_maps, false}]),
     [KeyId, KeySecret, Id] = [binary_to_list(rtcs_dev:json_get([K], JsonData)) ||
-                                 K <- [<<"key_id">>, <<"key_secret">>, <<"canonical_id">>]],
+                                 K <- [<<"key_id">>, <<"key_secret">>, <<"id">>]],
     {rtcs_clients:aws_config(KeyId, KeySecret, Port), Id}.
 
 
