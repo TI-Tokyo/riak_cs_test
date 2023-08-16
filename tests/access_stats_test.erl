@@ -38,13 +38,6 @@ confirm() ->
     {{UserConfig, _}, {RiakNodes, CSNodes}} = rtcs_dev:setup(2),
     rt:setup_log_capture(hd(CSNodes)),
 
-    rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
-      hd(CSNodes), RiakNodes, [riak_cs_utils,
-                               rcs_common_manifest_utils,
-                               rcs_common_manifest_resolution,
-                               riak_cs_storage,
-                               riak_cs_storage_mr]),
-
     Results = generate_some_accesses(UserConfig),
     flush_access_stats(),
     assert_access_stats(json, UserConfig, Results),

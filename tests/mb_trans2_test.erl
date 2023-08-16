@@ -51,17 +51,9 @@ history(NodesInMaster) ->
     ].
 
 setup_single_bag(NodesInMaster) ->
-    Tussle = {RiakNodes, [CSNode|_]} =
-        rtcs_dev:setupNxMsingles(NodesInMaster, 4, custom_configs(), current),
+    Tussle = rtcs_dev:setupNxMsingles(NodesInMaster, 4, custom_configs(), current),
 
     UserConfig = rtcs_dev:setup_admin_user(4, current),
-
-    rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
-      CSNode, RiakNodes, [riak_cs_utils,
-                          rcs_common_manifest_utils,
-                          rcs_common_manifest_resolution,
-                          riak_cs_storage,
-                          riak_cs_storage_mr]),
 
     {UserConfig, Tussle}.
 

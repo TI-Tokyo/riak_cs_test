@@ -29,7 +29,6 @@
          get_node_logs/0,
          get_version/0,
          json_get/2,
-         load_cs_modules_for_riak_pipe_fittings/3,
          node_id/1,
          node_version/1,
          pbc/3, pbc/4,
@@ -679,16 +678,3 @@ restore_configs(Nodes, Vsn) ->
                end || F <- [ConfFile, AdvCfgFile]]
       end,
       Nodes).
-
-
-load_cs_modules_for_riak_pipe_fittings(CSNode, RiakNodes, Mods) ->
-    lists:foreach(
-      fun(N) ->
-              lists:foreach(
-                fun(M) ->
-                        ExtPath = filename:dirname(rpc:call(CSNode, code, which, [M])),
-                        rpc:call(N, code, add_pathz, [ExtPath]),
-                        {module, _} = rpc:call(N, code, load_file, [M]) end,
-                Mods)
-      end, RiakNodes).
-

@@ -28,13 +28,8 @@
 -define(EXTRA_TEST_BUCKET, "go-test-bucket").
 
 confirm() ->
-    {{UserConfig, AdminUserId}, {RiakNodes, [CSNode]}} =
+    {{UserConfig, AdminUserId}, {RiakNodes, _}} =
         rtcs_dev:setup(1, [{cs, cs_config()}]),
-
-    rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
-      CSNode, RiakNodes, [riak_cs_utils,
-                          rcs_common_manifest_utils,
-                          rcs_common_manifest_resolution]),
 
     CsPortStr = integer_to_list(rtcs_config:cs_port(hd(RiakNodes))),
 

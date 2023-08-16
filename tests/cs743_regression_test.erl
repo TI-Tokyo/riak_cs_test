@@ -32,15 +32,8 @@
 -define(TEST_BUCKET, "riak-test-bucket").
 
 confirm() ->
-    {{UserConfig, _}, {RiakNodes, [CSNode|_] = CSNodes}} =
+    {{UserConfig, _}, {_RiakNodes, [CSNode|_] = CSNodes}} =
         rtcs_dev:setup(2, [{cs, [{riak_cs, [{storage_calc_timeout, 1}]}]}]),
-
-    rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
-      CSNode, RiakNodes, [riak_cs_utils,
-                          rcs_common_manifest_utils,
-                          rcs_common_manifest_resolution,
-                          riak_cs_storage,
-                          riak_cs_storage_mr]),
 
     Begin = rtcs_dev:datetime(),
     run_storage_batch(hd(CSNodes)),
