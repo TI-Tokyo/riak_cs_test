@@ -151,10 +151,11 @@ class BucketPolicyTest(AmzTestBase):
 
         self.putObject(bucket = bucket)
         try:
-            self.getObject(bucket = bucket)
+            self.getObject(bucket = bucket,
+                           client = self.s3_client_2)
             self.fail()
         except botocore.exceptions.ClientError as e:
-            self.assertEqual(e.response['Error']['Code'], '404')
+            self.assertEqual(e.response['Error']['Code'], 'AccessDenied')
 
         policy = {
             "Version":"2008-10-17",
@@ -172,7 +173,8 @@ class BucketPolicyTest(AmzTestBase):
         }
         self.s3_client.put_bucket_policy(Bucket = bucket,
                                          Policy = json.dumps(policy))
-        self.getObject(bucket = bucket) ## throws nothing
+        self.getObject(bucket = bucket,
+                       client = self.s3_client_2) ## throws nothing
         self.deleteBucket(bucket = bucket)
 
 

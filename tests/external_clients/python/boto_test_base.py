@@ -44,6 +44,11 @@ class AmzTestBase(unittest.TestCase):
 
     s3_client = None
     iam_client = None
+    sts_client = None
+
+    s3_client_2 = None
+    iam_client_2 = None
+    sts_client_2 = None
 
     def make_clients(self, user):
         # setting proxies via config parameter is broken, so:
@@ -105,6 +110,7 @@ class AmzTestBase(unittest.TestCase):
 
     def setUp(self):
         self.s3_client, self.iam_client, self.sts_client = self.make_clients(self.user1)
+        self.s3_client_2, self.iam_client_2, self.sts_client_2 = self.make_clients(self.user2)
 
     def tearDown(self):
         True # del self.client # doesn't help to prevent ResourceWarning exception (there's a filter trick for that)
