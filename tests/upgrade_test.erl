@@ -25,16 +25,20 @@
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
 
 -define(TEST_BUCKET, "riak-test-bucket-foobar").
+-define(TEST_BUCKET2, "riak-test-bucket-foobar-2").
 -define(KEY_SINGLE_BLOCK,   "riak_test_key1").
 -define(KEY_MULTIPLE_BLOCK, "riak_test_key2").
 
 confirm() ->
     NumNodes = 1,
-    %prepare_current(NumNodes),
+    prepare_current(NumNodes),
 
     PrevConfig = rtcs_config:previous_configs(),
     {{UserConfig, _}, {RiakNodes, CSNodes}} =
         rtcs_dev:setup(NumNodes, PrevConfig, previous, #{with_policy => false}),
+
+    %% logger:info("waiting one minute"),
+    %% timer:sleep(30000),
 
     {ok, Data} = prepare_all_data(UserConfig),
     ok = verify_all_data(UserConfig, Data),
@@ -44,18 +48,14 @@ confirm() ->
     {_, RiakCurrentVsn} =
         rtcs_dev:riak_root_and_vsn(current),
 
-    logger:info("Upgrading previous to current", []),
     rt:pmap(fun(N) -> rtcs_dev:stop(N, previous) end, CSNodes),
     rt:pmap(fun(N) -> rtcs_dev:stop(N, previous) end, RiakNodes),
 
+    logger:info("Upgrading previous to current", []),
     [begin
          N = rtcs_dev:node_id(RiakNode),
          ok = rt:upgrade(RiakNode, RiakCurrentVsn),
-         ok = rtcs_config:upgrade_cs(N, AdminCreds),
-         rtcs_dev:set_advanced_conf(
-           {cs, current, N},
-           [{riak_cs, [{riak_host, {"127.0.0.1", rtcs_config:pb_port(1)}}]}]
-          )
+         ok = rtcs_config:upgrade_cs(N, AdminCreds)
      end || RiakNode <- RiakNodes],
 
     rt:pmap(fun(N) -> rtcs_dev:start(N, current) end, RiakNodes),
@@ -64,8 +64,10 @@ confirm() ->
     ok = rt:wait_until_no_pending_changes(RiakNodes),
     ok = rt:wait_until_ring_converged(RiakNodes),
     lists:map(fun(N) -> rtcs_dev:start(N, current),
-                        ok = rt:wait_until_pingable(N) end, CSNodes),
-    timer:sleep(2000),
+                        ok = rtcs_dev:wait_until_pingable(N, current) end, CSNodes),
+
+    {ok, Data2} = prepare_more_data(UserConfig),
+    ok = verify_more_data(UserConfig, Data2),
     ok = verify_all_data(UserConfig, Data),
     ok = cleanup_all_data(UserConfig),
     logger:info("Upgrading to current successfully done"),
@@ -73,16 +75,18 @@ confirm() ->
     pass.
 
 
-%% prepare_current(NumNodes) ->
-%%     logger:info("Preparing current cluster", []),
-%%     {RiakNodes, CSNodes} =
-%%         rtcs_dev:flavored_setup(#{num_nodes => NumNodes,
-%%                                   flavor => rt_config:get(flavor, basic),
-%%                                   config_spec => rtcs_config:configs([]),
-%%                                   vsn => current}),
-%%     rt:pmap(fun(N) -> rtcs_dev:stop(N, current) end, CSNodes),
-%%     rt:pmap(fun(N) -> rtcs_dev:stop(N, current) end, RiakNodes),
-%%     ok.
+prepare_current(NumNodes) ->
+    logger:info("Preparing current cluster", []),
+    {RiakNodes, CSNodes} =
+        rtcs_dev:flavored_setup(#{num_nodes => NumNodes,
+                                  flavor => rt_config:get(flavor, basic),
+                                  config_spec => rtcs_config:configs([]),
+                                  vsn => current,
+                                  no_start => true,
+                                  no_create_admin => true}),
+    rt:pmap(fun(N) -> rtcs_dev:stop(N, current) end, CSNodes),
+    rt:pmap(fun(N) -> rtcs_dev:stop(N, current) end, RiakNodes),
+    ok.
 
 
 %% TODO: add more data and test cases
@@ -96,6 +100,7 @@ prepare_all_data(UserConfig) ->
     [Bucket] = proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig)),
     ?assert(lists:member({name, ?TEST_BUCKET}, Bucket)),
 
+    logger:info("writing objects", []),
     %% setup objects
     SingleBlock = crypto:strong_rand_bytes(400),
     erlcloud_s3:put_object(?TEST_BUCKET, ?KEY_SINGLE_BLOCK, SingleBlock, UserConfig),
@@ -105,21 +110,53 @@ prepare_all_data(UserConfig) ->
     {ok, [{single_block, SingleBlock},
           {multiple_block, MultipleBlock}]}.
 
+prepare_more_data(UserConfig) ->
+    logger:info("creating bucket ~p", [?TEST_BUCKET2]),
+    ?assertEqual(ok, erlcloud_s3:create_bucket(?TEST_BUCKET2, UserConfig)),
+
+    logger:info("writing objects", []),
+    %% setup objects
+    SingleBlock = crypto:strong_rand_bytes(400),
+    erlcloud_s3:put_object(?TEST_BUCKET2, ?KEY_SINGLE_BLOCK, SingleBlock, UserConfig),
+    MultipleBlock = crypto:strong_rand_bytes(4000000), % not aligned to block boundary
+    erlcloud_s3:put_object(?TEST_BUCKET2, ?KEY_MULTIPLE_BLOCK, MultipleBlock, UserConfig),
+
+    {ok, [{single_block, SingleBlock},
+          {multiple_block, MultipleBlock}]}.
+
 %% TODO: add more data and test cases
 verify_all_data(UserConfig, Data) ->
     SingleBlock = proplists:get_value(single_block, Data),
     MultipleBlock = proplists:get_value(multiple_block, Data),
 
+    Buckets = proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig)),
+    logger:debug("Buckets: ~p", [Buckets]),
     %% basic GET test cases
     basic_get_test_case(?TEST_BUCKET, ?KEY_SINGLE_BLOCK, SingleBlock, UserConfig),
     basic_get_test_case(?TEST_BUCKET, ?KEY_MULTIPLE_BLOCK, MultipleBlock, UserConfig),
+    logger:info("Data are good"),
+    ok.
 
+verify_more_data(UserConfig, Data) ->
+    SingleBlock = proplists:get_value(single_block, Data),
+    MultipleBlock = proplists:get_value(multiple_block, Data),
+
+    _Buckets = proplists:get_value(buckets, erlcloud_s3:list_buckets(UserConfig)),
+
+    %% basic GET test cases
+    basic_get_test_case(?TEST_BUCKET2, ?KEY_SINGLE_BLOCK, SingleBlock, UserConfig),
+    basic_get_test_case(?TEST_BUCKET2, ?KEY_MULTIPLE_BLOCK, MultipleBlock, UserConfig),
+    logger:info("More Data are good"),
     ok.
 
 cleanup_all_data(UserConfig) ->
-    erlcloud_s3:delete_object(?TEST_BUCKET, ?KEY_SINGLE_BLOCK, UserConfig),
-    erlcloud_s3:delete_object(?TEST_BUCKET, ?KEY_MULTIPLE_BLOCK, UserConfig),
-    erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig),
+    ?assert(lists:member(
+              {version_id, "null"},
+              erlcloud_s3:delete_object(?TEST_BUCKET, ?KEY_SINGLE_BLOCK, UserConfig))),
+    ?assert(lists:member(
+              {version_id, "null"},
+              erlcloud_s3:delete_object(?TEST_BUCKET, ?KEY_MULTIPLE_BLOCK, UserConfig))),
+    ?assertEqual(ok, erlcloud_s3:delete_bucket(?TEST_BUCKET, UserConfig)),
     ok.
 
 basic_get_test_case(Bucket, Key, ExpectedContent, Config) ->
