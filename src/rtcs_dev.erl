@@ -560,19 +560,10 @@ upgrade(Node, NewVersion, _CB) ->
     WhichRiak = rtdev:which_riak(OldPath),
 
     Commands = [
-        io_lib:format("rm -rf \"~s/dev/dev~b/~s/data/leveldb\"", [NewPath, N, WhichRiak]),
-        io_lib:format("rm -rf \"~s/dev/dev~b/~s/data/leveled\"", [NewPath, N, WhichRiak]),
-        io_lib:format("rm -rf \"~s/dev/dev~b/~s/data/bitcask\"", [NewPath, N, WhichRiak]),
-        io_lib:format("rm -rf \"~s/dev/dev~b/~s/data/ring\"", [NewPath, N, WhichRiak]),
-        io_lib:format("cp -p -P -R \"~s/dev/dev~b/~s/data/leveldb\" \"~s/dev/dev~b/~s/data\"", [OldPath, N, WhichRiak, NewPath, N, WhichRiak]),
-        io_lib:format("cp -p -P -R \"~s/dev/dev~b/~s/data/leveled\" \"~s/dev/dev~b/~s/data\"", [OldPath, N, WhichRiak, NewPath, N, WhichRiak]),
-        io_lib:format("cp -p -P -R \"~s/dev/dev~b/~s/data/bitcask\" \"~s/dev/dev~b/~s/data\"", [OldPath, N, WhichRiak, NewPath, N, WhichRiak]),
-        io_lib:format("cp -p -P -R \"~s/dev/dev~b/~s/data/ring\" \"~s/dev/dev~b/~s/data\"", [OldPath, N, WhichRiak, NewPath, N, WhichRiak])
+        io_lib:format("rm -rf \"~s/dev/dev~b/~s/data\"", [NewPath, N, WhichRiak]),
+        io_lib:format("cp -a \"~s/dev/dev~b/~s/data/\" \"~s/dev/dev~b/~s/\"", [OldPath, N, WhichRiak, NewPath, N, WhichRiak])
     ],
-    [ begin
-        logger:info("Running: ~s", [Cmd]),
-        os:cmd(Cmd)
-    end || Cmd <- Commands],
+    [cmd(Cmd) || Cmd <- Commands],
     VersionMap = orddict:store(N, NewVersion, rt_config:get(rt_versions)),
     rt_config:set(rt_versions, VersionMap),
     ok.
