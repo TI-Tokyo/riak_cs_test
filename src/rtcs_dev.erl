@@ -55,6 +55,7 @@
          update_app_config_file/2,
          upgrade/3,
          versions/0,
+         wait_until_pingable/2,
          whats_up/0
         ]).
 
@@ -141,10 +142,14 @@ setup(NumNodes, Configs, Vsn, Options) ->
                          flavor => Flavor,
                          config_spec => Configs,
                          vsn => Vsn}),
-
-    AdminConfig = setup_admin_user(NumNodes, Vsn, Options),
-
-    {AdminConfig, Nodes}.
+    case maps:get(no_create_admin, Options, false) of
+        false ->
+            AdminConfig = setup_admin_user(NumNodes, Vsn, Options),
+            {AdminConfig, Nodes};
+        true ->
+            logger:info("Tussle is without admin"),
+            {no_admin, Nodes}
+    end.
 
 
 setup2x2(Configs) ->
@@ -203,7 +208,7 @@ flavored_setup(#{num_nodes := NumNodes,
 setup_clusters(#{config_spec := Configs,
                  join_fun := JoinFun,
                  num_nodes := NumNodes,
-                 vsn := Vsn}) ->
+                 vsn := Vsn} = Options) ->
     Nodes = {RiakNodes, CSNodes} =
         configure_clusters(#{num_nodes => NumNodes,
                              initial_config => Configs,
@@ -211,41 +216,30 @@ setup_clusters(#{config_spec := Configs,
 
     clean_data_dir(RiakNodes, Vsn, "*"),
 
-    rt:pmap(fun(N) -> start(N, Vsn) end, RiakNodes),
-    rt:wait_for_service(RiakNodes, riak_kv),
+    case maps:get(no_start, Options, false) of
+        false ->
+            rt:pmap(fun(N) -> start(N, Vsn) end, RiakNodes),
+            rt:wait_for_service(RiakNodes, riak_kv),
 
-    logger:info("Preparing a tussle of ~b riak and ~b cs nodes", [length(RiakNodes), length(CSNodes)]),
-    JoinFun(RiakNodes),
-    ok = rt:wait_until_nodes_ready(RiakNodes),
-    ok = rt:wait_until_no_pending_changes(RiakNodes),
-    ok = rt:wait_until_ring_converged(RiakNodes),
+            logger:info("Preparing a tussle of ~b riak and ~b cs nodes", [length(RiakNodes), length(CSNodes)]),
+            JoinFun(RiakNodes),
+            ok = rt:wait_until_nodes_ready(RiakNodes),
+            ok = rt:wait_until_no_pending_changes(RiakNodes),
+            ok = rt:wait_until_ring_converged(RiakNodes),
 
-    rt:pmap(fun(N) ->
-                    start(N, Vsn),
-                    rt:wait_until_pingable(N)
-            end, CSNodes),
-    logger:info("Tussle ready", []),
+
+            start(hd(CSNodes), Vsn),
+            wait_until_pingable(hd(CSNodes), Vsn),
+            rt:pmap(fun(N) ->
+                            start(N, Vsn),
+                            wait_until_pingable(N, Vsn)
+                    end, tl(CSNodes)),
+            logger:info("Tussle ready and started", []);
+        true ->
+            logger:info("Tussle prepared (not started)")
+    end,
 
     Nodes.
-
-clean_data_dir(Nodes, Vsn, SubDir) when is_list(Nodes) ->
-    DataDirs = [node_path(Node, Vsn) ++ "/data/" ++ SubDir || Node <- Nodes],
-    lists:foreach(fun rm_rf/1, DataDirs).
-
-rm_rf(Dir) ->
-    logger:debug("Removing directory ~s", [Dir]),
-    ?assertCmd("rm -rf " ++ Dir),
-    ?assertEqual(false, filelib:is_dir(Dir)).
-
-
-%% Return Riak node IDs, one per cluster.
-%% For example, in basic single cluster case, just return [1].
--spec riak_id_per_cluster(pos_integer()) -> [pos_integer()].
-riak_id_per_cluster(NumNodes) ->
-    case rt_config:get(flavor, basic) of
-        basic -> [1];
-        {multibag, _} = Flavor -> rtcs_bag:riak_id_per_cluster(NumNodes, Flavor)
-    end.
 
 configure_clusters(#{num_nodes := NumNodes,
                      initial_config := ConfigSpec,
@@ -278,6 +272,25 @@ configure_clusters(#{num_nodes := NumNodes,
                                     Vsn)
     end,
     Nodes.
+
+clean_data_dir(Nodes, Vsn, SubDir) when is_list(Nodes) ->
+    DataDirs = [node_path(Node, Vsn) ++ "/data/" ++ SubDir || Node <- Nodes],
+    lists:foreach(fun rm_rf/1, DataDirs).
+
+rm_rf(Dir) ->
+    logger:debug("Removing directory ~s", [Dir]),
+    ?assertCmd("rm -rf " ++ Dir),
+    ?assertEqual(false, filelib:is_dir(Dir)).
+
+
+%% Return Riak node IDs, one per cluster.
+%% For example, in basic single cluster case, just return [1].
+-spec riak_id_per_cluster(pos_integer()) -> [pos_integer()].
+riak_id_per_cluster(NumNodes) ->
+    case rt_config:get(flavor, basic) of
+        basic -> [1];
+        {multibag, _} = Flavor -> rtcs_bag:riak_id_per_cluster(NumNodes, Flavor)
+    end.
 
 create_or_restore_config_backups(NumNodes, Vsn) when is_integer(NumNodes)->
     create_or_restore_config_backups(
@@ -583,6 +596,23 @@ start(Node) ->
 start(Node, Vsn) ->
     rtdev:run_riak(Node, cluster_devpath(Node, Vsn), "start").
 
+
+wait_until_pingable(N, Vsn) ->
+    wait_until_pingable(N, Vsn, 5).
+wait_until_pingable(N, Vsn, 0) ->
+    logger:error("Node ~s (~s) not returning pings", [N, Vsn]),
+    {error, no_pong};
+wait_until_pingable(N, Vsn, Attempt) ->
+    Self = self(),
+    P = spawn(fun() -> Self ! rtdev:run_riak(N, cluster_devpath(N, Vsn), "ping") end),
+    timer:kill_after(2000, P),
+    receive
+        "pong\n" ->
+            ok
+    after 2000 ->
+            logger:notice("Timed out waiting for pong from ~s (~s). Retrying...", [N, Vsn]),
+            wait_until_pingable(N, Vsn, Attempt - 1)
+    end.
 
 -spec node_id(node()) -> non_neg_integer().
 node_id(Node) ->
