@@ -51,7 +51,7 @@
          stop/1, stop/2,
          teardown/0,
          truncate_error_log/1,
-         update_app_config/2,
+         update_app_config/2, update_app_config/3,
          update_app_config_file/2,
          upgrade/3,
          versions/0,
@@ -421,10 +421,13 @@ get_app_config(Node, Vsn) when is_atom(Node) ->
 get_app_config(DevPath, N) ->
     io_lib:format("~s/dev/dev~b/~s/etc/advanced.config", [DevPath, N, rtdev:which_riak(DevPath)]).
 
-update_app_config(all, Config) ->
-    [ update_app_config(DevPath, Config) || DevPath <- devpaths()];
-update_app_config(Node, Config) when is_atom(Node) ->
-    Path = node_path(Node, current),
+update_app_config(Nodes, Config) ->
+    update_app_config(Nodes, current, Config).
+
+update_app_config(all, Vsn, Config) ->
+    [ update_app_config(DevPath, Vsn, Config) || DevPath <- devpaths()];
+update_app_config(Node, Vsn, Config) ->
+    Path = node_path(Node, Vsn),
     FileFormatString = "~s/etc/~s.config",
 
     AppConfigFile = io_lib:format(FileFormatString, [Path, "app"]),

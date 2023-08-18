@@ -106,7 +106,8 @@ riak_core_config(current) ->
     };
 riak_core_config(previous) ->
     {riak_core,
-     [{default_bucket_props, [{allow_mult, true}]},
+     [{schema_dirs, ["./share/schema"]},
+      {default_bucket_props, [{allow_mult, true}]},
       {ring_creation_size, 8}]
     }.
 
@@ -129,10 +130,13 @@ backend_config(_CSVsn, {multi_backend, BlocksBackend, DefaultBackend}) ->
 backend_config(?CS_CURRENT, prefix_multi) ->
     [
      {storage_backend, riak_kv_multi_prefix_backend},
-     {riak_cs_version, 030000}
+     {riak_cs_version, 030200}
     ];
-backend_config(OlderCsVsn, prefix_multi) ->
-    backend_config(OlderCsVsn, {multi_backend, bitcask}).
+backend_config(_OlderCsVsn, prefix_multi) ->
+    [
+     {storage_backend, riak_kv_multi_prefix_backend},
+     {riak_cs_version, 030100}
+    ].
 
 default_backend_config(eleveldb) ->
     {be_default, riak_kv_eleveldb_backend,
@@ -165,7 +169,7 @@ previous_riak_config() ->
     riak_config(
       previous,
       ?CS_PREVIOUS,
-      rt_config:get(backend, {multi_backend, bitcask})).
+      rt_config:get(backend, {multi_backend, bitcask, eleveldb})).
 
 previous_riak_config(CustomConfig) ->
     orddict:merge(fun(_, LHS, RHS) -> LHS ++ RHS end,
@@ -193,8 +197,7 @@ previous_cs_config(UserExtra, OtherApps) ->
            {admin_key, "admin-key"},
            {anonymous_user_creation, true},
            {riak_pb_port, 10017},
-           {stanchion_host, {"127.0.0.1", stanchion_port()}},
-           {cs_version, 030000}
+           {cs_version, 030100}
           ]
      }] ++ OtherApps.
 
@@ -214,13 +217,10 @@ cs_config(UserExtra, OtherApps) ->
              {request_pool, {request_pool_size(), 0} },
              {bucket_list_pool, {bucket_list_pool_size(), 0} }
             ]},
-           {block_get_max_retries, 1},
-           {proxy_get, enabled},
            {anonymous_user_creation, true},
            {admin_key, "admin-key"},
-           {stanchion_host, {"127.0.0.1", stanchion_port()}},
            {riak_host, {"127.0.0.1", 10017}},
-           {cs_version, 030100}
+           {cs_version, 030200}
           ]
      }] ++ OtherApps.
 
@@ -240,8 +240,9 @@ devpath(cs, previous) -> rt_config:get(?CS_PREVIOUS).
 set_configs(NumNodes, Config, Vsn) ->
     rtcs_dev:set_conf({riak, Vsn}, riak_conf()),
     rt:pmap(fun(N) ->
-                    rtcs_dev:update_app_config(rtcs_dev:riak_node(N),
-                                                proplists:get_value(riak, Config)),
+                    rtcs_dev:update_app_config(
+                      rtcs_dev:riak_node(N), Vsn,
+                      proplists:get_value(riak, Config)),
                     update_cs_config(devpath(cs, Vsn), N,
                                      proplists:get_value(cs, Config))
             end,
@@ -286,16 +287,8 @@ update_cs_port(Config, N) ->
 update_app_config(Path, Config) ->
     logger:debug("update_app_config(~s,~p)", [Path, Config]),
     FileFormatString = "~s/~s.config",
-    AppConfigFile = io_lib:format(FileFormatString, [Path, "app"]),
     AdvConfigFile = io_lib:format(FileFormatString, [Path, "advanced"]),
-    %% If there's an app.config, do it old style
-    %% if not, use cuttlefish's adavnced.config
-    case filelib:is_file(AppConfigFile) of
-        true ->
-            rtcs_dev:update_app_config_file(AppConfigFile, Config);
-        _ ->
-            rtcs_dev:update_app_config_file(AdvConfigFile, Config)
-    end.
+    rtcs_dev:update_app_config_file(AdvConfigFile, Config).
 
 enable_zdbbl(Vsn) ->
     Fs = filelib:wildcard(filename:join([devpath(riak, Vsn),
@@ -336,7 +329,6 @@ migrate(From, To, N, AdminCreds) when
     Config0 = read_config(From, N),
     Config1 = migrate_config(From, To, Config0, cs),
     Prefix = devpath(cs, To),
-    logger:debug("migrating ~s => ~s", [devpath(cs, From), Prefix]),
     update_cs_config(Prefix, N, Config1, AdminCreds).
 
 migrate_config(previous, current, Conf, cs) ->
