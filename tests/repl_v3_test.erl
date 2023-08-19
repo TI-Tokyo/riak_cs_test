@@ -29,13 +29,7 @@
 
 confirm() ->
     application:ensure_all_started(ibrowse),
-    {_UserConfig, {RiakNodes, [CSNode|_]}} = rtcs_dev:setup2x2([]),
-    rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
-      CSNode, RiakNodes, [riak_cs_utils,
-                          rcs_common_manifest_utils,
-                          rcs_common_manifest_resolution,
-                          riak_cs_storage,
-                          riak_cs_storage_mr]),
+    {_UserConfig, {RiakNodes, _}} = rtcs_dev:setup2x2([]),
 
     [A,B,C,D] = RiakNodes,
 
