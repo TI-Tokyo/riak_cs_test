@@ -129,13 +129,11 @@ backend_config(_CSVsn, {multi_backend, BlocksBackend, DefaultBackend}) ->
     ];
 backend_config(?CS_CURRENT, prefix_multi) ->
     [
-     {storage_backend, riak_kv_multi_prefix_backend},
-     {riak_cs_version, 030200}
+     {storage_backend, riak_kv_multi_prefix_backend}
     ];
 backend_config(_OlderCsVsn, prefix_multi) ->
     [
-     {storage_backend, riak_kv_multi_prefix_backend},
-     {riak_cs_version, 030100}
+     {storage_backend, riak_kv_multi_prefix_backend}
     ].
 
 default_backend_config(eleveldb) ->
@@ -220,6 +218,7 @@ cs_config(UserExtra, OtherApps) ->
            {anonymous_user_creation, true},
            {admin_key, "admin-key"},
            {riak_host, {"127.0.0.1", 10017}},
+           {proxy_get, enabled},
            {cs_version, 030200}
           ]
      }] ++ OtherApps.
