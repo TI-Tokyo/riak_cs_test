@@ -54,14 +54,8 @@ confirm_1(Use2iForStorageCalc) when is_boolean(Use2iForStorageCalc) ->
     Conf = [{riak, [{riak_kv, [{delete_mode, keep}]}]},
             {cs, [{riak_cs,
                    [{use_2i_for_storage_calc, Use2iForStorageCalc}]}]}],
-    SetupRes = {_, {[RiakNode], [CSNode]}} = rtcs_dev:setup(1, Conf),
-    rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
-      CSNode, [RiakNode], [riak_cs_utils,
-                           rcs_common_manifest_utils,
-                           rcs_common_manifest_resolution,
-                           riak_cs_storage,
-                           riak_cs_storage_mr]),
-    confirm_2(SetupRes).
+    confirm_2(
+      rtcs_dev:setup(1, Conf)).
 
 confirm_2({{UserConfig, _}, {[RiakNode], [CSNode]}}) ->
     UserConfig2 = rtcs_admin:create_user(CSNode, 1),

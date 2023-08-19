@@ -39,14 +39,6 @@ confirm() ->
 
     rt:setup_log_capture(CSNode),
 
-    rtcs_dev:load_cs_modules_for_riak_pipe_fittings(
-      CSNode, [RiakNode], [riak_cs_utils,
-                           rcs_common_manifest_utils,
-                           rcs_common_manifest_resolution,
-                           riak_cs_storage,
-                           riak_cs_storage_mr,
-                           riak_cs_lfs_utils]),
-
     UserConfig = rtcs_admin:create_user(RiakNode, 1),
 
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET, UserConfig)),
