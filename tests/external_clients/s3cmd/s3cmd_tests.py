@@ -38,12 +38,13 @@ class S3ApiVerificationTestBase(unittest.TestCase):
     tmpdir = None
     scratch = None
     s3cmd_cf = None
+    s3cmd_cf_2 = None
 
     @classmethod
     def setUpClass(cls):
         cls.host = "127.0.0.1"
         try:
-            cls.port=int(os.environ['CS_HTTP_PORT'])
+            cls.port = int(os.environ['CS_HTTP_PORT'])
         except:
             pass
 
@@ -52,8 +53,6 @@ class S3ApiVerificationTestBase(unittest.TestCase):
              os.environ.get('AWS_SECRET_ACCESS_KEY'),
              os.environ.get('USER_ID'))
         if not (key_id and key_secret and user_id):
-            # Create test user so credentials don't have to be updated
-            # for each test setup.
             cls.user1 = create_user(cls.host, cls.port, "user1", str(uuid.uuid4()) + "@example.me")
         else:
             cls.user1 = {"name": "admin",  # matches the values set in .../tests/rtcs_admin.erl
@@ -63,21 +62,28 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         cls.tmpdir = tempfile.TemporaryDirectory(prefix = "fafa")
         cls.scratch = cls.tmpdir.name
         cls.s3cmd_cf = "%s/.s3cmd.config" % (cls.scratch)
+        cls.s3cmd_cf_2 = "%s/.s3cmd_2.config" % (cls.scratch)
 
-        with open(cls.s3cmd_cf, mode = "w+") as f:
+        cls.user2 = create_user(cls.host, cls.port, "user2", str(uuid.uuid4()) + "@example.me")
+
+        cls.make_config(cls.user1, cls.s3cmd_cf)
+        cls.make_config(cls.user2, cls.s3cmd_cf_2)
+
+        cls.bucket0 = str(uuid.uuid4())
+        cls.key0 = str(uuid.uuid4())
+        cls.data0 = mineCoins()
+
+    @classmethod
+    def make_config(cls, user, fname):
+        with open(fname, mode = "w+") as f:
             config = """[default]
                 access_key = %s
                 secret_key = %s
                 proxy_host = %s
                 proxy_port = %d
                 use_https = False
-                """ % (cls.user1["key_id"], cls.user1["key_secret"], "127.0.0.1", cls.port)
+                """ % (user["key_id"], user["key_secret"], "127.0.0.1", cls.port)
             f.write(config)
-
-        cls.user2 = create_user(cls.host, cls.port, "user2", str(uuid.uuid4()) + "@example.me")
-        cls.bucket0 = str(uuid.uuid4())
-        cls.key0 = str(uuid.uuid4())
-        cls.data0 = mineCoins()
 
     def setUp(self):
         True
@@ -85,9 +91,11 @@ class S3ApiVerificationTestBase(unittest.TestCase):
     def tearDown(self):
         True
 
-    def c(self, args):
+    def c(self, args, config = None):
+        if config is None:
+            config = self.s3cmd_cf
         os.environ['http_proxy'] = '127.0.0.1:%d' % (self.port)
-        args = ["s3cmd", "--config=%s" % (self.s3cmd_cf)] + args
+        args = ["s3cmd", "--config=%s" % (config)] + args
         try:
             mpp("cmd: ", args)
             completed = subprocess.run(args,
@@ -100,39 +108,39 @@ class S3ApiVerificationTestBase(unittest.TestCase):
             raise S3CmdException(completed)
         return completed
 
-    def createBucket(self, bucket = None):
+    def createBucket(self, bucket = None, config = None):
         if bucket is None:
             bucket = self.bucket0
-        self.c(["mb", "s3://%s" % (bucket)])
+        self.c(["mb", "s3://%s" % (bucket)], config)
 
-    def deleteBucket(self, bucket = None):
+    def deleteBucket(self, bucket = None, config = None):
         if bucket is None:
             bucket = self.bucket0
-        self.c(["rb", "s3://%s" % (bucket)])
+        self.c(["rb", "s3://%s" % (bucket)], config)
 
-    def listBuckets(self):
-        out = self.c(["ls", "s3://"])
+    def listBuckets(self, config = None):
+        out = self.c(["ls", "s3://"], config)
         return [re.split(".*s3://(.+)", l)[1] for l in str.splitlines(out.stdout)]
 
-    def listKeys(self, bucket = None):
+    def listKeys(self, bucket = None, config = None):
         if bucket is None:
             bucket = self.bucket0
-        out = self.c(["ls", "s3://%s" % (bucket)])
+        out = self.c(["ls", "s3://%s" % (bucket)], config)
         return [re.split(".*s3://" + bucket + "/(.+)", l)[1] for l in str.splitlines(out.stdout)]
 
-    def getObject(self, bucket = None, key = None, extra_args = []):
+    def getObject(self, bucket = None, key = None, extra_args = [], config = None):
         if bucket is None:
             bucket = self.bucket0
         if key is None:
             key = self.key0
         fn = "%s/obj" % (self.scratch)
-        self.c(["get", "s3://%s/%s" % (bucket, key), fn] + extra_args)
+        self.c(["get", "s3://%s/%s" % (bucket, key), fn] + extra_args, config)
         with open(fn, "rb") as f:
             ret = f.read()
             os.unlink(fn)
             return ret
 
-    def putObject(self, bucket = None, key = None, value = None, extra_args = []):
+    def putObject(self, bucket = None, key = None, value = None, extra_args = [], config = None):
         if bucket is None:
             bucket = self.bucket0
         if key is None:
@@ -143,55 +151,55 @@ class S3ApiVerificationTestBase(unittest.TestCase):
         f = open(fn, "w+b")
         a = f.write(value)
         f.close()
-        ret = self.c(["put", fn, "s3://%s/%s" % (bucket, key)] + extra_args)
+        ret = self.c(["put", fn, "s3://%s/%s" % (bucket, key)] + extra_args, config)
         os.unlink(fn)
 
-    def deleteObject(self, bucket = None, key = None):
+    def deleteObject(self, bucket = None, key = None, config = None):
         if bucket is None:
             bucket = self.bucket0
         if key is None:
             key = self.key0
-        self.c(["del", "s3://%s/%s" % (bucket, key)])
+        self.c(["del", "s3://%s/%s" % (bucket, key)], config)
 
-    def getBucketInfo(self, bucket = None):
+    def getBucketInfo(self, bucket = None, config = None):
         if bucket is None:
             bucket = self.bucket0
-        return self.getThingInfo("s3://%s" % (bucket))
+        return self.getThingInfo("s3://%s" % (bucket), config)
 
-    def getObjectInfo(self, bucket = None, key = None):
+    def getObjectInfo(self, bucket = None, key = None, config = None):
         if bucket is None:
             bucket = self.bucket0
         if key is None:
             key = self.key0
-        return self.getThingInfo("s3://%s/%s" % (bucket, key))
+        return self.getThingInfo("s3://%s/%s" % (bucket, key), None)
 
-    def getThingInfo(self, thing):
-        res = self.c(["info", thing])
+    def getThingInfo(self, thing, config):
+        res = self.c(["info", thing], config)
         ll = str.splitlines(res.stdout)
         qq = [re.search(r"[:space:]*([^:]+):[:space:]*(.+)", l) for l in ll[1:]]
         qq = [[a.group(1).strip(), a.group(2).strip()] for a in qq]
         return qq
 
-    def getBucketAcl(self, bucket = None):
-        info = self.getBucketInfo(bucket = bucket)
+    def getBucketAcl(self, bucket = None, config = None):
+        info = self.getBucketInfo(bucket, config)
         qq = dict([re.findall(r"[\w-]+", v) for (k,v) in info if k == "ACL"])
         return qq
 
-    def getObjectAcl(self, bucket = None, key = None):
-        info = self.getObjectInfo(bucket = bucket, key = key)
+    def getObjectAcl(self, bucket = None, key = None, config = None):
+        info = self.getObjectInfo(bucket, key, config)
         qq = dict([re.findall(r"[\w-]+", v) for (k,v) in info if re.search("ACL", k)])
         return qq
 
-    def setBucketAcl(self, bucket = None, acl_spec = {}):
+    def setBucketAcl(self, bucket = None, acl_spec = {}, config = None):
         if bucket is None:
             bucket = self.bucket0
         if acl_spec == "public-read":
             acl_args = ["--acl-public"]
         else:
             acl_args = ["--acl-grant=%s:%s" % (g, p) for (g, p) in acl_spec]
-        self.c(["setacl"] + acl_args + ["s3://%s" % (bucket)])
+        self.c(["setacl"] + acl_args + ["s3://%s" % (bucket)], config)
 
-    def setObjectAcl(self, bucket = None, key = None, acl_spec = {}):
+    def setObjectAcl(self, bucket = None, key = None, acl_spec = {}, config = None):
         if bucket is None:
             bucket = self.bucket0
         if key is None:
@@ -200,44 +208,44 @@ class S3ApiVerificationTestBase(unittest.TestCase):
             acl_args = ["--acl-public"]
         else:
             acl_args = ["--acl-grant=%s:%s" % (g, p) for (g, p) in acl_spec]
-        self.c(["setacl"] + acl_args + ["s3://%s/%s" % (bucket, key)])
+        self.c(["setacl"] + acl_args + ["s3://%s/%s" % (bucket, key)], config)
 
-    def getObjectStorageClass(self, bucket = None, key = None):
-        info = self.getObjectInfo(bucket = bucket, key = key)
+    def getObjectStorageClass(self, bucket = None, key = None, config = None):
+        info = self.getObjectInfo(bucket, key, config)
         return dict(info).get("Storage")
 
-    def getBucketPolicy(self, bucket = None):
-        info = self.getBucketInfo(bucket = bucket)
+    def getBucketPolicy(self, bucket = None, config = None):
+        info = self.getBucketInfo(bucket, config)
         return dict(info).get("Policy")
 
-    def putBucketPolicy(self, bucket = None, policy = {}):
+    def putBucketPolicy(self, bucket = None, policy = {}, config = None):
         if bucket is None:
             bucket = self.bucket0
         fn = "%s/bucketpolicy.json" % (self.scratch)
         with open(fn, "w+") as f:
             json.dump(policy, f)
-        out = self.c(["setpolicy", fn, "s3://%s" % (bucket)])
+        out = self.c(["setpolicy", fn, "s3://%s" % (bucket)], config)
         os.unlink(fn)
 
-    def putObjectMetadata(self, bucket = None, key = None, metadata = {}):
+    def putObjectMetadata(self, bucket = None, key = None, metadata = {}, config = None):
         if bucket is None:
             bucket = self.bucket0
         if key is None:
             key = self.key0
         hh = ["--add-header=x-amz-meta-%s:%s" % (m, metadata[m]) for m in metadata]
         for h in hh:
-            self.c(["modify", h, "s3://%s/%s" % (bucket, key)])
+            self.c(["modify", h, "s3://%s/%s" % (bucket, key)], config)
 
-    def getObjectMetadata(self, bucket = None, key = None, metadata = []):
+    def getObjectMetadata(self, bucket = None, key = None, metadata = [], config = None):
         if bucket is None:
             bucket = self.bucket0
         if key is None:
             key = self.key0
-        info = self.getObjectInfo(bucket = bucket, key = key)
+        info = self.getObjectInfo(bucket, key, config)
         return dict([x for x in info if re.search(r"x-amz-meta", x[0])])
 
-    def copyObject(self, src_bucket, src_key, dst_bucket, dst_key):
-        self.c(["cp", "s3://%s/%s" % (src_bucket, src_key), "s3://%s/%s" % (dst_bucket, dst_key)])
+    def copyObject(self, src_bucket, src_key, dst_bucket, dst_key, config = None):
+        self.c(["cp", "s3://%s/%s" % (src_bucket, src_key), "s3://%s/%s" % (dst_bucket, dst_key)], config)
 
 def create_user(host, port, name, email):
     os.environ['http_proxy'] = ''
@@ -550,9 +558,9 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
         key = str(uuid.uuid4())
         self.putObject(bucket = bucket, key = key)
         with self.assertRaises(S3CmdException) as e:
-            self.getObject(bucket = bucket, key = key)
+            self.getObject(bucket = bucket, key = key, config = self.s3cmd_cf_2)
         ee, = e.exception.args
-        self.assertEqual(ee.returncode, 64)
+        self.assertEqual(ee.returncode, 77)
 
         policy = {
             "Version":"2008-10-17",
