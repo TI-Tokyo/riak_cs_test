@@ -297,6 +297,43 @@ class IAMTest(AmzTestBase):
         mpp("Deleting role:", self.iam_client.delete_role(RoleName = self.RoleSpecs['RoleName']))
         mpp("Deleting SAML provider:", self.iam_client.delete_saml_provider(SAMLProviderArn = self.saml_provider_arn))
 
+    def test_assume_role_expiry(self):
+        self.clean_up_iam_entities()
+        resp = self.iam_client.create_role(**self.RoleSpecs)
+        self.role_arn = resp['Role']['Arn']
+
+        resp = self.iam_client.create_saml_provider(**self.SAMLProvider)
+        self.saml_provider_arn = resp['SAMLProviderArn']
+
+        session_duration = 3 + 1
+        resp = self.sts_client.assume_role_with_saml(
+            RoleArn = self.role_arn,
+            PrincipalArn = self.saml_provider_arn,
+            SAMLAssertion = str(base64.b64encode(bytes(self.SAMLAssertion, 'utf-8')))[2:-1],
+            PolicyArns = [],
+            DurationSeconds = session_duration)
+        mpp("assume_role_with_saml response:", resp)
+        assumed_role_user_key_id = resp['Credentials']['AccessKeyId']
+
+        config = Config(signature_version = 's3v4',
+                        parameter_validation = False)
+        new_client = boto3.client('iam',
+                                  use_ssl = False,
+                                  aws_access_key_id = resp['Credentials']['AccessKeyId'],
+                                  aws_secret_access_key = resp['Credentials']['SecretAccessKey'],
+                                  config = config)
+        resp = new_client.list_users()
+        self.assertIn("admin", [n['UserName'] for n in resp['Users']])
+        print("Now sleeping for", session_duration, "seconds. Think of what you can do in such a short time.")
+        time.sleep(session_duration)
+        try:
+            new_client.list_users()
+        except botocore.exceptions.ClientError as e:
+            self.assertEqual(e.response['Code'], 'InvalidAccessKeyId')
+
+        mpp("Deleting role:", self.iam_client.delete_role(RoleName = self.RoleSpecs['RoleName']))
+        mpp("Deleting SAML provider:", self.iam_client.delete_saml_provider(SAMLProviderArn = self.saml_provider_arn))
+
     def clean_up_iam_entities(self):
         resp = self.iam_client.list_saml_providers()
         for r in resp['SAMLProviderList']:

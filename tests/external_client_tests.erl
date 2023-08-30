@@ -28,7 +28,7 @@
 -define(EXTRA_TEST_BUCKET, "go-test-bucket").
 
 confirm() ->
-    {{UserConfig, AdminUserId}, {RiakNodes, _}} =
+    {{UserConfig, AdminUserId}, {RiakNodes, [RCSNode]}} =
         rtcs_dev:setup(1, [{cs, cs_config()}]),
 
     CsPortStr = integer_to_list(rtcs_config:cs_port(hd(RiakNodes))),
@@ -49,6 +49,7 @@ confirm() ->
     %%       USER_ID=9337d19ad75800a10b171f4bf1e4eeeadfec3eb432a15f3a75d528ebf9d3921d \
     %%       CS_HTTP_PORT=15018  RCST_VERBOSE=1 python -m unittest boto_test_versioning
 
+    rt_intercept:add(RCSNode, {riak_cs_sts, [{{validate_duration_seconds, 1}, validate_duration_seconds_permissive}]}),
     case rtcs_dev:cmd({spawn_executable, os:find_executable("make")},
                       [{cd, "tests/external_clients"}, {env, Env}, {args, Args}]) of
         {ok, _} ->
