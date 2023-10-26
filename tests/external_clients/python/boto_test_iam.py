@@ -345,4 +345,5 @@ class IAMTest(AmzTestBase):
 
         resp = self.iam_client.list_policies()
         for r in resp['Policies']:
-            self.iam_client.delete_policy(PolicyArn = r['Arn'])
+            if r['PolicyName'] != "Admin policy":
+                self.iam_client.delete_policy(PolicyArn = r['Arn'])
