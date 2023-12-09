@@ -87,18 +87,13 @@ class AmzTestBase(unittest.TestCase):
                 (os.environ.get('AWS_ACCESS_KEY_ID'),
                  os.environ.get('AWS_SECRET_ACCESS_KEY'),
                  os.environ.get('USER_ID'))
-        if not (key_id and key_secret and user_id):
-            # Create test user so credentials don't have to be updated
-            # for each test setup.
-            # TODO: Once changes are in place so users can be deleted, use
-            # userX@example.me for email addresses and clean up at the end of
-            # the test run.
-            cls.user1 = create_user(cls.host, cls.port, "user1", str(uuid.uuid4()) + "@example.me")
-        else:
-            cls.user1 = {"name": "admin",  # matches the values set in .../tests/rtcs_admin.erl
-                         "email": "admin@me.com",
-                         "display_name": "Mr Admin",
-                         "key_id": key_id, "key_secret": key_secret, "id": user_id}
+        cls.admin_user = {"name": "admin",  # matches the values set in .../tests/rtcs_admin.erl
+                          "email": "admin@me.com",
+                          "display_name": "Mr Admin",
+                          "key_id": key_id, "key_secret": key_secret, "id": user_id}
+        cls.user1 = cls.admin_user
+
+        cls.s3_client, cls.iam_client, cls.sts_client = cls.make_clients(cls, cls.admin_user)
 
         cls.user2 = create_user(cls.host, cls.port, "user2", str(uuid.uuid4()) + "@example.me")
         cls.default_bucket = str(uuid.uuid4())
