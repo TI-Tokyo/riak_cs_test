@@ -38,7 +38,6 @@ class S3ApiVerificationTestBase(unittest.TestCase):
     tmpdir = None
     scratch = None
     s3cmd_cf = None
-    s3cmd_cf_2 = None
 
     @classmethod
     def setUpClass(cls):
@@ -52,26 +51,19 @@ class S3ApiVerificationTestBase(unittest.TestCase):
             (os.environ.get('AWS_ACCESS_KEY_ID'),
              os.environ.get('AWS_SECRET_ACCESS_KEY'),
              os.environ.get('USER_ID'))
-        if not (key_id and key_secret and user_id):
-            cls.user1 = create_user(cls.host, cls.port, "user1", str(uuid.uuid4()) + "@example.me")
-        else:
-            cls.user1 = {"name": "admin",  # matches the values set in .../tests/rtcs_admin.erl
-                         "email": "admin@me.com",
-                         "key_id": key_id, "key_secret": key_secret, "id": user_id}
-
-        cls.tmpdir = tempfile.TemporaryDirectory(prefix = "fafa")
-        cls.scratch = cls.tmpdir.name
-        cls.s3cmd_cf = "%s/.s3cmd.config" % (cls.scratch)
-        cls.s3cmd_cf_2 = "%s/.s3cmd_2.config" % (cls.scratch)
-
-        cls.user2 = create_user(cls.host, cls.port, "user2", str(uuid.uuid4()) + "@example.me")
-
-        cls.make_config(cls.user1, cls.s3cmd_cf)
-        cls.make_config(cls.user2, cls.s3cmd_cf_2)
 
         cls.bucket0 = str(uuid.uuid4())
         cls.key0 = str(uuid.uuid4())
         cls.data0 = mineCoins()
+
+        cls.user1 = {"name": "admin",  # matches the values set in .../tests/rtcs_admin.erl
+                      "email": "admin@me.com",
+                      "key_id": key_id, "key_secret": key_secret, "id": user_id}
+
+        cls.tmpdir = tempfile.TemporaryDirectory(prefix = "fafa")
+        cls.scratch = cls.tmpdir.name
+        cls.s3cmd_cf = "%s/.s3cmd.config" % (cls.scratch)
+        cls.make_config(cls.user1, cls.s3cmd_cf)
 
     @classmethod
     def make_config(cls, user, fname):
@@ -256,6 +248,15 @@ def create_user(host, port, name, email):
                                  body = json.dumps({"email": email, "name": name}))
     conn.close()
     return json.loads(content)
+
+def delete_user(host, port, keyId):
+    os.environ['http_proxy'] = ''
+    url = 'http://%s:%d/riak-cs/user/%s' % (host, port, keyId)
+    conn = httplib2.Http()
+    resp, content = conn.request(url, "DELETE",
+                                 headers = {"Content-Type": "application/json"})
+    conn.close()
+    return content
 
 def mineCoins(size = 1024):
     with open("/dev/urandom", 'rb') as f:
@@ -557,10 +558,17 @@ class BucketPolicyTest(S3ApiVerificationTestBase):
 
         key = str(uuid.uuid4())
         self.putObject(bucket = bucket, key = key)
+
+        s3cmd_cf_2 = "%s/.s3cmd_2.config" % (self.scratch)
+        user2 = create_user(self.host, self.port, "user2", str(uuid.uuid4()) + "@example.me")
+        self.make_config(user2, s3cmd_cf_2)
+
         with self.assertRaises(S3CmdException) as e:
-            self.getObject(bucket = bucket, key = key, config = self.s3cmd_cf_2)
+            self.getObject(bucket = bucket, key = key, config = s3cmd_cf_2)
         ee, = e.exception.args
         self.assertEqual(ee.returncode, 77)
+        delete_user(self.host, self.port, user2['key_id'])
+        os.remove(s3cmd_cf_2)
 
         policy = {
             "Version":"2008-10-17",
