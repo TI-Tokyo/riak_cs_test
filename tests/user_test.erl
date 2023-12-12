@@ -132,12 +132,13 @@ update_user_xml_test_case(AdminConfig, Node) ->
     update_user_test(AdminConfig, Node, ?XML, Users).
 
 update_user_test(AdminConfig, Node, ContentType, Users) ->
-    [{Email1, User1}, {Email2, User2}, {Email3, User3}]= Users,
+    [{Email1, User1}, {Email2, User2}, {Email3, User3}] = Users,
     Port = rtcs_config:cs_port(Node),
-    {UserConfig, _} = rtcs_admin:create_user(Port, Email1, User1),
+    {UserConfig, _User1Id} = rtcs_admin:create_user(Port, Email1, User1),
     {BadUserConfig, _} = rtcs_admin:create_user(Port, Email3, User3),
 
-    #aws_config{access_key_id=Key, secret_access_key=Secret} = UserConfig,
+    #aws_config{access_key_id = Key,
+                secret_access_key = Secret} = UserConfig,
 
     UserResource = "/riak-cs/user",
     AdminResource = UserResource ++ "/" ++ Key,
@@ -156,7 +157,8 @@ update_user_test(AdminConfig, Node, ContentType, Users) ->
     %% Attempt to update the user's email to be the same as the admin
     %% user and verify that the update attempt returns an error.
     Resource = "/riak-cs/user/" ++ Key,
-    InvalidUpdateDoc = update_email_and_name_doc(ContentType, "admin@me.com", "admin"),
+    InvalidUpdateDoc = update_email_and_name_doc(
+                         ContentType, "admin@me.com", "admin"),
 
     ErrorResult = parse_error_code(
                     catch rtcs_admin:update_user(UserConfig,
@@ -195,13 +197,13 @@ update_user_test(AdminConfig, Node, ContentType, Users) ->
 
     %% Test updating a user's own status
     Resource = "/riak-cs/user/" ++ Key,
-    _ = rtcs_admin:update_user(UserConfig, Port, Resource, ContentType, UpdateDoc2),
+    {200, _} = rtcs_admin:update_user(UserConfig, Port, Resource, ContentType, UpdateDoc2),
 
     %% Fetch the user record using the user's own credentials. Since
     %% the user is now disabled this should return an error.
     UserResult5 = parse_error_code(
                     catch rtcs_admin:get_user(UserConfig, Port,
-                                               UserResource, ContentType)),
+                                              UserResource, ContentType)),
 
     %% Fetch the user record using the admin credentials. The user is
     %% not able to retrieve their own account information now that the
@@ -221,10 +223,10 @@ update_user_test(AdminConfig, Node, ContentType, Users) ->
     UpdateDoc4 = new_key_secret_doc(ContentType),
     Resource = "/riak-cs/user/" ++ Key,
     UpdateResult = rtcs_admin:update_user(AdminConfig,
-                                    Port,
-                                    Resource,
-                                    ContentType,
-                                    UpdateDoc4),
+                                          Port,
+                                          Resource,
+                                          ContentType,
+                                          UpdateDoc4),
     {_, _, _, UpdSecret1, _} = parse_user_record(UpdateResult, ContentType),
 
     %% Generate an updated user config with the new secret
