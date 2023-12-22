@@ -35,20 +35,15 @@ warnings.simplefilter("ignore", ResourceWarning)
 class AmzTestBase(unittest.TestCase):
     host = None
     try:
-        port=int(os.environ['CS_HTTP_PORT'])
+        port = int(os.environ['CS_HTTP_PORT'])
     except KeyError:
-        port=8080
+        port = 8080
 
-    user1 = None
-    user2 = None
+    admin_user = None
 
     s3_client = None
     iam_client = None
     sts_client = None
-
-    s3_client_2 = None
-    iam_client_2 = None
-    sts_client_2 = None
 
     def make_clients(self, user):
         # setting proxies via config parameter is broken, so:
@@ -82,35 +77,26 @@ class AmzTestBase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        mpl()
         cls.host = "127.0.0.1"
         key_id, key_secret, user_id = \
                 (os.environ.get('AWS_ACCESS_KEY_ID'),
                  os.environ.get('AWS_SECRET_ACCESS_KEY'),
                  os.environ.get('USER_ID'))
-        if not (key_id and key_secret and user_id):
-            # Create test user so credentials don't have to be updated
-            # for each test setup.
-            # TODO: Once changes are in place so users can be deleted, use
-            # userX@example.me for email addresses and clean up at the end of
-            # the test run.
-            cls.user1 = create_user(cls.host, cls.port, "user1", str(uuid.uuid4()) + "@example.me")
-        else:
-            cls.user1 = {"name": "admin",  # matches the values set in .../tests/rtcs_admin.erl
-                         "email": "admin@me.com",
-                         "display_name": "Mr Admin",
-                         "key_id": key_id, "key_secret": key_secret, "id": user_id}
+        cls.admin_user = {"name": "admin",  # matches the values set in .../tests/rtcs_admin.erl
+                          "email": "admin@me.com",
+                          "display_name": "Mr Admin",
+                          "key_id": key_id, "key_secret": key_secret, "id": user_id}
+        cls.user1 = cls.admin_user
 
-        cls.user2 = create_user(cls.host, cls.port, "user2", str(uuid.uuid4()) + "@example.me")
+        cls.s3_client, cls.iam_client, cls.sts_client = cls.make_clients(cls, cls.admin_user)
+        resp = cls.iam_client.list_users()
+
         cls.default_bucket = str(uuid.uuid4())
         cls.default_key = str(uuid.uuid4())
         cls.data = mineCoins()
 
         warnings.simplefilter("ignore", ResourceWarning)
-        mpl()
-
-    def setUp(self):
-        self.s3_client, self.iam_client, self.sts_client = self.make_clients(self.user1)
-        self.s3_client_2, self.iam_client_2, self.sts_client_2 = self.make_clients(self.user2)
 
     def tearDown(self):
         True # del self.client # doesn't help to prevent ResourceWarning exception (there's a filter trick for that)
@@ -279,6 +265,35 @@ class AmzTestBase(unittest.TestCase):
         self.assertEqual(key, result['Key'])
         return upload_id, result
 
+    def create_user(self, name, email):
+        os.environ['http_proxy'] = ''
+        url = 'http://%s:%d/riak-cs/user' % (self.host, self.port)
+        conn = httplib2.Http()
+        resp, content = conn.request(url, "POST",
+                                     headers = {"Content-Type": "application/json"},
+                                     body = json.dumps({"email": email, "name": name}))
+        conn.close()
+        return json.loads(content)
+
+    def get_user(self, keyId):
+        os.environ['http_proxy'] = ''
+        url = 'http://%s:%d/riak-cs/user/%s' % (self.host, self.port, keyId)
+        conn = httplib2.Http()
+        resp, content = conn.request(url, "GET",
+                                     headers = {"Content-Type": "application/json"})
+        conn.close()
+        return json.loads(content)
+
+    def delete_user(self, keyId):
+        os.environ['http_proxy'] = ''
+        url = 'http://%s:%d/riak-cs/user/%s' % (self.host, self.port, keyId)
+        conn = httplib2.Http()
+        resp, content = conn.request(url, "DELETE",
+                                     headers = {"Content-Type": "application/json"})
+        conn.close()
+        print("aaa", content)
+        return
+
 
 # this is to inject the right headers for put_bucket_policy call
 def add_json_ctype_header(request, **kwargs):
@@ -294,27 +309,6 @@ def add_versioning_headers(request, useSubVersioning, canUpdateVersions, replSib
 
 def add_versionid_header(request, vsn, **kwargs):
     request.headers.add_header('x-rcs-versionid', str(vsn))
-
-def create_user(host, port, name, email):
-    os.environ['http_proxy'] = ''
-    url = 'http://%s:%d/riak-cs/user' % (host, port)
-    conn = httplib2.Http()
-    resp, content = conn.request(url, "POST",
-                                 headers = {"Content-Type": "application/json"},
-                                 body = json.dumps({"email": email, "name": name}))
-    conn.close()
-    return json.loads(content)
-
-def get_user(host, port, key):
-    os.environ['http_proxy'] = ''
-    url = 'http://%s:%d/riak-cs/user/%s' % (host, port, key)
-    conn = httplib2.Http()
-    resp, content = conn.request(url, "GET",
-                                 headers = {"Content-Type": "application/json"})
-    print("resp:", resp)
-    print("content:", content)
-    conn.close()
-    return json.loads(content)
 
 def mineCoins(how_much = 1024):
     with open("/dev/urandom", 'rb') as f:

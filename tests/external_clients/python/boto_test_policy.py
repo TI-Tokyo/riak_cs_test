@@ -22,6 +22,7 @@
 ## ---------------------------------------------------------------------
 
 from boto_test_base import *
+from botocore.client import Config
 import json, uuid
 
 class BucketPolicyTest(AmzTestBase):
@@ -149,10 +150,18 @@ class BucketPolicyTest(AmzTestBase):
         }
         self.create_bucket_and_set_policy(bucket, policy)
 
+        u2 = self.create_user(name = "u2", email = "u2@fafa.org")
+        os.environ['http_proxy'] = 'http://127.0.0.1:%d' % (int(os.environ.get('CS_HTTP_PORT')))
+        client2 = boto3.client('s3',
+                               use_ssl = False,
+                               aws_access_key_id = u2['key_id'],
+                               aws_secret_access_key = u2['key_secret'],
+                               config = Config())
+
         self.putObject(bucket = bucket)
         try:
             self.getObject(bucket = bucket,
-                           client = self.s3_client_2)
+                           client = client2)
             self.fail()
         except botocore.exceptions.ClientError as e:
             self.assertEqual(e.response['Error']['Code'], 'AccessDenied')
@@ -174,8 +183,9 @@ class BucketPolicyTest(AmzTestBase):
         self.s3_client.put_bucket_policy(Bucket = bucket,
                                          Policy = json.dumps(policy))
         self.getObject(bucket = bucket,
-                       client = self.s3_client_2) ## throws nothing
+                       client = client2) ## throws nothing
         self.deleteBucket(bucket = bucket)
+        self.delete_user(u2['key_id'])
 
 
     def test_invalid_transport_addr_policy(self):
@@ -311,6 +321,8 @@ class MultipartUploadTestsUnderPolicy(AmzTestBase):
                 }
             ]
         }
+        ## the admin user issuing this call will have Allow on s3:*, but see
+        ## https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html#:~:text=allows%20the%20action.-,An%20explicit%20deny%20in%20either%20of%20these%20policies%20overrides%20the%20allow.,-Evaluating%20identity%2Dbased
         self.s3_client.put_bucket_policy(Bucket = bucket,
                                          Policy = json.dumps(policy))
         try:

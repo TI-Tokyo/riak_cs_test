@@ -155,13 +155,16 @@ class VersioningTests(AmzTestBase):
         self.putBucketVersioning(bucket = bucket,
                                  status = 'Enabled')
 
+        user2 = self.create_user(name = "u2", email = "u2@fafa.org")
+        os.environ['http_proxy'] = 'http://127.0.0.1:%d' % (int(os.environ.get('CS_HTTP_PORT')))
         client2 = boto3.client('s3',
                                use_ssl = False,
-                               aws_access_key_id = self.user2['key_id'],
-                               aws_secret_access_key = self.user2['key_secret'],
-                               config = Config(signature_version = 's3v4'))
+                               aws_access_key_id = user2['key_id'],
+                               aws_secret_access_key = user2['key_secret'],
+                               config = Config())
 
         v1 = self.putObject(bucket = bucket)
+        mpp("object version:", v1)
 
         # user1 can read the object she created
         self.assertEqual(self.getObject(bucket = bucket, vsn = v1), self.data)
@@ -180,7 +183,7 @@ class VersioningTests(AmzTestBase):
                                           'Grants': [
                                               {
                                                   'Grantee': {
-                                                      'EmailAddress': self.user2["email"],
+                                                      'EmailAddress': user2["email"],
                                                       'Type': 'CanonicalUser'
                                                   },
                                                   'Permission': 'READ'
@@ -194,7 +197,6 @@ class VersioningTests(AmzTestBase):
         self.assertEqual(self.getObject(bucket = bucket, vsn = v1, client = client2), self.data)
 
         # but not write
-        #boto3.set_stream_logger('')
         try:
             self.putObject(client = client2, bucket = bucket, vsn = v1, value = b'overwritten')
             self.fail()
@@ -227,7 +229,7 @@ class VersioningTests(AmzTestBase):
                                           'Grants': [
                                               {
                                                   'Grantee': {
-                                                      'EmailAddress': self.user2["email"],
+                                                      'EmailAddress': user2["email"],
                                                       'Type': 'CanonicalUser'
                                                   },
                                                   'Permission': 'WRITE'
@@ -243,3 +245,4 @@ class VersioningTests(AmzTestBase):
         self.assertEqual(self.getObject(client = client2, bucket = bucket, vsn = v1), b'overwritten')
 
         self.deleteBucket(bucket = bucket)
+        self.delete_user(user2['key_id'])

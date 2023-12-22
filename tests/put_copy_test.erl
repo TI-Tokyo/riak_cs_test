@@ -49,7 +49,7 @@ confirm() ->
 
     RiakNode = hd(RiakNodes),
     UserConfig2 = rtcs_admin:create_user(RiakNode, 1),
-    UserConfig3 = rtcs_admin:create_user(RiakNode, 1),
+    UserConfig3 = rtcs_admin:create_user(RiakNode, 2),
 
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET2, UserConfig)),
     ?assertEqual(ok, erlcloud_s3:create_bucket(?BUCKET3, UserConfig2)),

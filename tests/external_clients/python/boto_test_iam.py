@@ -38,6 +38,8 @@ class IAMTest(AmzTestBase):
     }
 
     def test_users(self):
+        #self.clean_up_iam_entities()
+
         resp = self.iam_client.create_user(**self.UserSpecs)
         mpp("CreateUser result:", resp)
         self.assertEqual(resp['User']['UserName'], self.UserSpecs['UserName'])
@@ -94,6 +96,8 @@ class IAMTest(AmzTestBase):
     saml_provider_arn = None
 
     def test_roles(self):
+        #self.clean_up_iam_entities()
+
         resp = self.iam_client.create_role(**self.RoleSpecs)
         self.assertEqual(resp['Role']['Path'], self.RoleSpecs['Path'])
         self.assertEqual(resp['Role']['RoleName'], self.RoleSpecs['RoleName'])
@@ -154,6 +158,8 @@ class IAMTest(AmzTestBase):
     }
 
     def test_policies_crud(self):
+        #self.clean_up_iam_entities()
+
         resp = self.iam_client.create_role(**self.RoleSpecs)
 
         resp = self.iam_client.create_policy(**self.PolicySpecs)
@@ -175,9 +181,12 @@ class IAMTest(AmzTestBase):
         resp = self.iam_client.list_policies()
         self.assertNotIn(self.PolicySpecs['PolicyName'], [n['PolicyName'] for n in resp['Policies']])
 
-        self.iam_client.delete_role(RoleName = self.RoleSpecs['RoleName'])
+        resp = self.iam_client.delete_role(RoleName = self.RoleSpecs['RoleName'])
+        mpp("role deleted: ", resp)
 
     def test_policies_attach(self):
+        #self.clean_up_iam_entities()
+
         resp = self.iam_client.create_user(**self.UserSpecs)
 
         resp = self.iam_client.list_attached_user_policies(
@@ -210,6 +219,9 @@ class IAMTest(AmzTestBase):
             UserName = self.UserSpecs['UserName'])
         self.assertEqual(resp['AttachedPolicies'], [])
 
+        resp = self.iam_client.get_policy(PolicyArn = policy_arn)
+        self.assertEqual(resp['Policy']['AttachmentCount'], 0)
+
         self.iam_client.delete_policy(PolicyArn = policy_arn)
         self.iam_client.delete_user(UserName = self.UserSpecs['UserName'])
 
@@ -234,6 +246,8 @@ class IAMTest(AmzTestBase):
     SAMLAssertion = from_file("saml_assertion.xml")
 
     def test_saml_providers(self):
+        #self.clean_up_iam_entities()
+
         resp = self.iam_client.create_saml_provider(**self.SAMLProvider)
         self.assertIn(self.SAMLProvider['Name'], resp['SAMLProviderArn'])
 
@@ -255,6 +269,8 @@ class IAMTest(AmzTestBase):
 
 
     def test_assume_role(self):
+        #self.clean_up_iam_entities()
+
         resp = self.iam_client.create_role(**self.RoleSpecs)
         self.role_arn = resp['Role']['Arn']
         mpp("CreateRole response:", resp)
@@ -273,12 +289,7 @@ class IAMTest(AmzTestBase):
             RoleArn = self.role_arn,
             PrincipalArn = self.saml_provider_arn,
             SAMLAssertion = str(base64.b64encode(bytes(self.SAMLAssertion, 'utf-8')))[2:-1],
-            PolicyArns = [
-                {
-                    'arn': 'arn:aws:iam::123456789012:policy/ExtraPolicyThis',
-                    'arn': 'arn:aws:iam::123456789013:policy/ExtraPolicyThat'
-                },
-            ],
+            PolicyArns = [],
             DurationSeconds = 1230)
         mpp("assume_role_with_saml response:", resp)
         assumed_role_user_key_id = resp['Credentials']['AccessKeyId']
@@ -292,13 +303,12 @@ class IAMTest(AmzTestBase):
         resp = new_client.list_users()
         mpp("new_client.list_users response:", resp)
         self.assertIn("admin", [n['UserName'] for n in resp['Users']])
-        self.assertIn("user2", [n['UserName'] for n in resp['Users']])
 
         mpp("Deleting role:", self.iam_client.delete_role(RoleName = self.RoleSpecs['RoleName']))
         mpp("Deleting SAML provider:", self.iam_client.delete_saml_provider(SAMLProviderArn = self.saml_provider_arn))
 
     def test_assume_role_expiry(self):
-        self.clean_up_iam_entities()
+        #self.clean_up_iam_entities()
         resp = self.iam_client.create_role(**self.RoleSpecs)
         self.role_arn = resp['Role']['Arn']
 
@@ -334,6 +344,9 @@ class IAMTest(AmzTestBase):
         mpp("Deleting role:", self.iam_client.delete_role(RoleName = self.RoleSpecs['RoleName']))
         mpp("Deleting SAML provider:", self.iam_client.delete_saml_provider(SAMLProviderArn = self.saml_provider_arn))
 
+    def test_cleanup(self):
+        self.clean_up_iam_entities()
+
     def clean_up_iam_entities(self):
         resp = self.iam_client.list_saml_providers()
         for r in resp['SAMLProviderList']:
@@ -345,4 +358,10 @@ class IAMTest(AmzTestBase):
 
         resp = self.iam_client.list_policies()
         for r in resp['Policies']:
-            self.iam_client.delete_policy(PolicyArn = r['Arn'])
+            if r['PolicyName'] != "Admin policy":
+                self.iam_client.delete_policy(PolicyArn = r['Arn'])
+
+        resp = self.iam_client.list_users()
+        for r in resp['Users']:
+            if r['UserName'] != "admin":
+                self.iam_client.delete_user(UserName = r['UserName'])

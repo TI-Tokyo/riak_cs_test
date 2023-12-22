@@ -219,7 +219,7 @@ cs_config(UserExtra, OtherApps) ->
            {admin_key, "admin-key"},
            {riak_host, {"127.0.0.1", 10017}},
            {proxy_get, enabled},
-           {cs_version, 030200}
+           {cs_version, 030203}
           ]
      }] ++ OtherApps.
 
@@ -280,7 +280,7 @@ update_cs_port(Config, N) ->
       fun({K, V}, Acc) -> lists:keystore(K, 1, Acc, {K, V}) end,
       Config,
       [{riak_host, {"127.0.0.1", pb_port(N)}},
-       {listener, {"127.0.0.1", cs_port(N)}}
+       {listener, {"0.0.0.0", cs_port(N)}}
       ]).
 
 update_app_config(Path, Config) ->

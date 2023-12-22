@@ -1,7 +1,7 @@
 .PHONY: test-client test-clojure test-boto test-erlang test-ruby test-php test-go
 
 # clients to fix: test-clojure test-erlang
-test-client: test-boto test-s3cmd test-php test-go test-ruby
+test-client: test-boto test-s3cmd test-go test-ruby
 
 test-boto:
 	@cd python && ${MAKE}

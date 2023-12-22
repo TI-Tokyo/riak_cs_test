@@ -58,7 +58,7 @@ confirm_1(Use2iForStorageCalc) when is_boolean(Use2iForStorageCalc) ->
       rtcs_dev:setup(1, Conf)).
 
 confirm_2({{UserConfig, _}, {[RiakNode], [CSNode]}}) ->
-    UserConfig2 = rtcs_admin:create_user(CSNode, 1),
+    UserConfig2 = rtcs_admin:create_user(CSNode, 2),
 
     TestSpecs = [store_object(?BUCKET1, UserConfig),
                  delete_object(?BUCKET2, UserConfig),

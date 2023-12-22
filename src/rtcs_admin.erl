@@ -57,10 +57,8 @@ create_admin_user(Node, Options) ->
 create_admin_with_policy(Node) ->
     Port = rtcs_config:cs_port(Node),
     DevPath = rtcs_config:devpath(cs, current),
-    Cmd = io_lib:format("~s/dev/dev1/riak-cs/bin/create-riak-cs-admin -p ~b",
-                        [DevPath, Port]),
-    {ok, Stdout} = rtcs_dev:cmd(Cmd, [{env, [{"RCS_BIN_PATH", DevPath ++ "/dev/dev1/riak-cs/bin"},
-                                             {"RCS_ETC_PATH", DevPath ++ "/dev/dev1/riak-cs/etc"}]}]),
+    Cmd = rtcs_exec:riakcscmd(DevPath, Node, "admin create-admin-user --terse"),
+    {ok, Stdout} = rtcs_dev:cmd(Cmd),
     [FirstLine|_] = string:tokens(binary_to_list(Stdout), "\n"),
     [KeyId, KeySecret, CanonicalId] = string:tokens(FirstLine, " "),
     {rtcs_clients:aws_config(KeyId, KeySecret, Port), CanonicalId}.
