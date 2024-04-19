@@ -291,7 +291,6 @@ class AmzTestBase(unittest.TestCase):
         resp, content = conn.request(url, "DELETE",
                                      headers = {"Content-Type": "application/json"})
         conn.close()
-        print("aaa", content)
         return
 
 
