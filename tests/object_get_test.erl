@@ -180,7 +180,7 @@ long_key_cases(UserConfig) ->
              "<Size>1025</Size>",
              "<MaxSizeAllowed>1024</MaxSizeAllowed>"],
     {'EXIT', {{aws_error, {http_error, 400, undefined, ErrorString}}, _StackTrace}} =
-         catch erlcloud_s3:put_object(?TEST_BUCKET, TooLongKey, Data, UserConfig),
+         (catch erlcloud_s3:put_object(?TEST_BUCKET, TooLongKey, Data, UserConfig)),
     lists:all(
       fun(S) -> match =:= re:run(ErrorString, S) end,
       SubSs).

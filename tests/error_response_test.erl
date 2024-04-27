@@ -44,7 +44,7 @@ confirm() ->
     %% verify response for timeout during getting a user.
     rt_intercept:add(ErrCSNode, {riak_cs_user, [{{get_user, 2}, get_user_timeout}]}),
     {'EXIT', {{aws_error, {http_error, 503, undefined, ErrorString}}, _StackTrace}} =
-        catch erlcloud_s3:get_object(?BUCKET, ?KEY, ErrConfig),
+        (catch erlcloud_s3:get_object(?BUCKET, ?KEY, ErrConfig)),
     SubSs = ["<Code>ServiceUnavailable</Code>"],
     lists:all(
       fun(S) -> match =:= re:run(ErrorString, S) end,
@@ -54,7 +54,7 @@ confirm() ->
 
     rt_intercept:add(ErrCSNode, {riak_cs_block_server, [{{get_block_local, 6}, get_block_local_timeout}]}),
     {'EXIT', {{aws_error, {http_error, 503, undefined, ErrorString2}}, _}} =
-        catch erlcloud_s3:get_object(?BUCKET, ?KEY, ErrConfig),
+        (catch erlcloud_s3:get_object(?BUCKET, ?KEY, ErrConfig)),
     SubSs = ["<Code>ServiceUnavailable</Code>"],
     lists:all(
       fun(S) -> match =:= re:run(ErrorString2, S) end,
