@@ -2014,7 +2014,7 @@ maybe_create_ets() ->
 -spec stop_tracing() -> ok.
 stop_tracing() ->
     logger:info("stop all dbg tracing"),
-    dbg:stop_clear(),
+    dbg:stop(),
     ok.
 
 %% @doc Trace fun calls and store their count state into an ETS table.
