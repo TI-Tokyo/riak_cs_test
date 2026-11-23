@@ -501,8 +501,8 @@ do_commit(Node) ->
 
 maybe_wait_for_changes(Node) ->
     Ring = get_ring(Node),
-    Changes = riak_core_ring:pending_changes(Ring),
-    Joining = riak_core_ring:members(Ring, [joining]),
+    Changes = rpc:call(Node, riak_core_ring, pending_changes, [Ring]),
+    Joining = rpc:call(Node, riak_core_ring, members, [Ring, [joining]]),
     logger:info("maybe_wait_for_changes, changes: ~p joining: ~p",
                 [Changes, Joining]),
     if Changes =:= [] ->
@@ -652,7 +652,7 @@ is_mixed_cluster(Node) ->
 is_ready(Node) ->
     case rpc:call(Node, riak_core_ring_manager, get_raw_ring, []) of
         {ok, Ring} ->
-            case lists:member(Node, riak_core_ring:ready_members(Ring)) of
+            case lists:member(Node, rpc:call(Node, riak_core_ring, ready_members, [Ring])) of
                 true -> true;
                 false -> {not_ready, Node}
             end;
@@ -664,7 +664,7 @@ is_ready(Node) ->
 is_ring_ready(Node) ->
     case rpc:call(Node, riak_core_ring_manager, get_raw_ring, []) of
         {ok, Ring} ->
-            riak_core_ring:ring_ready(Ring);
+            rpc:call(Node, riak_core_ring, ring_ready, [Ring]);
         _ ->
             false
     end.
@@ -773,7 +773,7 @@ no_pending_changes(Nodes) ->
     {Rings, BadNodes} =
         rpc:multicall(Nodes, riak_core_ring_manager, get_raw_ring, []),
     Changes =
-        [ riak_core_ring:pending_changes(Ring) =:= [] || {ok, Ring} <- Rings ],
+        [ rpc:call(hd(Nodes), riak_core_ring, pending_changes, [Ring]) =:= [] || {ok, Ring} <- Rings ],
     case BadNodes =:= [] andalso
             length(Changes) =:= length(Nodes) andalso
             lists:all(fun(T) -> T end, Changes) of
@@ -1091,14 +1091,14 @@ index_built_fun(Node) ->
 check_singleton_node(Node) ->
     logger:info("Check ~p is a singleton", [Node]),
     {ok, Ring} = rpc:call(Node, riak_core_ring_manager, get_raw_ring, []),
-    Owners = lists:usort([Owner || {_Idx, Owner} <- riak_core_ring:all_owners(Ring)]),
+    Owners = lists:usort([Owner || {_Idx, Owner} <- rpc:call(Node, riak_core_ring, all_owners, [Ring])]),
     ?assertEqual([Node], Owners),
     ok.
 
 % @doc Get list of partitions owned by node (primary).
 partitions_for_node(Node) ->
     Ring = get_ring(Node),
-    [Idx || {Idx, Owner} <- riak_core_ring:all_owners(Ring), Owner == Node].
+    [Idx || {Idx, Owner} <- rpc:call(Node, riak_core_ring, all_owners, [Ring]), Owner == Node].
 
 %% @doc Get the raw ring for `Node'.
 get_ring(Node) ->
@@ -1125,7 +1125,7 @@ assert_nodes_agree_about_ownership(Nodes) ->
 owners_according_to(Node) ->
     case rpc:call(Node, riak_core_ring_manager, get_raw_ring, []) of
         {ok, Ring} ->
-            Owners = [Owner || {_Idx, Owner} <- riak_core_ring:all_owners(Ring)],
+            Owners = [Owner || {_Idx, Owner} <- rpc:call(Node, riak_core_ring, all_owners, [Ring])],
             lists:usort(Owners);
         {badrpc, _}=BadRpc ->
             BadRpc
@@ -1136,7 +1136,7 @@ owners_according_to(Node) ->
 members_according_to(Node) ->
     case rpc:call(Node, riak_core_ring_manager, get_raw_ring, []) of
         {ok, Ring} ->
-            Members = riak_core_ring:all_members(Ring),
+            Members = rpc:call(Node, riak_core_ring, all_members, [Ring]),
             Members;
         {badrpc, _}=BadRpc ->
             BadRpc
@@ -1161,7 +1161,7 @@ nearest_ringsize(Count, Power) ->
 status_of_according_to(Member, Node) ->
     case rpc:call(Node, riak_core_ring_manager, get_raw_ring, []) of
         {ok, Ring} ->
-            Status = riak_core_ring:member_status(Ring, Member),
+            Status = rpc:call(Node, riak_core_ring, member_status, [Ring, Member]),
             Status;
         {badrpc, _}=BadRpc ->
             BadRpc
@@ -1172,7 +1172,7 @@ status_of_according_to(Member, Node) ->
 claimant_according_to(Node) ->
     case rpc:call(Node, riak_core_ring_manager, get_raw_ring, []) of
         {ok, Ring} ->
-            Claimant = riak_core_ring:claimant(Ring),
+            Claimant = rpc:call(Node, riak_core_ring, claimant, [Ring]),
             Claimant;
         {badrpc, _}=BadRpc ->
             BadRpc
